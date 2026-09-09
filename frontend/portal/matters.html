@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="Client portal — your matters.">
+    <meta name="robots" content="noindex,nofollow">
+    <title>My Matters | Client Portal</title>
+    <link rel="stylesheet" href="portal.css">
+</head>
+<body>
+    <div class="portal">
+        <div data-portal-topbar></div>
+        <main class="portal-main">
+            <div data-portal-sidebar></div>
+            <div class="portal-content">
+
+                <div class="page-head">
+                    <div>
+                        <span class="kicker">Matters</span>
+                        <h1>My Matters.</h1>
+                        <p class="head-meta">Matters accepted by the firm. Each matter tracks documents, appointments, messages, and activity for a single legal engagement.</p>
+                    </div>
+                    <div class="page-actions">
+                        <a class="btn" href="../custom-matter.html">New matter <span class="arrow" aria-hidden="true">→</span></a>
+                    </div>
+                </div>
+
+                <section class="panel" aria-labelledby="matters-head">
+                    <div class="panel-head">
+                        <h2 id="matters-head">Your matters</h2>
+                        <span class="panel-meta" id="count-meta">Loading…</span>
+                    </div>
+                    <div class="panel-body tight">
+                        <table class="requests-table">
+                            <thead>
+                                <tr>
+                                    <th class="col-ref">Reference</th>
+                                    <th>Title</th>
+                                    <th class="col-status-140">Status</th>
+                                    <th class="col-date-140">Opened</th>
+                                    <th class="col-date-140">Last update</th>
+                                </tr>
+                            </thead>
+                            <tbody id="matters-body">
+                                <tr><td colspan="5" class="empty-state"><span class="ico">·</span><strong>Loading your matters…</strong></td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </section>
+
+            </div>
+        </main>
+    </div>
+
+    <script src="../js/site.js"></script>
+    <script src="portal.js"></script>
+    <script src="matters.js"></script>
+</body>
+</html>

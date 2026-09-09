@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="Client portal — profile.">
+    <meta name="robots" content="noindex,nofollow">
+    <title>Profile | Client Portal</title>
+    <link rel="stylesheet" href="portal.css">
+</head>
+<body>
+    <div class="portal">
+        <div data-portal-topbar></div>
+        <main class="portal-main">
+            <div data-portal-sidebar></div>
+            <div class="portal-content">
+
+                <div class="page-head">
+                    <div>
+                        <span class="kicker">Account</span>
+                        <h1>Profile.</h1>
+                        <p class="head-meta">Your account information. Only what is required to identify you and contact you about your matters.</p>
+                    </div>
+                </div>
+
+                <div class="detail-grid">
+                    <section class="panel">
+                        <div class="panel-head"><h2>Account</h2></div>
+                        <div class="panel-body">
+                            <dl class="detail-meta" id="account-meta">
+                                <dt>Name</dt><dd id="meta-name">—</dd>
+                                <dt>Email</dt><dd id="meta-email">—</dd>
+                                <dt>Status</dt><dd id="meta-status">—</dd>
+                                <dt>Member since</dt><dd id="meta-created">—</dd>
+                            </dl>
+                        </div>
+                    </section>
+
+                    <aside>
+                        <section class="panel">
+                            <div class="panel-head"><h2>Session</h2></div>
+                            <div class="panel-body">
+                                <p class="text-tiny-mute">Sign out of the client portal on this device. Your data remains on the firm's server.</p>
+                                <button class="btn" type="button" data-signout>Sign out</button>
+                            </div>
+                        </section>
+                        <div class="alert info mt-1-5">
+                            <strong>Profile editing.</strong>
+                            Updating contact details through the portal is being prepared. Until that is available, please notify the firm by email if your details change.
+                        </div>
+                    </aside>
+                </div>
+
+            </div>
+        </main>
+    </div>
+
+    <script src="../js/site.js"></script>
+    <script src="portal.js"></script>
+    <script src="profile.js"></script>
+</body>
+</html>

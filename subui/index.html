@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dashboard | SUBUI</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div class="app">
+
+        <aside class="sidebar" aria-label="SUBUI navigation">
+            <div class="sidebar-head">
+                <span class="sidebar-brand">Emmanuel Richard Machibya</span>
+                <span class="sidebar-tag">Advocate &amp; Legal Counsel</span>
+            </div>
+        <nav class="sidebar-nav">
+            <div class="group-label">Practice</div>
+            <a href="#dashboard"><span class="nav-mark"></span>Dashboard</a>
+            <a href="#clients"><span class="nav-mark"></span>Clients</a>
+            <a href="#requests"><span class="nav-mark"></span>Requests</a>
+            <a href="#matters"><span class="nav-mark"></span>Matters</a>
+            <a href="#appointments"><span class="nav-mark"></span>Appointments</a>
+            <a href="#documents"><span class="nav-mark"></span>Documents</a>
+            <a href="#messages"><span class="nav-mark"></span>Messages</a>
+            <a href="#notifications"><span class="nav-mark"></span>Notifications</a>
+            <a href="#analytics"><span class="nav-mark"></span>Analytics</a>
+            <a href="#audit"><span class="nav-mark"></span>Audit</a>
+            <a href="#security"><span class="nav-mark"></span>Security</a>
+            <a href="#settings"><span class="nav-mark"></span>Settings</a>
+            <a href="#health"><span class="nav-mark"></span>Health</a>
+        </nav>
+        <div class="sidebar-foot">
+                <span id="subui-user">Signed in</span>
+                <button class="sign-out" id="subui-signout" type="button">Sign out</button>
+            </div>
+        </aside>
+
+        <div class="app-content">
+            <header class="topbar">
+                <div class="crumbs">
+                    <span>Practice</span>
+                    <strong>Dashboard</strong>
+                </div>
+                <div class="user">
+                    <span id="subui-user-name">Loading…</span>
+                    <span class="avatar" aria-hidden="true">·</span>
+                </div>
+            </header>
+
+            <main class="app-main" id="main-content">
+                <div class="page-head">
+                    <div>
+                        <span class="kicker">Overview</span>
+                        <h1 id="page-title">Dashboard.</h1>
+                        <p class="head-meta">A consolidated view of recent activity, open work, and incoming requests. Detailed modules are accessible from the sidebar.</p>
+                    </div>
+                    <div class="action-row">
+                        <a class="btn primary" href="#">New entry</a>
+                    </div>
+                </div>
+
+                <section class="kpi-grid" aria-label="Key indicators">
+                    <div class="kpi"><div class="kpi-label">Open requests</div><div class="kpi-value" id="kpi-open">—</div><div class="kpi-trend" id="kpi-open-meta">Loading…</div></div>
+                    <div class="kpi"><div class="kpi-label">Pending intake</div><div class="kpi-value" id="kpi-intake">—</div><div class="kpi-trend">Custom matter submissions</div></div>
+                    <div class="kpi"><div class="kpi-label">Appointments</div><div class="kpi-value" id="kpi-appts">—</div><div class="kpi-trend">Upcoming this week</div></div>
+                    <div class="kpi"><div class="kpi-label">Active matters</div><div class="kpi-value" id="kpi-matters">—</div><div class="kpi-trend">In progress</div></div>
+                </section>
+
+                <section class="panel" aria-labelledby="req-head">
+                    <div class="panel-head">
+                        <h2 id="req-head">Recent requests</h2>
+                        <a class="btn ghost" href="#">View all</a>
+                    </div>
+                    <div class="panel-body tight">
+                        <table class="table">
+                            <thead>
+                                <tr>
+                                    <th class="col-id">ID</th>
+                                    <th>Subject</th>
+                                    <th class="col-status">Status</th>
+                                    <th class="col-date">Submitted</th>
+                                </tr>
+                            </thead>
+                            <tbody id="requests-body">
+                                <tr><td colspan="4" class="empty-state"><strong>Loading requests…</strong></td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </section>
+
+                <section class="panel" aria-labelledby="local-head">
+                    <div class="panel-head">
+                        <h2 id="local-head">Analytics</h2>
+                        <span class="panel-meta">Real-time platform metrics</span>
+                    </div>
+                    <div class="panel-body tight" id="analytics-data">
+                        <div class="empty-state"><span class="ico">·</span><strong>Loading analytics…</strong></div>
+                    </div>
+                </section>
+            </main>
+        </div>
+    </div>
+
+    <script src="app.js"></script>
+</body>
+</html>

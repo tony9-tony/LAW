@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="Client portal — dashboard.">
+    <meta name="robots" content="noindex,nofollow">
+    <title>Dashboard | Client Portal</title>
+    <link rel="stylesheet" href="portal.css">
+</head>
+<body>
+    <div class="portal">
+        <div data-portal-topbar></div>
+        <main class="portal-main">
+            <div data-portal-sidebar></div>
+            <div class="portal-content">
+
+                <div class="page-head">
+                    <div>
+                        <span class="kicker">Overview</span>
+                        <h1 id="welcome-title">Welcome back.</h1>
+                        <p class="head-meta">A summary of your matters, upcoming consultations, and recent activity. Open <a class="link-bronze" href="matters.html">My Matters</a> to see the full record.</p>
+                    </div>
+                    <div class="page-actions">
+                        <a class="btn" href="../custom-matter.html">New matter <span class="arrow" aria-hidden="true">→</span></a>
+                        <a class="btn secondary" href="../consultation.html">Book consultation</a>
+                    </div>
+                </div>
+
+                <div id="notif-banner" class="alert info hidden" role="status"></div>
+
+                <section class="welcome-band" aria-labelledby="welcome-h2">
+                    <div>
+                        <span class="kicker">Hello</span>
+                        <h2 id="welcome-h2">Your matter, at a glance.</h2>
+                        <p class="meta">Submitted requests are reviewed by the firm. Status updates, replies, and any documents will appear here as the matter progresses.</p>
+                    </div>
+                    <div class="next-action" id="next-action">
+                        <strong>Loading…</strong>
+                    </div>
+                </section>
+
+            <!-- 4. KPI strip -->
+            <section class="kpi-grid" aria-label="Summary">
+                <div class="kpi"><div class="kpi-label">Open requests</div><div class="kpi-value" id="kpi-open">—</div><div class="kpi-meta" id="kpi-open-meta">Loading…</div></div>
+                <div class="kpi"><div class="kpi-label">Under review</div><div class="kpi-value" id="kpi-review">—</div><div class="kpi-meta">Awaiting firm response</div></div>
+                <div class="kpi"><div class="kpi-label">Upcoming consultations</div><div class="kpi-value" id="kpi-appts">—</div><div class="kpi-meta" id="kpi-appts-meta">Loading…</div></div>
+                <div class="kpi"><div class="kpi-label">Active matters</div><div class="kpi-value" id="kpi-matters">—</div><div class="kpi-meta" id="kpi-matters-meta">Loading…</div></div>
+                <div class="kpi"><div class="kpi-label">Unread notifications</div><div class="kpi-value" id="kpi-notifications">—</div><div class="kpi-meta" id="kpi-notifications-meta">Loading…</div></div>
+            </section>
+
+                <section class="panel" aria-labelledby="recent-head">
+                    <div class="panel-head">
+                        <h2 id="recent-head">Recent requests</h2>
+                        <a class="btn small secondary" href="requests.html">View all</a>
+                    </div>
+                    <div class="panel-body tight">
+                        <table class="requests-table">
+                            <thead>
+                                <tr>
+                                    <th>Reference</th>
+                                    <th>Subject</th>
+                                    <th>Status</th>
+                                    <th>Submitted</th>
+                                    <th>Last update</th>
+                                </tr>
+                            </thead>
+                            <tbody id="recent-body">
+                                <tr><td colspan="5" class="empty-state"><span class="ico">·</span><strong>Loading your requests…</strong></td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </section>
+
+                <section class="panel" aria-labelledby="matters-head">
+                    <div class="panel-head">
+                        <h2 id="matters-head">Active matters</h2>
+                        <span class="panel-meta">Accepted by the firm</span>
+                    </div>
+                    <div class="panel-body tight" id="matters-body">
+                        <div class="empty-state"><span class="ico">·</span><strong>Loading…</strong></div>
+                    </div>
+                </section>
+
+                <section class="panel" aria-labelledby="activity-head">
+                    <div class="panel-head">
+                        <h2 id="activity-head">Recent activity</h2>
+                        <span class="panel-meta">Last updates from the firm</span>
+                    </div>
+                    <div class="panel-body" id="activity-body">
+                        <p class="text-mute-block">Activity will appear here once the firm updates your matter.</p>
+                    </div>
+                </section>
+
+            </div>
+        </main>
+    </div>
+
+    <script src="../js/site.js"></script>
+    <script src="portal.js"></script>
+    <script src="dashboard.js"></script>
+</body>
+</html>

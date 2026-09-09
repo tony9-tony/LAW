@@ -1,0 +1,325 @@
+/* ==========================================================================
+   Login page styles
+   Dedicated external stylesheet for the login experience.
+   Kept separate from the public site stylesheet because the login page uses a
+   distinct dark/glassmorphism visual language.
+   ========================================================================== */
+
+/* Reset / base */
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
+    overflow: hidden;
+}
+
+/* Background animation layer */
+.bg-animation {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    z-index: 0;
+}
+
+.bg-animation span {
+    position: absolute;
+    width: 20px;
+    height: 20px;
+    background: rgba(255, 255, 255, 0.1);
+    border-radius: 50%;
+    animation: float 15s infinite;
+}
+
+.bg-animation span:nth-child(1) { left: 10%; animation-delay: 0s; animation-duration: 8s; }
+.bg-animation span:nth-child(2) { left: 20%; animation-delay: 2s; animation-duration: 12s; }
+.bg-animation span:nth-child(3) { left: 35%; animation-delay: 4s; animation-duration: 10s; }
+.bg-animation span:nth-child(4) { left: 50%; animation-delay: 1s; animation-duration: 14s; }
+.bg-animation span:nth-child(5) { left: 65%; animation-delay: 3s; animation-duration: 9s; }
+.bg-animation span:nth-child(6) { left: 75%; animation-delay: 5s; animation-duration: 11s; }
+.bg-animation span:nth-child(7) { left: 85%; animation-delay: 2s; animation-duration: 13s; }
+.bg-animation span:nth-child(8) { left: 25%; animation-delay: 6s; animation-duration: 7s; }
+.bg-animation span:nth-child(9) { left: 55%; animation-delay: 4s; animation-duration: 15s; }
+.bg-animation span:nth-child(10) { left: 90%; animation-delay: 1s; animation-duration: 10s; }
+
+/* Animations */
+@keyframes float {
+    0% { transform: translateY(100vh) scale(0); opacity: 0; }
+    10% { opacity: 1; }
+    90% { opacity: 1; }
+    100% { transform: translateY(-100vh) scale(1.5); opacity: 0; }
+}
+
+@keyframes slideUp {
+    from { transform: translateY(50px); opacity: 0; }
+    to { transform: translateY(0); opacity: 1; }
+}
+
+@keyframes pulse {
+    0%, 100% { transform: scale(1); }
+    50% { transform: scale(1.05); }
+}
+
+/* Layout — login card */
+.login-container {
+    position: relative;
+    z-index: 1;
+    width: 400px;
+    padding: 50px 40px;
+    background: rgba(255, 255, 255, 0.05);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    border-radius: 24px;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    box-shadow: 0 25px 50px rgba(0, 0, 0, 0.3);
+    animation: slideUp 0.8s ease-out;
+}
+
+/* Components — logo */
+.logo {
+    text-align: center;
+    margin-bottom: 40px;
+}
+
+.logo-icon {
+    width: 70px;
+    height: 70px;
+    background: linear-gradient(135deg, #e94560, #0f3460);
+    border-radius: 20px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 32px;
+    color: white;
+    margin-bottom: 15px;
+    box-shadow: 0 10px 30px rgba(233, 69, 96, 0.3);
+    animation: pulse 2s infinite;
+}
+
+.logo h1 {
+    color: #fff;
+    font-size: 28px;
+    font-weight: 700;
+    letter-spacing: 1px;
+}
+
+.logo p {
+    color: rgba(255, 255, 255, 0.6);
+    font-size: 14px;
+    margin-top: 5px;
+}
+
+/* Forms */
+.input-group {
+    margin-bottom: 25px;
+    position: relative;
+}
+
+.input-group label {
+    display: block;
+    color: rgba(255, 255, 255, 0.8);
+    font-size: 13px;
+    margin-bottom: 8px;
+    font-weight: 500;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+}
+
+.input-group input {
+    width: 100%;
+    padding: 15px 20px;
+    background: rgba(255, 255, 255, 0.07);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 12px;
+    color: #fff;
+    font-size: 15px;
+    transition: all 0.3s ease;
+    outline: none;
+}
+
+.input-group input::placeholder {
+    color: rgba(255, 255, 255, 0.3);
+}
+
+.input-group input:focus {
+    border-color: #e94560;
+    background: rgba(233, 69, 96, 0.1);
+    box-shadow: 0 0 20px rgba(233, 69, 96, 0.2);
+}
+
+.input-icon {
+    position: absolute;
+    right: 18px;
+    top: 42px;
+    color: rgba(255, 255, 255, 0.4);
+    transition: color 0.3s ease;
+}
+
+.input-group input:focus ~ .input-icon {
+    color: #e94560;
+}
+
+.options {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 30px;
+}
+
+/* Components — remember / forgot */
+.remember {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    cursor: pointer;
+}
+
+.remember input {
+    width: 18px;
+    height: 18px;
+    accent-color: #e94560;
+    cursor: pointer;
+}
+
+.remember span {
+    color: rgba(255, 255, 255, 0.7);
+    font-size: 14px;
+}
+
+.forgot {
+    color: #e94560;
+    text-decoration: none;
+    font-size: 14px;
+    transition: opacity 0.3s ease;
+}
+
+.forgot:hover {
+    opacity: 0.8;
+}
+
+/* Buttons */
+.login-btn {
+    width: 100%;
+    padding: 16px;
+    background: linear-gradient(135deg, #e94560, #c23152);
+    border: none;
+    border-radius: 12px;
+    color: #fff;
+    font-size: 16px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    text-transform: uppercase;
+    letter-spacing: 2px;
+    position: relative;
+    overflow: hidden;
+}
+
+.login-btn::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: -100%;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.2), transparent);
+    transition: left 0.5s ease;
+}
+
+.login-btn:hover::before {
+    left: 100%;
+}
+
+.login-btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 15px 40px rgba(233, 69, 96, 0.4);
+}
+
+.login-btn:active {
+    transform: translateY(0);
+}
+
+/* Components — divider */
+.divider {
+    display: flex;
+    align-items: center;
+    margin: 30px 0;
+    color: rgba(255, 255, 255, 0.4);
+    font-size: 13px;
+}
+
+.divider::before,
+.divider::after {
+    content: '';
+    flex: 1;
+    height: 1px;
+    background: rgba(255, 255, 255, 0.1);
+}
+
+.divider span {
+    padding: 0 15px;
+}
+
+/* Components — social login */
+.social-login {
+    display: flex;
+    gap: 15px;
+    justify-content: center;
+}
+
+.social-btn {
+    width: 50px;
+    height: 50px;
+    border-radius: 12px;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    background: rgba(255, 255, 255, 0.05);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    font-size: 20px;
+}
+
+.social-btn:hover {
+    background: rgba(255, 255, 255, 0.15);
+    transform: translateY(-3px);
+    border-color: rgba(255, 255, 255, 0.3);
+}
+
+/* Components — signup link */
+.signup-link {
+    text-align: center;
+    margin-top: 30px;
+    color: rgba(255, 255, 255, 0.6);
+    font-size: 14px;
+}
+
+.signup-link a {
+    color: #e94560;
+    text-decoration: none;
+    font-weight: 600;
+    transition: opacity 0.3s ease;
+}
+
+.signup-link a:hover {
+    opacity: 0.8;
+}
+
+/* Responsive design */
+@media (max-width: 480px) {
+    .login-container {
+        width: 90%;
+        padding: 40px 24px;
+    }
+}

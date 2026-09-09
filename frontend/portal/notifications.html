@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="Client portal — notifications.">
+    <meta name="robots" content="noindex,nofollow">
+    <title>Notifications | Client Portal</title>
+    <link rel="stylesheet" href="portal.css">
+</head>
+<body>
+    <div class="portal">
+        <div data-portal-topbar></div>
+        <main class="portal-main">
+            <div data-portal-sidebar></div>
+            <div class="portal-content">
+                <div class="page-head">
+                    <div>
+                        <span class="kicker">Inbox</span>
+                        <h1>Notifications.</h1>
+                        <p class="head-meta">Updates from the firm about your requests, matters, appointments, and messages.</p>
+                    </div>
+                    <div class="page-actions">
+                        <button class="btn secondary" type="button" id="mark-all">Mark all as read</button>
+                    </div>
+                </div>
+                <section class="panel" aria-labelledby="notif-head">
+                    <div class="panel-head">
+                        <h2 id="notif-head">All notifications</h2>
+                        <span class="panel-meta" id="notif-meta">Loading…</span>
+                    </div>
+                    <div class="panel-body tight" id="notif-root">
+                        <div class="empty-state"><span class="ico">·</span><strong>Loading…</strong></div>
+                    </div>
+                </section>
+            </div>
+        </main>
+    </div>
+    <script src="../js/site.js"></script>
+    <script src="portal.js"></script>
+    <script src="notifications.js"></script>
+</body>
+</html>

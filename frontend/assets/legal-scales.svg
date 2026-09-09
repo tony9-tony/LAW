@@ -1,0 +1,48 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 320" role="img" aria-labelledby="title desc">
+    <title id="title">Legal scales of justice</title>
+    <desc id="desc">Architectural illustration of balanced legal scales in an aged bronze line drawing, sized for use as a hero focal element.</desc>
+    <defs>
+        <!-- Subtle vertical gradient gives the linework a patina feel without
+             colour shifts away from the brand's antique bronze. -->
+        <linearGradient id="bronze" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%"   stop-color="#c9a980"/>
+            <stop offset="55%"  stop-color="#a47e4e"/>
+            <stop offset="100%" stop-color="#7c5a35"/>
+        </linearGradient>
+    </defs>
+    <g fill="none" stroke="url(#bronze)" stroke-linecap="round" stroke-linejoin="round">
+        <!-- Base plinth -->
+        <rect x="118" y="288" width="84" height="6" />
+        <line x1="124" y1="294" x2="196" y2="294" />
+
+        <!-- Vertical column -->
+        <line x1="160" y1="288" x2="160" y2="64" stroke-width="2.4" />
+        <!-- Top finial -->
+        <circle cx="160" cy="58" r="5" />
+        <line x1="160" y1="63" x2="160" y2="68" />
+        <!-- Crossbeam -->
+        <line x1="58" y1="100" x2="262" y2="100" stroke-width="2.4" />
+
+        <!-- Suspension chains (left + right) -->
+        <g stroke-width="1.1">
+            <line x1="86"  y1="100" x2="78"  y2="148" />
+            <line x1="134" y1="100" x2="142" y2="148" />
+            <line x1="178" y1="100" x2="186" y2="148" />
+            <line x1="226" y1="100" x2="234" y2="148" />
+        </g>
+
+        <!-- Left scale pan -->
+        <path d="M68 148 Q110 178 152 148" stroke-width="1.6" />
+        <line x1="62" y1="148" x2="158" y2="148" stroke-width="1.6" />
+
+        <!-- Right scale pan -->
+        <path d="M168 148 Q210 178 252 148" stroke-width="1.6" />
+        <line x1="162" y1="148" x2="258" y2="148" stroke-width="1.6" />
+
+        <!-- Decorative mid-point ornament on the column -->
+        <line x1="152" y1="200" x2="168" y2="200" stroke-width="1.1" />
+        <circle cx="160" cy="200" r="3.5" />
+        <line x1="152" y1="208" x2="168" y2="208" stroke-width="1.1" />
+    </g>
+</svg>
