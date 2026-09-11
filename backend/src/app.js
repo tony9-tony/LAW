@@ -14,9 +14,13 @@ import { documentRouter } from './routes/document.routes.js';
 import { profileRouter } from './routes/profile.routes.js';
 import { staffRouter } from './routes/staff.routes.js';
 import { ownerRouter } from './routes/owner.routes.js';
+import { invoiceRouter } from './routes/invoice.routes.js';
+import { ownerInvoiceRouter } from './routes/owner-invoice.routes.js';
 import { messageReactionsRouter } from './routes/message-reactions.routes.js';
+import { testHelperRouter } from './routes/test-helper.routes.js';
 import { Router } from 'express';
 import { notFoundHandler, errorHandler } from './middleware/errors.js';
+import { sseMiddleware } from './services/sse.js';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
 
@@ -54,19 +58,33 @@ app.use('/api/v1/auth', authLimiter);
     app.use(express.static(projectRoot));
     app.use('/frontend', express.static(path.join(projectRoot, 'frontend')));
     app.use('/subui', express.static(path.join(projectRoot, 'subui')));
+    app.use('/subui', (request, response, next) => {
+        if ((request.method === 'GET' || request.method === 'HEAD') && !path.extname(request.path)) {
+            return response.sendFile(path.join(projectRoot, 'subui', 'index.html'));
+        }
+        next();
+    });
 
 app.use('/api/v1/health', healthRouter);
-app.use('/api/v1/auth', authRouter);
-app.use('/api/v1/requests', requestRouter);
-app.use('/api/v1/matters', matterRouter);
-app.use('/api/v1/appointments', appointmentRouter);
-app.use('/api/v1/notifications', notificationRouter);
-app.use('/api/v1/conversations', conversationRouter);
-app.use('/api/v1/documents', documentRouter);
-app.use('/api/v1/profile', profileRouter);
-app.use('/api/v1/staff', staffRouter);
-app.use('/api/v1/owner', ownerRouter);
+    app.use('/api/v1/auth', authRouter);
+    app.use('/api/v1/requests', requestRouter);
+    app.use('/api/v1/matters', matterRouter);
+    app.use('/api/v1/appointments', appointmentRouter);
+    app.use('/api/v1/notifications', notificationRouter);
+    app.use('/api/v1/conversations', conversationRouter);
+    app.use('/api/v1/documents', documentRouter);
+    app.use('/api/v1/invoices', invoiceRouter);
+    app.use('/api/v1/owner/invoices', ownerInvoiceRouter);
+    app.use('/api/v1/profile', profileRouter);
+    app.use('/api/v1/staff', staffRouter);
+    app.use('/api/v1/owner', ownerRouter);
 app.use('/api/v1/messages', messageReactionsRouter);
 app.use('/admin', adminRouter);
+app.get('/api/v1/events', sseMiddleware);
+
+if (process.env.NODE_ENV === 'test') {
+    app.use('/api/v1/test', testHelperRouter);
+}
+
 app.use(notFoundHandler);
 app.use(errorHandler);

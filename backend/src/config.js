@@ -13,4 +13,5 @@ export const config = {
     databaseUrl: process.env.DATABASE_URL,
     jwtSecret: process.env.JWT_SECRET ?? 'development-only-secret',
     corsOrigin: process.env.CORS_ORIGIN ?? 'http://localhost:3000',
+    uploadDir: process.env.UPLOAD_DIR || 'uploads',
 };

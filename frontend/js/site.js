@@ -14,7 +14,6 @@
     const NAV = [
         { href: 'index.html', label: 'Home' },
         { href: 'about.html', label: 'About' },
-        { href: 'practice-areas.html', label: 'Practice Areas' },
         { href: 'how-it-works.html', label: 'How It Works' },
         { href: 'legal-insights.html', label: 'Legal Insights' },
         { href: 'contact.html', label: 'Contact' },
@@ -64,14 +63,6 @@
                     ${FIRM.location}<br>
                     ${FIRM.experience}
                 </p>
-            </div>
-            <div>
-                <h4>Practice</h4>
-                <ul>
-                    <li><a href="practice-areas.html">Practice areas</a></li>
-                    <li><a href="custom-matter.html">Custom matter</a></li>
-                    <li><a href="consultation.html">Book a consultation</a></li>
-                </ul>
             </div>
             <div>
                 <h4>Firm</h4>
@@ -158,7 +149,11 @@
                 body: body ? JSON.stringify(body) : undefined
             });
             const text = await res.text();
-            const data = text ? JSON.parse(text) : null;
+            let data = null;
+            if (text) {
+                try { data = JSON.parse(text); }
+                catch (e) { data = null; }
+            }
             if (!res.ok) {
                 const message = (data && data.error && data.error.message) || `Request failed (${res.status})`;
                 const err = new Error(message);
@@ -209,7 +204,10 @@
             return this.request(`/owner/conversations/${encodeURIComponent(conversationId)}/messages`, { method: 'POST', body: { body }, auth: true });
         },
         markOwnerConversationRead(id) { return this.request(`/owner/conversations/${encodeURIComponent(id)}/read`, { method: 'POST', auth: true }); },
-        listDocuments() { return this.request('/documents', { auth: true }); }
+        listDocuments() { return this.request('/documents', { auth: true }); },
+        listInvoices() { return this.request('/invoices', { auth: true }); },
+        getInvoice(id) { return this.request(`/invoices/${encodeURIComponent(id)}`, { auth: true }); },
+        getInvoiceItems(id) { return this.request(`/invoices/${encodeURIComponent(id)}/items`, { auth: true }); }
     };
 
     function logout() { API.clear(); }

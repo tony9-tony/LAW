@@ -3,7 +3,6 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta name="description" content="Client portal — secure messages with the firm.">
     <meta name="robots" content="noindex,nofollow">
     <title>Messages | Client Portal</title>
     <link rel="stylesheet" href="portal.css">
@@ -18,7 +17,10 @@
                     <div>
                         <span class="kicker">Communications</span>
                         <h1>Messages.</h1>
-                        <p class="head-meta">Secure correspondence with the firm. Messages are routed through the backend and never exposed by predictable public URLs.</p>
+                        <p class="head-meta">Secure correspondence with the firm. Conversations are linked to your requests and matters.</p>
+                    </div>
+                    <div class="page-actions" id="msg-actions">
+                        <a class="btn secondary" href="requests.html">← Back to requests</a>
                     </div>
                 </div>
 
@@ -41,21 +43,23 @@
                                 <span class="panel-meta" id="thread-meta">Loading…</span>
                             </div>
                             <div class="panel-body">
+                                <div id="thread-context" class="alert info" style="margin-bottom:1.25rem;"></div>
                                 <div class="thread" id="thread"></div>
                                 <div class="compose">
                                     <div class="alert info" id="compose-notice">
                                         <strong>Secure messaging.</strong>
-                                        Messages are stored against your matter and visible to the firm only.
+                                        Messages are stored against your matter or request and visible to the firm only.
                                     </div>
                                     <form id="compose-form">
                                         <div class="field">
-                                            <label for="msg-body">Write a message</label>
-                                            <textarea id="msg-body" name="body" placeholder="Type your message to the firm…" required></textarea>
+                                            <label for="msg-body">Write your message</label>
+                                            <textarea id="msg-body" name="body" placeholder="Write your message here…" required></textarea>
                                             <span class="help">Avoid sensitive information such as ID numbers or bank details.</span>
                                         </div>
+                                        <div class="form-status" id="compose-status" role="status" aria-live="polite"></div>
                                         <div class="page-actions">
                                             <button type="button" class="btn ghost" id="btn-back-inbox">← Back</button>
-                                            <button type="submit" class="btn">Send <span class="arrow" aria-hidden="true">→</span></button>
+                                            <button type="submit" class="btn primary">Send <span class="arrow" aria-hidden="true">→</span></button>
                                         </div>
                                     </form>
                                 </div>

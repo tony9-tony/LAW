@@ -21,7 +21,41 @@
                         <h1>Appointments.</h1>
                         <p class="head-meta">Upcoming and past appointments scheduled by the firm across all your matters.</p>
                     </div>
+                    <button class="btn primary" id="btn-book-appt">Book consultation</button>
                 </div>
+
+                <section class="panel" aria-labelledby="booking-head" id="booking-panel" style="display:none;">
+                    <div class="panel-head"><h2 id="booking-head">Book a consultation</h2></div>
+                    <div class="panel-body">
+                        <form id="booking-form" novalidate>
+                            <div class="form-grid">
+                                <div class="field span-2">
+                                    <label for="bk-subject">Subject</label>
+                                    <input id="bk-subject" name="subject" type="text" maxlength="200" placeholder="A short subject for your request" required>
+                                    <span class="error">Please provide a brief subject.</span>
+                                </div>
+                                <div class="field span-2">
+                                    <label for="bk-description">What would you like to discuss?</label>
+                                    <textarea id="bk-description" name="description" maxlength="4000" placeholder="A brief description of the matter you would like to discuss." required></textarea>
+                                    <span class="error">Please describe what you would like to discuss (10 characters or more).</span>
+                                </div>
+                                <div class="field">
+                                    <label for="bk-date">Preferred date</label>
+                                    <input id="bk-date" name="preferredDate" type="date">
+                                </div>
+                                <div class="field">
+                                    <label for="bk-time">Preferred time</label>
+                                    <input id="bk-time" name="preferredTime" type="time">
+                                </div>
+                            </div>
+                            <div class="form-status" id="booking-status" role="status" aria-live="polite" style="margin-top:0.75rem;"></div>
+                            <div class="actions" style="display:flex;gap:0.75rem;justify-content:flex-end;margin-top:1rem;">
+                                <button type="button" class="btn ghost" id="bk-cancel">Cancel</button>
+                                <button type="submit" class="btn primary">Submit request</button>
+                            </div>
+                        </form>
+                    </div>
+                </section>
 
                 <section class="panel" aria-labelledby="appts-head">
                     <div class="panel-head">

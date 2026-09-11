@@ -1,4 +1,4 @@
-/* Portal — request detail view. */
+/* Portal — request detail with clear messaging action. */
 (function () {
     'use strict';
     if (!window.Site || !window.Portal || !window.Portal.guard()) return;
@@ -23,11 +23,43 @@
         return { meta, body: lines.slice(i).join('\n').trim() };
     }
 
+    function statusFlow(status) {
+        const s = (status || '').toUpperCase();
+        const steps = [
+            { key: 'submitted', label: 'Submitted' },
+            { key: 'under_review', label: 'Under review' },
+            { key: 'accepted', label: 'Accepted' },
+            { key: 'matter_created', label: 'Matter opened' }
+        ];
+        const stateIndex = {
+            'NEW': 0, 'SUBMITTED': 0, 'PENDING': 0, 'OPEN': 0,
+            'UNDER_REVIEW': 1, 'IN_PROGRESS': 1, 'ACTION_REQUIRED': 1,
+            'ACCEPTED': 2, 'SCHEDULED': 2,
+            'COMPLETED': 3, 'CLOSED': 3, 'DECLINED': -1
+        };
+        const current = stateIndex[s] ?? 0;
+        if (s === 'DECLINED') {
+            return '<div class="status-flow">' +
+                steps.map((st, i) => `<span class="step ${i === 0 ? 'done' : ''}">${st.label}</span>`).join(' <span class="arrow">→</span> ') +
+                ' <span class="step" style="border-color:var(--danger);color:var(--danger);">Declined</span></div>';
+        }
+        return '<div class="status-flow">' +
+            steps.map((st, i) => {
+                let cls = '';
+                if (i < current) cls = 'done';
+                else if (i === current) cls = 'active';
+                return `<span class="step ${cls}">${st.label}</span>`;
+            }).join(' <span class="arrow">→</span> ') +
+            '</div>';
+    }
+
     async function load() {
         const id = getParam('id');
         const root = document.getElementById('root');
+        const actionsEl = document.getElementById('page-actions');
         if (!id) {
-            root.innerHTML = `<div class="alert error"><strong>Missing reference.</strong>Open this page from <a href="requests.html">Your requests</a>.</div>`;
+            root.innerHTML = `<div class="alert error"><strong>Missing reference.</strong>Open this page from <a class="link-bronze" href="requests.html">Your requests</a>.</div>`;
+            if (actionsEl) actionsEl.innerHTML = '';
             return;
         }
 
@@ -42,11 +74,13 @@
             } else {
                 root.innerHTML = `<div class="alert error"><strong>Could not load this request.</strong>${escape(err.message || '')}</div>`;
             }
+            if (actionsEl) actionsEl.innerHTML = '';
             return;
         }
 
         document.getElementById('ref').textContent = `Reference #${String(request.id).padStart(5, '0')}`;
         document.getElementById('subject').textContent = request.subject || 'Request details';
+        document.getElementById('head-meta').textContent = request.description ? 'Submitted on ' + P.fmtDateShort(request.created_at) : 'No description provided.';
         document.title = `${request.subject || 'Request'} | Client Portal`;
 
         const { meta, body } = splitDescription(request.description);
@@ -56,6 +90,51 @@
             ['Last update', P.fmtDate(request.updated_at || request.created_at)],
             ...meta.map(([k, v]) => [k, escape(v)])
         ];
+
+        // Determine messaging action
+        let messagesHref = '#';
+        let messageLabel = 'Message lawyer';
+        let messageBtnClass = 'btn primary';
+        let messageNote = '';
+
+        if (request.originating_matter && request.originating_matter.id) {
+            messagesHref = `messages.html?matter=${request.originating_matter.id}`;
+            messageLabel = 'Open conversation';
+            messageNote = 'A matter has been opened. Your conversation with the firm is linked below.';
+        } else {
+            // Try to find an existing request-scoped conversation
+            let existingConvo = null;
+            try {
+                const convos = await API.listConversations({ limit: 50 });
+                const convList = (convos && convos.data) || [];
+                existingConvo = convList.find((c) => String(c.request_id) === String(request.id));
+            } catch (e) { /* ignore */ }
+
+            if (existingConvo) {
+                messagesHref = `messages.html?conversation=${existingConvo.id}`;
+                messageLabel = 'Open conversation';
+                messageNote = 'The firm has started a conversation about this request.';
+            } else {
+                const s = (request.status || '').toUpperCase();
+                if (['ACCEPTED', 'SCHEDULED', 'IN_PROGRESS', 'UNDER_REVIEW', 'ACTION_REQUIRED'].includes(s)) {
+                    messageNote = 'A matter should be linked to this request. Please contact the firm if you need assistance.';
+                    messageBtnClass = 'btn secondary';
+                } else if (s === 'DECLINED') {
+                    messageNote = 'This request was declined. If you have a new matter, please submit a new request.';
+                    messageBtnClass = 'btn secondary';
+                } else {
+                    messageNote = 'The firm will review your request and respond here. You will be able to message once a conversation is started.';
+                    messageBtnClass = 'btn secondary';
+                }
+            }
+        }
+
+        if (actionsEl) {
+            actionsEl.innerHTML = `
+                <a class="${messageBtnClass}" href="${escape(messagesHref)}">${messageLabel} <span class="arrow" aria-hidden="true">→</span></a>
+                <a class="btn secondary" href="documents.html">Documents</a>
+            `;
+        }
 
         let events = [];
         try {
@@ -72,24 +151,19 @@
         `).join('') : `
             <li>
                 <div class="ts">${P.fmtDate(request.created_at)}</div>
-                <div class="label">Matter submitted</div>
+                <div class="label">Request submitted</div>
                 <div class="note">You submitted this request to the firm for review.</div>
             </li>
             <li>
-                <div class="ts">${P.fmtDate(request.updated_at || request.created_at)}</div>
-                <div class="label">${statusLabel(request.status)}</div>
-                <div class="note">The current status reflects the firm's last update.</div>
-            </li>
-            <li>
                 <div class="ts">Next</div>
-                <div class="label">Review and reply</div>
+                <div class="label">Awaiting firm review</div>
                 <div class="note">The firm will respond. Updates will appear here.</div>
             </li>
         `;
 
-        const messagesHref = (request.originating_matter && request.originating_matter.id)
-            ? `messages.html?matter=${request.originating_matter.id}`
-            : `messages.html?request=${request.id}`;
+        const matterLink = request.originating_matter && request.originating_matter.id
+            ? `<a class="link-bronze" href="matter.html?id=${request.originating_matter.id}">${escape(request.originating_matter.reference || 'matter')} — ${escape(request.originating_matter.title || 'View matter')}</a>`
+            : '<span class="muted">Not yet created</span>';
 
         root.innerHTML = `
             <div class="detail-grid">
@@ -97,7 +171,8 @@
                     <section class="panel">
                         <div class="panel-head"><h2>Request information</h2><span class="panel-meta">Submitted by you</span></div>
                         <div class="panel-body">
-                            <dl class="detail-meta">
+                            <div class="status-flow">${statusFlow(request.status)}</div>
+                            <dl class="detail-meta" style="margin-top:1.25rem;">
                                 ${metaRows.map(([k, v]) => `<dt>${escape(k)}</dt><dd>${v}</dd>`).join('')}
                             </dl>
                             ${body ? `<div class="section-divider">${escape(body)}</div>` : ''}
@@ -117,8 +192,18 @@
                         <div class="panel-head"><h2>Next action</h2></div>
                         <div class="panel-body">
                             <p class="text-soft">${acceptedCopy(request.status)}</p>
-                            <a class="btn" href="${escape(messagesHref)}">Open conversation</a>
+                            <p class="text-small-mute">${escape(messageNote)}</p>
+                            <a class="${messageBtnClass}" href="${escape(messagesHref)}" style="margin-top:0.75rem;">${messageLabel} <span class="arrow" aria-hidden="true">→</span></a>
                             <a class="btn secondary spacer-2" href="documents.html">View related documents</a>
+                        </div>
+                    </section>
+
+                    <section class="panel">
+                        <div class="panel-head"><h2>Related matter</h2></div>
+                        <div class="panel-body">
+                            <dl class="detail-meta">
+                                <dt>Matter</dt><dd>${matterLink}</dd>
+                            </dl>
                         </div>
                     </section>
 
@@ -141,26 +226,9 @@
         if (s === 'ACCEPTED') return 'This request has been accepted. A matter has been opened and the firm will reach out via secure message.';
         if (s === 'DECLINED') return 'The firm has reviewed this request and is unable to take it on at this time.';
         if (s === 'UNDER_REVIEW') return 'The firm is reviewing your request. You will be notified when the status changes.';
-        if (s === 'SCHEDULED') return 'A consultation has been scheduled. Please check your messages.';
-        if (s === 'COMPLETED' || s === 'CLOSED') return 'This request is closed. If you need further assistance, please submit a new matter.';
-        return 'Submitting this request did not create a confirmed engagement. The firm will review and respond.';
-    }
-
-    function statusLabel(s) {
-        const norm = (s || 'new').toLowerCase().replace(/\s+/g, '_');
-        const labels = {
-            new: 'Request received',
-            submitted: 'Request received',
-            pending: 'Pending review',
-            open: 'Open',
-            in_progress: 'Under review',
-            under_review: 'Under review',
-            scheduled: 'Scheduled',
-            confirmed: 'Confirmed',
-            closed: 'Closed',
-            completed: 'Completed'
-        };
-        return labels[norm] || (s || 'New');
+        if (s === 'SCHEDULED') return 'A consultation has been scheduled. Please check your messages for details.';
+        if (s === 'COMPLETED' || s === 'CLOSED') return 'This request is closed. If you need further assistance, please submit a new request.';
+        return 'The firm will review your request and respond. You can track progress here and message the firm once a conversation is available.';
     }
 
     load();

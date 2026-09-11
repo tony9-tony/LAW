@@ -20,6 +20,8 @@
     async function load() {
         const root = document.getElementById('docs-root');
         const meta = document.getElementById('docs-meta');
+        root.innerHTML = '<div class="empty-state"><span class="ico">·</span><strong>Loading documents…</strong></div>';
+        meta.textContent = 'Loading…';
         try {
             const res = await API.listDocuments();
             const items = (res && res.data) || [];

@@ -57,5 +57,79 @@
         }
     }
 
+    function initBooking() {
+        const btn = document.getElementById('btn-book-appt');
+        const panel = document.getElementById('booking-panel');
+        const form = document.getElementById('booking-form');
+        const cancelBtn = document.getElementById('bk-cancel');
+        const status = document.getElementById('booking-status');
+        if (!btn || !panel || !form) return;
+
+        btn.addEventListener('click', () => {
+            panel.style.display = '';
+            btn.style.display = 'none';
+            status.className = 'form-status';
+            status.textContent = '';
+        });
+
+        cancelBtn.addEventListener('click', () => {
+            panel.style.display = 'none';
+            btn.style.display = '';
+            form.reset();
+            status.className = 'form-status';
+            status.textContent = '';
+        });
+
+        form.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            status.className = 'form-status';
+            status.textContent = 'Submitting your request…';
+
+            const data = {};
+            new FormData(form).forEach((v, k) => { data[k] = v; });
+
+            const subject = (data.subject || '').trim();
+            const descriptionLines = [
+                data.consultType ? `Consultation type: ${data.consultType}` : '',
+                `Preferred: ${[data.preferredDate, data.preferredTime].filter(Boolean).join(' ') || 'Flexible'}`,
+                data.alternateDate || data.alternateTime ? `Alternate: ${[data.alternateDate, data.alternateTime].filter(Boolean).join(' ') || ''}` : '',
+                data.format ? `Format: ${data.format}` : '',
+                '',
+                (data.description || '').trim()
+            ].filter(Boolean);
+            const description = descriptionLines.join('\n');
+
+            if (!subject || subject.length < 3) {
+                status.className = 'form-status error';
+                status.innerHTML = '<strong>Please review the form.</strong> Subject must be at least 3 characters.';
+                return;
+            }
+            if (!description || description.length < 10) {
+                status.className = 'form-status error';
+                status.innerHTML = '<strong>Please review the form.</strong> Description must be at least 10 characters.';
+                return;
+            }
+
+            try {
+                const res = await API.createRequest({ subject, description });
+                const ref = res && res.data && res.data.id;
+                status.className = 'form-status success';
+                status.innerHTML = '<strong>Request submitted — under review.</strong>The firm has received your consultation request and will confirm an appointment.' +
+                    (ref ? ` Your reference is <strong>#${String(ref).padStart(5,'0')}</strong>.` : '') +
+                    ' Refreshing…';
+                form.reset();
+                setTimeout(() => {
+                    panel.style.display = 'none';
+                    btn.style.display = '';
+                    load();
+                }, 1200);
+            } catch (apiErr) {
+                status.className = 'form-status error';
+                status.innerHTML = '<strong>Could not submit your request.</strong>' + (apiErr && apiErr.message ? apiErr.message : 'Please try again.');
+            }
+        });
+    }
+
     load();
+    initBooking();
 })();

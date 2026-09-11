@@ -23,14 +23,17 @@ conversationRouter.get('/', async (request, response, next) => {
         }).parse(request.query);
 
         const result = await query(
-            `SELECT c.id, c.matter_id, m.reference, m.title, m.status AS matter_status,
+            `SELECT c.id, c.matter_id, c.request_id, c.client_id, c.subject,
+                    m.reference, m.title, m.status AS matter_status, m.client_id AS matter_client_id,
+                    r.subject AS request_subject,
                     c.created_at,
                     (SELECT COUNT(*) FROM messages WHERE conversation_id = c.id AND sender_id <> $2 AND read_at IS NULL) AS unread_count,
                     (SELECT body FROM messages WHERE conversation_id = c.id ORDER BY created_at DESC LIMIT 1) AS last_message_body,
                     (SELECT created_at FROM messages WHERE conversation_id = c.id ORDER BY created_at DESC LIMIT 1) AS last_message_at
              FROM conversations c
-             JOIN matters m ON m.id = c.matter_id
-             WHERE m.client_id = $1
+             LEFT JOIN matters m ON m.id = c.matter_id
+             LEFT JOIN requests r ON r.id = c.request_id
+             WHERE (m.client_id = $1 OR c.client_id = $1 OR r.client_id = $1)
              ORDER BY c.created_at DESC
              LIMIT $3 OFFSET $4`,
             [request.user.sub, request.user.sub, q.limit, q.offset]
@@ -85,8 +88,10 @@ conversationRouter.post('/:id/messages', async (request, response, next) => {
             const parentCheck = await query(
                 `SELECT m.id FROM messages m
                  JOIN conversations c ON c.id = m.conversation_id
-                 JOIN matters mat ON mat.id = c.matter_id
-                 WHERE m.id = $1 AND (mat.client_id = $2 OR $3 = 'OWNER')`,
+                 LEFT JOIN matters mat ON mat.id = c.matter_id
+                 LEFT JOIN requests r ON r.id = c.request_id
+                 WHERE m.id = $1
+                   AND (mat.client_id = $2 OR c.client_id = $2 OR r.client_id = $2 OR $3 = 'OWNER')`,
                 [input.parentMessageId, request.user.sub, request.user.role]
             );
             if (parentCheck.rowCount === 0) {
@@ -101,29 +106,28 @@ conversationRouter.post('/:id/messages', async (request, response, next) => {
             [convo.id, request.user.sub, input.body, input.parentMessageId || null]
         );
 
-        const matter = await query(
-            `SELECT client_id, assigned_to FROM matters WHERE id = $1 LIMIT 1`,
-            [convo.matter_id]
+        /* Resolve participants across matter / request / client scoping. */
+        const info = await query(
+            `SELECT c.matter_id, c.client_id AS convo_client, c.request_id,
+                    m.client_id AS matter_client, m.assigned_to,
+                    r.client_id AS request_client
+             FROM conversations c
+             LEFT JOIN matters m ON m.id = c.matter_id
+             LEFT JOIN requests r ON r.id = c.request_id
+             WHERE c.id = $1 LIMIT 1`,
+            [convo.id]
         );
-        const matterRow = matter.rows[0];
-
+        const row = info.rows[0] || {};
         const recipients = new Set();
-        if (matterRow.assigned_to) recipients.add(matterRow.assigned_to);
-        else {
-            const fallbackStaff = await query(
-                `SELECT id FROM users WHERE role IN ('LAWYER','STAFF') AND is_active = TRUE AND id <> $1`,
-                [request.user.sub]
-            );
-            for (const s of fallbackStaff.rows) recipients.add(s.id);
-        }
-        const owners = await query(
-            `SELECT id FROM users WHERE role = 'OWNER' AND is_active = TRUE AND id <> $1`,
-            [request.user.sub]
-        );
+        if (row.matter_client) recipients.add(row.matter_client);
+        if (row.convo_client) recipients.add(row.convo_client);
+        if (row.request_client) recipients.add(row.request_client);
+        if (row.assigned_to) recipients.add(row.assigned_to);
+        const owners = await query(`SELECT id FROM users WHERE role = 'OWNER' AND is_active = TRUE`);
         for (const o of owners.rows) recipients.add(o.id);
+        recipients.delete(request.user.sub);
 
         for (const recipientId of recipients) {
-            if (recipientId === request.user.sub) continue;
             await notify(recipientId, {
                 kind: 'NEW_MESSAGE',
                 title: 'New message',

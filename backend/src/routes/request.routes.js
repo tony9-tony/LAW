@@ -3,6 +3,7 @@ import { z } from 'zod';
 import { authenticate } from '../middleware/auth.js';
 import { query } from '../db.js';
 import { ensureOwned } from '../lib/authorization.js';
+import { notifyRequestCreated } from '../services/sse.js';
 
 const requestInput = z.object({
     subject: z.string().trim().min(3).max(200),
@@ -49,6 +50,7 @@ requestRouter.post('/', async (request, response, next) => {
                 [s.id, row.subject.slice(0, 120), row.id]
             );
         }
+        await notifyRequestCreated(row.id, request.user.sub, row.subject);
         response.status(201).json({ data: row });
     } catch (error) { next(error); }
 });
@@ -77,5 +79,24 @@ requestRouter.get('/:id/events', async (request, response, next) => {
             [request.params.id]
         );
         response.json({ data: result.rows });
+    } catch (error) { next(error); }
+});
+
+/* Client submits a response to an information request. */
+requestRouter.post('/:id/responses', async (request, response, next) => {
+    try {
+        await ensureOwned('requests', request.params.id, request.user.sub);
+        const input = z.object({
+            response: z.string().trim().min(1).max(10000),
+            infoRequestId: z.string().uuid().optional()
+        }).parse(request.body);
+        const { processClientResponse } = await import('../services/workflow.service.js');
+        const result = await processClientResponse({
+            requestId: request.params.id,
+            clientId: request.user.sub,
+            response: input.response,
+            infoRequestId: input.infoRequestId || null
+        });
+        response.status(201).json({ data: result });
     } catch (error) { next(error); }
 });

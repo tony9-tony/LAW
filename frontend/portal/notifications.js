@@ -10,7 +10,7 @@
     function linkFor(n) {
         if (n.entity_type === 'request') return `request.html?id=${n.entity_id}`;
         if (n.entity_type === 'matter') return `matter.html?id=${n.entity_id}`;
-        if (n.entity_type === 'conversation') return 'messages.html';
+        if (n.entity_type === 'conversation') return `messages.html?conversation=${n.entity_id}`;
         return '#';
     }
 
@@ -57,12 +57,14 @@
     }
 
     document.getElementById('mark-all').addEventListener('click', async () => {
+        const meta = document.getElementById('notif-meta');
+        const prev = meta ? meta.textContent : '';
         try {
             await API.markAllNotificationsRead();
             await load();
         } catch (err) {
             if (err && err.status === 401) { window.location.replace('../login.html'); return; }
-            alert(err.message || 'Could not mark notifications as read.');
+            if (meta) { meta.textContent = escape(err.message || 'Could not mark notifications as read.'); meta.style.color = 'var(--danger)'; }
         }
     });
 

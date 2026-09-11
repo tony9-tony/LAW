@@ -1,4 +1,4 @@
-/* Consultation booking — client-side validation, builds a request, calls existing API or stores locally. */
+/* Consultation booking — client-side validation, builds a request, calls existing API. */
 (function () {
     'use strict';
 
@@ -67,15 +67,6 @@
             return;
         }
 
-        /* Per project rules, localStorage is never authoritative for business
-           data. Submissions require authentication. */
-        if (!(window.Site && window.Site.API && window.Site.API.isAuthed())) {
-            status.className = 'form-status error';
-            status.innerHTML = '<strong>Please sign in to submit.</strong>Your information is preserved on this page.' +
-                ' <a href="login.html?next=consultation.html">Sign in</a> or <a href="register.html?next=consultation.html">create an account</a> first.';
-            return;
-        }
-
         status.className = 'form-status';
         status.textContent = 'Submitting your request…';
 
@@ -100,9 +91,9 @@
             status.className = 'form-status success';
             status.innerHTML = '<strong>Request submitted — under review.</strong>The firm has received your consultation request and will confirm an appointment.' +
                 (ref ? ` Your reference is <strong>#${String(ref).padStart(5,'0')}</strong>.` : '') +
-                ' No appointment is confirmed until the firm responds. Redirecting to your portal…';
+                ' No appointment is confirmed until the firm responds. Redirecting to your requests…';
             form.reset();
-            setTimeout(() => { window.location.href = `portal/request.html?id=${ref}`; }, 1200);
+            setTimeout(() => { window.location.href = `requests.html`; }, 1200);
         } catch (apiErr) {
             status.className = 'form-status error';
             status.innerHTML = '<strong>Could not submit your request.</strong>' + (apiErr && apiErr.message ? apiErr.message : 'Please try again.');

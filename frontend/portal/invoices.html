@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="robots" content="noindex,nofollow">
+    <title>Invoices | Client Portal</title>
+    <link rel="stylesheet" href="portal.css">
+</head>
+<body>
+    <div class="portal">
+        <div data-portal-topbar></div>
+        <main class="portal-main">
+            <div data-portal-sidebar></div>
+            <div class="portal-content">
+
+                <div class="page-head">
+                    <div>
+                        <span class="kicker">Billing</span>
+                        <h1>Invoices.</h1>
+                        <p class="head-meta">Billing records for your matters. Payments and payment methods are arranged directly with the firm.</p>
+                    </div>
+                </div>
+
+                <section class="panel" aria-labelledby="inv-head">
+                    <div class="panel-head">
+                        <h2 id="inv-head">Your invoices</h2>
+                        <span class="panel-meta" id="invoices-meta">Loading…</span>
+                    </div>
+                    <div class="panel-body tight">
+                        <div id="invoices-root">
+                            <div class="empty-state"><span class="ico">·</span><strong>Loading invoices…</strong></div>
+                        </div>
+                    </div>
+                </section>
+
+            </div>
+        </main>
+    </div>
+
+    <script src="../js/site.js"></script>
+    <script src="portal.js"></script>
+    <script src="invoices.js"></script>
+</body>
+</html>

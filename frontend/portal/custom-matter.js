@@ -48,7 +48,6 @@
         const pane = panes.find((p) => Number(p.dataset.pane) === n);
         if (!pane) return true;
         let ok = true;
-        // Choice radios — at least one selected
         const groups = pane.querySelectorAll('[role="radiogroup"]');
         groups.forEach((g) => {
             const checked = g.querySelector('input:checked');
@@ -106,7 +105,6 @@
         }
     });
 
-    // Choice card selection styling
     form.querySelectorAll('.choice-card input[type="radio"]').forEach((input) => {
         input.addEventListener('change', () => {
             const group = input.closest('.choice-group');
@@ -119,7 +117,6 @@
         });
     });
 
-    // Live-clear invalid on input
     form.addEventListener('input', (e) => {
         const field = e.target.closest('.field');
         if (field && field.classList.contains('invalid')) validateField(field);
@@ -129,17 +126,6 @@
         e.preventDefault();
         if (!validatePane(current)) return;
         const status = document.getElementById('cm-status');
-
-        /* Per project rules, localStorage is never authoritative for business
-           data. Submissions require authentication so the request is recorded
-           on the firm's server. Unauthenticated users are redirected to
-           register or sign in first. */
-        if (!(window.Site && window.Site.API && window.Site.API.isAuthed())) {
-            status.className = 'form-status error';
-            status.innerHTML = '<strong>Please sign in to submit.</strong>Your information is preserved on this page.' +
-                ' <a href="login.html?next=custom-matter.html">Sign in</a> or <a href="register.html?next=custom-matter.html">create an account</a> first.';
-            return;
-        }
 
         status.className = 'form-status';
         status.textContent = 'Submitting your request…';
@@ -161,9 +147,9 @@
             status.className = 'form-status success';
             status.innerHTML = '<strong>Request submitted.</strong>The firm has received your matter and will respond.' +
                 (ref ? ` Your reference is <strong>#${String(ref).padStart(5,'0')}</strong>.` : '') +
-                ' Redirecting to your portal…';
+                ' Redirecting to your requests…';
             form.reset();
-            setTimeout(() => { window.location.href = `portal/request.html?id=${ref}`; }, 1200);
+            setTimeout(() => { window.location.href = `requests.html`; }, 1200);
         } catch (apiErr) {
             status.className = 'form-status error';
             status.innerHTML = '<strong>Could not submit your request.</strong>' + (apiErr && apiErr.message ? apiErr.message : 'Please try again.') +

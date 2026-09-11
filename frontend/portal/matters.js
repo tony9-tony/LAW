@@ -33,10 +33,12 @@
                 window.location.replace('../login.html');
                 return;
             }
-            tbody.innerHTML = `<tr><td colspan="5" class="empty-state"><span class="ico">!</span><strong>Could not load your matters.</strong><p>${escape(err.message || 'Please try again shortly.')}</p><button class="btn" type="button" onclick="location.reload()">Retry</button></td></tr>`;
+            tbody.innerHTML = `<tr><td colspan="5" class="empty-state"><span class="ico">!</span><strong>Could not load your matters.</strong><p>${escape(err.message || 'Please try again shortly.')}</p><button class="btn" type="button" id="retry-matters">Retry</button></td></tr>`;
             if (meta) meta.textContent = 'Error';
+            document.getElementById('retry-matters')?.addEventListener('click', load);
         }
     }
 
+    window.retryMatters = load;
     load();
 })();

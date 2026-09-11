@@ -19,6 +19,8 @@ let cleanupIds = { users: [], matters: [], convos: [] };
 
 async function insertTestData(suffix) {
     const s = suffix || '';
+    const timestamp = Date.now();
+    
     const users = await query(
         `INSERT INTO users (email, password_hash, full_name, role)
          VALUES ($1, $2, $3, $4),
@@ -26,9 +28,9 @@ async function insertTestData(suffix) {
                 ($9, $10, $11, $12)
          RETURNING id, email, role`,
         [
-            `client-a${s}@test.com`, 'hash', 'Client A', 'CLIENT',
-            `client-b${s}@test.com`, 'hash', 'Client B', 'CLIENT',
-            `owner${s}@test.com`, 'hash', 'Owner', 'OWNER'
+            `client-a-${timestamp}-${s}@test.com`, 'hash', 'Client A', 'CLIENT',
+            `client-b-${timestamp}-${s}@test.com`, 'hash', 'Client B', 'CLIENT',
+            `owner-${timestamp}-${s}@test.com`, 'hash', 'Owner', 'OWNER'
         ]
     );
     const [clientA, clientB, owner] = users.rows;
@@ -40,8 +42,8 @@ async function insertTestData(suffix) {
                 ($7, $8, $9, $10, $11, $12)
          RETURNING id, client_id, reference`,
         [
-            clientA.id, `M-A${s}`, 'OPEN', 'Matter A', 'TYPE', 'Desc A',
-            clientB.id, `M-B${s}`, 'OPEN', 'Matter B', 'TYPE', 'Desc B'
+            clientA.id, `M-A-${s}-${timestamp}`, 'OPEN', 'Matter A', 'TYPE', 'Desc A',
+            clientB.id, `M-B-${s}-${timestamp}`, 'OPEN', 'Matter B', 'TYPE', 'Desc B'
         ]
     );
     const [matterA, matterB] = matters.rows;

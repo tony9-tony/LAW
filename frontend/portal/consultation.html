@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="robots" content="noindex,nofollow">
+    <title>Book a consultation | Client Portal</title>
+    <link rel="stylesheet" href="portal.css">
+</head>
+<body>
+    <div class="portal">
+        <div data-portal-topbar></div>
+        <main class="portal-main">
+            <div data-portal-sidebar></div>
+            <div class="portal-content">
+
+                <div class="page-head">
+                    <div>
+                        <span class="kicker">Consultation</span>
+                        <h1>Book a consultation.</h1>
+                        <p class="head-meta">A short request, a considered response. Choose a consultation type and a preferred window — the firm will confirm the appointment by email.</p>
+                    </div>
+                </div>
+
+                <section class="panel" aria-labelledby="cb-title">
+                    <div class="panel-body">
+                        <div class="alert info">
+                            <strong>No automated booking.</strong>
+                            Requests are reviewed by the lawyer. You will not be charged and no appointment is confirmed until the firm responds.
+                        </div>
+
+                        <form id="consultForm" novalidate>
+
+                            <div class="section-title">
+                                <span class="kicker">Step 01</span>
+                                <h2 id="cb-title">Consultation type.</h2>
+                            </div>
+                            <div class="choice-group" role="radiogroup" aria-label="Consultation type">
+                                <label class="choice-card"><input type="radio" name="consultType" value="Initial" required><span class="choice-title">Initial consultation</span><span class="choice-meta">First conversation about a new matter</span></label>
+                                <label class="choice-card"><input type="radio" name="consultType" value="Follow-up"><span class="choice-title">Follow-up</span><span class="choice-meta">Continuing an existing matter</span></label>
+                                <label class="choice-card"><input type="radio" name="consultType" value="Document review"><span class="choice-title">Document review</span><span class="choice-meta">Reviewing a contract or document</span></label>
+                                <label class="choice-card"><input type="radio" name="consultType" value="Advisory"><span class="choice-title">Advisory</span><span class="choice-meta">Written or verbal guidance</span></label>
+                            </div>
+
+                            <div class="section-title mt-5">
+                                <span class="kicker">Step 02</span>
+                                <h2>Preferred date &amp; time.</h2>
+                                <p class="text-muted">Provide one or two windows. The firm will confirm the final time.</p>
+                            </div>
+                            <div class="form-grid">
+                                <div class="field">
+                                    <label for="cb-date-1">Preferred date</label>
+                                    <input id="cb-date-1" name="preferredDate" type="date">
+                                </div>
+                                <div class="field">
+                                    <label for="cb-time-1">Preferred time</label>
+                                    <input id="cb-time-1" name="preferredTime" type="time">
+                                </div>
+                                <div class="field">
+                                    <label for="cb-date-2">Alternate date</label>
+                                    <input id="cb-date-2" name="alternateDate" type="date">
+                                </div>
+                                <div class="field">
+                                    <label for="cb-time-2">Alternate time</label>
+                                    <input id="cb-time-2" name="alternateTime" type="time">
+                                </div>
+                                <div class="field span-2">
+                                    <label for="cb-format">Meeting format</label>
+                                    <select id="cb-format" name="format">
+                                        <option value="In person">In person</option>
+                                        <option value="Video">Video call</option>
+                                        <option value="Phone">Phone call</option>
+                                    </select>
+                                </div>
+                            </div>
+
+                            <div class="section-title mt-5">
+                                <span class="kicker">Step 03</span>
+                                <h2>About you &amp; the matter.</h2>
+                            </div>
+                            <div class="form-grid">
+                                <div class="field">
+                                    <label for="cb-name">Full name</label>
+                                    <input id="cb-name" name="fullName" type="text" autocomplete="name" required>
+                                    <span class="error">Please provide your name.</span>
+                                </div>
+                                <div class="field">
+                                    <label for="cb-email">Email address</label>
+                                    <input id="cb-email" name="email" type="email" autocomplete="email" required>
+                                    <span class="error">Please provide a valid email.</span>
+                                </div>
+                                <div class="field">
+                                    <label for="cb-phone">Phone (optional)</label>
+                                    <input id="cb-phone" name="phone" type="tel" autocomplete="tel">
+                                </div>
+                                <div class="field">
+                                    <label for="cb-existing">Existing client?</label>
+                                    <select id="cb-existing" name="existing">
+                                        <option value="No">No</option>
+                                        <option value="Yes">Yes</option>
+                                    </select>
+                                </div>
+                                <div class="field span-2">
+                                    <label for="cb-subject">Brief subject</label>
+                                    <input id="cb-subject" name="subject" type="text" maxlength="200" placeholder="A short subject for the request" required>
+                                    <span class="error">Please provide a brief subject.</span>
+                                </div>
+                                <div class="field span-2">
+                                    <label for="cb-description">What would you like to discuss?</label>
+                                    <textarea id="cb-description" name="description" maxlength="4000" placeholder="A brief description of the matter you would like to discuss." required></textarea>
+                                    <span class="error">Please describe what you would like to discuss (10 characters or more).</span>
+                                </div>
+                            </div>
+
+                            <div class="form-status mt-1-5" id="cb-status" role="status" aria-live="polite"></div>
+
+                            <div class="actions">
+                                <button type="submit" class="button">Submit consultation request <span class="arrow" aria-hidden="true">→</span></button>
+                                <a class="button ghost-dark" href="custom-matter.html">Use custom matter intake instead</a>
+                            </div>
+                        </form>
+                    </div>
+                </section>
+
+            </div>
+        </main>
+    </div>
+    <script src="../js/site.js"></script>
+    <script src="portal.js"></script>
+    <script src="consultation.js"></script>
+</body>
+</html>

@@ -6,26 +6,32 @@
 
     function icon(name) {
         const icons = {
-            dashboard: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="3" y="3" width="7" height="9"/><rect x="14" y="3" width="7" height="5"/><rect x="14" y="12" width="7" height="9"/><rect x="3" y="16" width="7" height="5"/></svg>',
-            matters: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M4 6h16M4 12h16M4 18h16"/><circle cx="12" cy="12" r="3"/></svg>',
-            requests: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M4 6h16M4 12h10M4 18h16"/></svg>',
-            messages: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/></svg>',
-            documents: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/></svg>',
-            notifications: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>',
-            profile: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>',
-            appointments: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M12 11h.01M12 15h.01M12 11a3 3 0 1 0 0 4 3 3 0 0 0 0-4z"/></svg>'
+            dashboard: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4"><rect x="3" y="3" width="7" height="9"/><rect x="14" y="3" width="7" height="5"/><rect x="14" y="12" width="7" height="9"/><rect x="3" y="16" width="7" height="5"/></svg>',
+            requests: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4"><path d="M4 6h16M4 12h10M4 18h16"/></svg>',
+            matters: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4"><path d="M4 6h16M4 12h16M4 18h16"/><circle cx="12" cy="12" r="3"/></svg>',
+            messages: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/></svg>',
+            appointments: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M12 11h.01M12 15h.01M12 11a3 3 0 1 0 0 4 3 3 0 0 0 0-4z"/></svg>',
+            documents: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/></svg>',
+            invoices: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/><path d="M12 18v-6"/><path d="M9 15l3 3 3-3"/></svg>',
+            notifications: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>',
+            practice: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>',
+            profile: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>'
         };
         return icons[name] || '';
     }
 
     const NAV = [
         { href: 'dashboard.html',  label: 'Dashboard',  icon: 'dashboard' },
-        { href: 'matters.html',    label: 'My Matters',  icon: 'matters' },
         { href: 'requests.html',   label: 'Requests',    icon: 'requests' },
+        { href: 'matters.html',    label: 'My Matters',  icon: 'matters' },
         { href: 'messages.html',   label: 'Messages',    icon: 'messages' },
         { href: 'appointments.html', label: 'Appointments', icon: 'appointments' },
+        { href: 'consultation.html', label: 'Consultation', icon: 'appointments' },
         { href: 'documents.html', label: 'Documents',     icon: 'documents' },
+        { href: 'invoices.html', label: 'Invoices',       icon: 'invoices' },
         { href: 'notifications.html', label: 'Notifications', icon: 'notifications' },
+        { href: 'practice.html',  label: 'Practice',     icon: 'practice' },
+        { href: 'practice-areas.html', label: 'Practice Areas', icon: 'practice' },
         { href: 'profile.html',   label: 'Profile',       icon: 'profile' }
     ];
 
@@ -35,20 +41,26 @@
             window.location.replace('../login.html?next=' + target);
             return false;
         }
+        document.body.classList.add('portal-loading');
         // Server-side token verification to prevent cache-based auth bypass
         const token = window.Site.API.token();
         fetch('/api/v1/profile', {
             headers: { 'Authorization': 'Bearer ' + token }
         }).then((res) => {
+            document.body.classList.remove('portal-loading');
             if (!res.ok) {
                 window.Site.logout();
                 const target = encodeURIComponent(location.pathname.split('/').pop() || 'dashboard.html');
                 window.location.replace('../login.html?next=' + target);
+                return false;
             }
+            return true;
         }).catch(() => {
+            document.body.classList.remove('portal-loading');
             window.Site.logout();
             const target = encodeURIComponent(location.pathname.split('/').pop() || 'dashboard.html');
             window.location.replace('../login.html?next=' + target);
+            return false;
         });
         return true;
     }
@@ -74,9 +86,10 @@
     }
 
     function sidebarHTML() {
-        const current = (location.pathname.split('/').pop() || 'dashboard.html').toLowerCase();
+        const current = (new URL(location.href)).pathname.split('/').pop() || 'dashboard.html';
         const items = NAV.map((n) => {
-            const cls = current === n.href ? 'active' : '';
+            const target = (new URL(n.href, location.href)).pathname.split('/').pop() || n.href;
+            const cls = current.toLowerCase() === target.toLowerCase() ? 'active' : '';
             return `<a class="${cls}" href="${n.href}"><span class="ico" aria-hidden="true">${icon(n.icon)}</span>${n.label}</a>`;
         }).join('');
         return `

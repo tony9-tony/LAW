@@ -3,6 +3,7 @@
    REST list endpoint, later extendable to WebSockets without changing the
    underlying model. */
 import { query } from '../db.js';
+import { notifyNotificationCreated } from './sse.js';
 
 export async function notify(userId, { kind, title, body = null, entityType = null, entityId = null }) {
     const result = await query(
@@ -11,7 +12,12 @@ export async function notify(userId, { kind, title, body = null, entityType = nu
          RETURNING id, kind, title, body, entity_type, entity_id, read_at, created_at`,
         [userId, kind, title, body, entityType, entityId]
     );
-    return result.rows[0];
+    const notification = result.rows[0];
+    /* Only publish business events after successful database persistence. */
+    try {
+        notifyNotificationCreated(userId, notification);
+    } catch { /* realtime delivery must never break persistence */ }
+    return notification;
 }
 
 export async function listForUser(userId, { unreadOnly = false, limit = 50 } = {}) {

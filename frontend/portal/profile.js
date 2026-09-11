@@ -15,7 +15,7 @@
             set('meta-status', u.is_active ? 'Active' : 'Inactive');
             set('meta-created', u.created_at ? new Date(u.created_at).toLocaleDateString(undefined, { year: 'numeric', month: 'short' }) : '—');
             /* Keep local user object fresh so other pages see latest. */
-            API.setUser({ id: u.id, email: u.email, fullName: u.full_name, role: u.role });
+            API.setUser({ id: u.id, email: u.email, fullName: u.full_name, role: u.role || 'CLIENT' });
         } catch (err) {
             /* Fallback to cached user info. */
             const u = API.user() || {};

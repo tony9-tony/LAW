@@ -1,4 +1,4 @@
-/* Portal dashboard — load summary data from backend. */
+/* Portal dashboard — request-first summary. */
 (function () {
     'use strict';
     if (!window.Site || !window.Portal || !window.Portal.guard()) return;
@@ -24,7 +24,7 @@
             const rows = (res && res.data) || [];
             const tbody = document.getElementById('recent-body');
             if (!rows.length) {
-                tbody.innerHTML = `<tr><td colspan="5" class="empty-state"><span class="ico">·</span><strong>No matters yet.</strong><p>Submit a matter to see it appear here.</p><a class="btn" href="../custom-matter.html">Submit a matter <span class="arrow">→</span></a></td></tr>`;
+                tbody.innerHTML = `<tr><td colspan="5" class="empty-state tight"><span class="ico">·</span><strong>No requests yet.</strong><p>Submit a request to begin working with the firm. Your request will be reviewed and you will receive a response here.</p><div class="empty-actions"><a class="btn" href="custom-matter.html">Submit a request <span class="arrow">→</span></a><a class="btn secondary" href="consultation.html">Book consultation</a></div></td></tr>`;
             } else {
                 tbody.innerHTML = rows.slice(0, 6).map((r) => `
                     <tr class="row-link" onclick="window.location.href='request.html?id=${r.id}'">
@@ -37,7 +37,7 @@
                 `).join('');
             }
             const open = rows.filter((r) => (r.status || '').toLowerCase() !== 'closed').length;
-            const review = rows.filter((r) => ['new', 'pending', 'open', 'in_progress', 'under_review', 'submitted'].includes((r.status || '').toLowerCase())).length;
+            const review = rows.filter((r) => ['new', 'pending', 'open', 'in_progress', 'under_review', 'submitted', 'action_required'].includes((r.status || '').toLowerCase())).length;
             setKpi('kpi-open', String(open), 'kpi-open-meta', rows.length + ' total');
             setKpi('kpi-review', String(review));
 
@@ -45,22 +45,22 @@
             const next = document.getElementById('next-action');
             if (next) {
                 if (!rows.length) {
-                    next.innerHTML = '<strong>Get started</strong>Submit a matter to begin working with the firm.';
+                    next.innerHTML = '<strong>Get started</strong>Submit a request to begin working with the firm.';
                 } else if (review > 0) {
-                    const top = rows.find((r) => (r.status || '').toLowerCase() !== 'closed');
-                    next.innerHTML = `<strong>Awaiting review</strong>Reference <a class="link-bronze-soft" href="request.html?id=${top.id}">#${String(top.id).padStart(5,'0')}</a> is being reviewed.`;
+                    const top = rows.find((r) => (r.status || '').toLowerCase() !== 'closed') || rows[0];
+                    next.innerHTML = `<strong>Awaiting review</strong>Reference <a class="link-bronze" href="request.html?id=${top.id}">#${String(top.id).padStart(5,'0')}</a> is being reviewed by the firm.`;
                 } else {
-                    next.innerHTML = '<strong>All caught up</strong>No requests are awaiting review.';
+                    next.innerHTML = '<strong>All caught up</strong>No requests are currently awaiting review.';
                 }
             }
 
-            // Activity feed (synthesised only from what the API actually returns)
+            // Activity feed
             const activity = document.getElementById('activity-body');
             if (activity) {
                 if (!rows.length) {
-                    activity.innerHTML = '<p class="text-mute-block">No activity yet. Once the firm updates your matter, updates will appear here.</p>';
+                    activity.innerHTML = '<p class="text-mute-block">No activity yet. Once the firm reviews your request or updates your matter, activity will appear here.</p>';
                 } else {
-                    const items = rows.slice(0, 4).map((r) => `
+                    const items = rows.slice(0, 5).map((r) => `
                         <div class="activity-row">
                             <div class="dot"></div>
                             <div class="body">
@@ -74,12 +74,10 @@
                 }
             }
         } catch (err) {
-            if (err && err.status === 401) {
-                window.location.replace('../login.html');
-                return;
-            }
+            if (err && err.status === 401) { window.location.replace('../login.html'); return; }
             const tbody = document.getElementById('recent-body');
-            tbody.innerHTML = `<tr><td colspan="5" class="empty-state"><span class="ico">!</span><strong>Could not load your matters.</strong><p>${escape(err.message || 'Please try again shortly.')}</p><button class="btn" type="button" onclick="location.reload()">Retry</button></td></tr>`;
+            if (tbody) tbody.innerHTML = `<tr><td colspan="5" class="empty-state tight"><span class="ico">!</span><strong>Could not load requests.</strong><p>${escape(err.message || 'Please try again shortly.')}</p><button class="btn" type="button" id="retry-requests">Retry</button></td></tr>`;
+            document.getElementById('retry-requests')?.addEventListener('click', loadRequests);
         }
     }
 
@@ -94,16 +92,12 @@
             const upcoming = items.filter((a) => new Date(a.starts_at) > now && !/cancelled|completed/i.test(a.status || ''));
             if (kpi) kpi.textContent = String(upcoming.length);
             if (kpiMeta) kpiMeta.textContent = items.length + ' on record';
-            if (nextEl) {
+            if (nextEl && upcoming.length) {
                 const next = upcoming[0];
-                if (next) {
-                    const link = next.matter_id
-                        ? `<a class="link-bronze-soft" href="matter.html?id=${next.matter_id}">${escape(next.matter_reference || '')}</a>`
-                        : '';
-                    nextEl.innerHTML = `<strong>Next appointment</strong>${P.fmtDate(next.starts_at)}${link ? ' · ' + link : ''}`;
-                }
-                /* If there is no upcoming appointment, leave whatever
-                   loadRequests already wrote in the panel. */
+                const link = next.matter_id
+                    ? ` · <a class="link-bronze" href="matter.html?id=${next.matter_id}">${escape(next.matter_reference || 'matter')}</a>`
+                    : '';
+                nextEl.innerHTML = `<strong>Next appointment</strong>${P.fmtDate(next.starts_at)}${link}`;
             }
         } catch (err) {
             if (err && err.status === 401) { window.location.replace('../login.html'); return; }
@@ -111,21 +105,22 @@
             if (kpiMeta) kpiMeta.textContent = err.message || 'Error';
         }
     }
+
     async function loadMatters() {
         const body = document.getElementById('matters-body');
         try {
             const res = await API.listMatters();
             const items = (res && res.data) || [];
             const active = items.filter((m) => (m.status || '').toUpperCase() !== 'CLOSED').length;
-            document.getElementById('kpi-matters').textContent = String(active);
-            document.getElementById('kpi-matters-meta').textContent = items.length + ' total';
+            document.getElementById('kpi-matters') && (document.getElementById('kpi-matters').textContent = String(active));
+            document.getElementById('kpi-matters-meta') && (document.getElementById('kpi-matters-meta').textContent = items.length + ' total');
             if (!items.length) {
-                body.innerHTML = `<div class="empty-state tight"><span class="ico">·</span><strong>No matters yet.</strong><p>Matters are created only after the firm accepts a request.</p></div>`;
+                body.innerHTML = `<div class="empty-state tight"><span class="ico">·</span><strong>No matters yet.</strong><p>Matters are created only after the firm accepts a request. Until then, your requests appear under <a class="link-bronze" href="requests.html">Requests</a>.</p></div>`;
                 return;
             }
             body.innerHTML = items.map((m) => `
                 <a class="doc-row" href="matter.html?id=${m.id}">
-                    <span class="doc-icon">${escape((m.reference || 'M').replace(/^M-?/, ''))}</span>
+                    <span class="doc-icon">${escape((m.reference || 'M').replace(/^M-?/, '').slice(0, 4))}</span>
                     <div>
                         <div class="doc-name">${escape(m.reference)} · ${escape(m.title || 'Matter')}</div>
                         <div class="doc-meta">${escape(m.matter_type || '—')} · Opened ${P.fmtDateShort(m.created_at)}</div>
@@ -136,32 +131,30 @@
             `).join('');
         } catch (err) {
             if (err && err.status === 401) { window.location.replace('../login.html'); return; }
-            document.getElementById('kpi-matters').textContent = '—';
-            document.getElementById('kpi-matters-meta').textContent = err.message || 'Error';
             if (body) body.innerHTML = `<div class="empty-state tight"><span class="ico">!</span><strong>Could not load matters.</strong><p>${escape(err.message || 'Please try again.')}</p></div>`;
         }
     }
 
     async function loadNotifications() {
-        const kpi = document.getElementById('kpi-notifications');
-        const kpiMeta = document.getElementById('kpi-notifications-meta');
+        const kpi = document.getElementById('kpi-notif');
+        const kpiMeta = document.getElementById('kpi-notif-meta');
         try {
             const res = await API.listNotifications({ unreadOnly: true });
             const unread = (res && res.unread_count) || 0;
             const items = (res && res.data) || [];
-            setKpi('kpi-notifications', String(unread), 'kpi-notifications-meta', items.length + ' total');
+            setKpi('kpi-notif', String(unread), 'kpi-notif-meta', items.length + ' total');
             const banner = document.getElementById('notif-banner');
             if (banner) {
                 if (unread > 0) {
                     banner.classList.remove('hidden');
-                    banner.innerHTML = `<strong>${unread} unread notification${unread === 1 ? '' : 's'}.</strong>Open <a class="link-bronze" href="notifications.html">notifications</a> to review.`;
+                    banner.innerHTML = `<strong>${unread} unread notification${unread === 1 ? '' : 's'}.</strong> Open <a class="link-bronze" href="notifications.html">notifications</a> to review.`;
                 } else {
                     banner.classList.add('hidden');
                 }
             }
         } catch (err) {
             if (err && err.status === 401) { window.location.replace('../login.html'); return; }
-            setKpi('kpi-notifications', '—', 'kpi-notifications-meta', err.message || 'Error');
+            setKpi('kpi-notif', '—', 'kpi-notif-meta', err.message || 'Error');
         }
     }
 

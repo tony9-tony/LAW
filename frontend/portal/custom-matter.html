@@ -1,0 +1,180 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="robots" content="noindex,nofollow">
+    <title>New request | Client Portal</title>
+    <link rel="stylesheet" href="portal.css">
+</head>
+<body>
+    <div class="portal">
+        <div data-portal-topbar></div>
+        <main class="portal-main">
+            <div data-portal-sidebar></div>
+            <div class="portal-content">
+
+                <div class="page-head">
+                    <div>
+                        <span class="kicker">Intake</span>
+                        <h1>Describe your matter.</h1>
+                        <p class="head-meta">A short, guided intake. The information provided here becomes a request — reviewed by the lawyer before any formal matter is opened. Nothing sensitive is required.</p>
+                    </div>
+                </div>
+
+                <section class="panel" aria-labelledby="cm-hero-title">
+                    <div class="panel-body">
+                        <div class="notice" role="note">
+                            <div>
+                                <strong>Placeholder disclaimer.</strong>
+                                The information you provide is a request for review by the lawyer. It is not legal advice and does not create an attorney–client relationship until confirmed by the firm.
+                            </div>
+                        </div>
+
+                        <form id="customMatterForm" novalidate>
+
+                            <div class="stepper" role="list" aria-label="Custom matter steps">
+                                <div class="step active" data-step="1" role="listitem"><span class="step-index">Step 01</span><span class="step-label">Type of matter</span></div>
+                                <div class="step" data-step="2" role="listitem"><span class="step-index">Step 02</span><span class="step-label">What happened</span></div>
+                                <div class="step" data-step="3" role="listitem"><span class="step-index">Step 03</span><span class="step-label">How we can help</span></div>
+                                <div class="step" data-step="4" role="listitem"><span class="step-index">Step 04</span><span class="step-label">Contact</span></div>
+                                <div class="step" data-step="5" role="listitem"><span class="step-index">Step 05</span><span class="step-label">Review &amp; submit</span></div>
+                            </div>
+
+                            <div class="form-panel form-panel--wide">
+                                <!-- STEP 1 -->
+                                <div class="step-pane active" data-pane="1" aria-labelledby="step-1-title">
+                                    <div class="section-title">
+                                        <span class="kicker">Step 01</span>
+                                        <h2 id="step-1-title">What type of matter is this?</h2>
+                                        <p class="text-mute-block">Choose the description that best fits. If none fit, choose "Other".</p>
+                                    </div>
+                                    <div class="choice-group" role="radiogroup" aria-label="Type of matter">
+                                        <label class="choice-card"><input type="radio" name="matterType" value="Civil"><span class="choice-title">Civil matter</span><span class="choice-meta">Disputes between individuals or organisations</span></label>
+                                        <label class="choice-card"><input type="radio" name="matterType" value="Commercial"><span class="choice-title">Commercial matter</span><span class="choice-meta">Business, contracts, or trade</span></label>
+                                        <label class="choice-card"><input type="radio" name="matterType" value="Family"><span class="choice-title">Family matter</span><span class="choice-meta">Personal and family-related</span></label>
+                                        <label class="choice-card"><input type="radio" name="matterType" value="Property"><span class="choice-title">Property / land</span><span class="choice-meta">Land, leases, and property issues</span></label>
+                                        <label class="choice-card"><input type="radio" name="matterType" value="Employment"><span class="choice-title">Employment</span><span class="choice-meta">Workplace or labour-related</span></label>
+                                        <label class="choice-card"><input type="radio" name="matterType" value="Other"><span class="choice-title">Other</span><span class="choice-meta">Something not listed above</span></label>
+                                    </div>
+                                    <div class="step-nav">
+                                        <span></span>
+                                        <button type="button" class="button" data-next>Continue <span class="arrow" aria-hidden="true">→</span></button>
+                                    </div>
+                                </div>
+
+                                <!-- STEP 2 -->
+                                <div class="step-pane" data-pane="2" aria-labelledby="step-2-title">
+                                    <div class="section-title">
+                                        <span class="kicker">Step 02</span>
+                                        <h2 id="step-2-title">What happened?</h2>
+                                        <p class="text-mute-block">A short, factual description. Dates, names, and locations are useful but not required at this stage.</p>
+                                    </div>
+                                    <div class="field">
+                                        <label for="cm-subject">Brief subject</label>
+                                        <input id="cm-subject" name="subject" type="text" maxlength="200" placeholder="e.g. Boundary dispute with neighbour" required>
+                                        <span class="error">Please provide a brief subject (3 characters or more).</span>
+                                    </div>
+                                    <div class="field">
+                                        <label for="cm-description">What happened</label>
+                                        <textarea id="cm-description" name="description" maxlength="4000" placeholder="Describe the situation in your own words. Avoid sharing sensitive information such as ID numbers, account numbers, or passwords." required></textarea>
+                                        <span class="help">Avoid sensitive information (ID numbers, bank details, passwords). You can add more detail later.</span>
+                                        <span class="error">Please describe what happened (10 characters or more).</span>
+                                    </div>
+                                    <div class="step-nav">
+                                        <button type="button" class="button ghost-dark" data-prev>← Back</button>
+                                        <button type="button" class="button" data-next>Continue <span class="arrow" aria-hidden="true">→</span></button>
+                                    </div>
+                                </div>
+
+                                <!-- STEP 3 -->
+                                <div class="step-pane" data-pane="3" aria-labelledby="step-3-title">
+                                    <div class="section-title">
+                                        <span class="kicker">Step 03</span>
+                                        <h2 id="step-3-title">How would you like help?</h2>
+                                        <p class="text-mute-block">Select the option that best matches what you need. The firm will confirm what it can provide.</p>
+                                    </div>
+                                    <div class="choice-group" role="radiogroup" aria-label="Type of help needed">
+                                        <label class="choice-card"><input type="radio" name="helpType" value="advice"><span class="choice-title">Legal advice</span><span class="choice-meta">Written or verbal guidance</span></label>
+                                        <label class="choice-card"><input type="radio" name="helpType" value="representation"><span class="choice-title">Representation</span><span class="choice-meta">Acting on your behalf</span></label>
+                                        <label class="choice-card"><input type="radio" name="helpType" value="document_review"><span class="choice-title">Document review</span><span class="choice-meta">Reviewing an agreement or document</span></label>
+                                        <label class="choice-card"><input type="radio" name="helpType" value="consultation"><span class="choice-title">Consultation</span><span class="choice-meta">A meeting to discuss the matter</span></label>
+                                        <label class="choice-card"><input type="radio" name="helpType" value="unsure"><span class="choice-title">Not sure</span><span class="choice-meta">I'll let the lawyer guide me</span></label>
+                                    </div>
+                                    <div class="step-nav">
+                                        <button type="button" class="button ghost-dark" data-prev>← Back</button>
+                                        <button type="button" class="button" data-next>Continue <span class="arrow" aria-hidden="true">→</span></button>
+                                    </div>
+                                </div>
+
+                                <!-- STEP 4 -->
+                                <div class="step-pane" data-pane="4" aria-labelledby="step-4-title">
+                                    <div class="section-title">
+                                        <span class="kicker">Step 04</span>
+                                        <h2 id="step-4-title">Contact information.</h2>
+                                        <p class="text-mute-block">How can the firm reach you? Only what is needed to respond.</p>
+                                    </div>
+                                    <div class="form-grid">
+                                        <div class="field">
+                                            <label for="cm-name">Full name</label>
+                                            <input id="cm-name" name="fullName" type="text" autocomplete="name" required>
+                                            <span class="error">Please provide your name.</span>
+                                        </div>
+                                        <div class="field">
+                                            <label for="cm-email">Email address</label>
+                                            <input id="cm-email" name="email" type="email" autocomplete="email" required>
+                                            <span class="error">Please provide a valid email.</span>
+                                        </div>
+                                        <div class="field">
+                                            <label for="cm-phone">Phone (optional)</label>
+                                            <input id="cm-phone" name="phone" type="tel" autocomplete="tel">
+                                        </div>
+                                        <div class="field">
+                                            <label for="cm-preferred">Preferred contact</label>
+                                            <select id="cm-preferred" name="preferredContact">
+                                                <option value="email">Email</option>
+                                                <option value="phone">Phone</option>
+                                            </select>
+                                        </div>
+                                        <div class="field span-2">
+                                            <label class="checkbox-row">
+                                                <input type="checkbox" name="consent" required>
+                                                <span>I understand this is a request for review, not legal advice, and consent to being contacted about it.</span>
+                                            </label>
+                                            <span class="error">Please confirm to continue.</span>
+                                        </div>
+                                    </div>
+                                    <div class="step-nav">
+                                        <button type="button" class="button ghost-dark" data-prev>← Back</button>
+                                        <button type="button" class="button" data-next>Review <span class="arrow" aria-hidden="true">→</span></button>
+                                    </div>
+                                </div>
+
+                                <!-- STEP 5 -->
+                                <div class="step-pane" data-pane="5" aria-labelledby="step-5-title">
+                                    <div class="section-title">
+                                        <span class="kicker">Step 05</span>
+                                        <h2 id="step-5-title">Review &amp; submit.</h2>
+                                        <p class="text-mute-block">Confirm the details below. You can still go back to make changes.</p>
+                                    </div>
+                                    <dl id="cm-review" class="def-list"></dl>
+                                    <div class="form-status mt-1-5" id="cm-status" role="status" aria-live="polite"></div>
+                                    <div class="step-nav">
+                                        <button type="button" class="button ghost-dark" data-prev>← Back</button>
+                                        <button type="submit" class="button">Submit request <span class="arrow" aria-hidden="true">→</span></button>
+                                    </div>
+                                </div>
+
+                            </div>
+                        </form>
+                    </div>
+                </section>
+
+            </div>
+        </main>
+    </div>
+    <script src="../js/site.js"></script>
+    <script src="portal.js"></script>
+    <script src="custom-matter.js"></script>
+</body>
+</html>

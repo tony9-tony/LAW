@@ -10,8 +10,10 @@
     async function load() {
         const id = new URLSearchParams(location.search).get('id');
         const root = document.getElementById('root');
+        const actionsEl = document.getElementById('page-actions');
         if (!id) {
             root.innerHTML = `<div class="alert error"><strong>Missing reference.</strong>Open this page from the dashboard.</div>`;
+            if (actionsEl) actionsEl.innerHTML = '';
             return;
         }
         let matter;
@@ -21,13 +23,20 @@
         } catch (err) {
             if (err && err.status === 401) { window.location.replace('../login.html'); return; }
             root.innerHTML = `<div class="alert error"><strong>Could not load this matter.</strong>${escape(err.message || '')}</div>`;
+            if (actionsEl) actionsEl.innerHTML = '';
             return;
         }
         document.getElementById('ref').textContent = `Reference ${escape(matter.reference)}`;
         document.getElementById('title').textContent = matter.title || 'Matter';
         document.getElementById('head-meta').textContent = matter.description || 'A formal engagement with the firm.';
-        document.getElementById('msg-link').href = `messages.html?matter=${matter.id}`;
         document.title = `${matter.title || 'Matter'} | Client Portal`;
+
+        if (actionsEl) {
+            actionsEl.innerHTML = `
+                <a class="btn primary" id="msg-link" href="messages.html?matter=${matter.id}">Message the firm <span class="arrow" aria-hidden="true">→</span></a>
+                ${matter.originating_request_id ? `<a class="btn secondary" href="request.html?id=${matter.originating_request_id}">View originating request</a>` : ''}
+            `;
+        }
 
         const [events, docs, appts] = await Promise.all([
             API.getMatterEvents(matter.id).catch(() => ({ data: [] })),
@@ -47,7 +56,7 @@
             <div class="activity-row">
                 <div class="dot"></div>
                 <div class="body">
-                    <div class="ts">${P.fmtDate(a.starts_at)} — ${P.fmtDate(a.ends_at)}</div>
+                    <div class="ts">${P.fmtDate(a.starts_at)} — ${a.ends_at ? P.fmtDate(a.ends_at) : ''}</div>
                     <div class="lead"><strong>${escape((a.status || '').replace(/_/g,' '))}</strong>${a.notes ? ' · ' + escape(a.notes) : ''}</div>
                 </div>
             </div>
@@ -64,6 +73,10 @@
             </div>
         `).join('') || '<p class="text-mute-block">No documents on this matter yet.</p>';
 
+        const requestLink = matter.originating_request_id
+            ? `<a class="link-bronze" href="request.html?id=${matter.originating_request_id}">View originating request #${String(matter.originating_request_id).padStart(5, '0')}</a>`
+            : '<span class="muted">Not linked</span>';
+
         root.innerHTML = `
             <div class="detail-grid">
                 <div>
@@ -76,6 +89,7 @@
                                 <dt>Type</dt><dd>${escape(matter.matter_type || '—')}</dd>
                                 <dt>Opened</dt><dd>${P.fmtDate(matter.created_at)}</dd>
                                 <dt>Last update</dt><dd>${P.fmtDate(matter.updated_at || matter.created_at)}</dd>
+                                <dt>Originating request</dt><dd>${requestLink}</dd>
                             </dl>
                             ${matter.description ? `<div class="section-divider">${escape(matter.description)}</div>` : ''}
                         </div>
@@ -101,8 +115,9 @@
                     <section class="panel">
                         <div class="panel-head"><h2>Quick actions</h2></div>
                         <div class="panel-body">
-                            <a class="btn" href="messages.html?matter=${matter.id}">Message the firm</a>
-                            <a class="btn secondary spacer-2" href="requests.html?id=${matter.originating_request_id || ''}">View originating request</a>
+                            <a class="btn primary" href="messages.html?matter=${matter.id}">Message the firm <span class="arrow" aria-hidden="true">→</span></a>
+                            ${matter.originating_request_id ? `<a class="btn secondary spacer-2" href="request.html?id=${matter.originating_request_id}">View originating request</a>` : ''}
+                            <a class="btn secondary spacer-2" href="appointments.html">Appointments</a>
                         </div>
                     </section>
                 </aside>

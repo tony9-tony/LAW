@@ -10,7 +10,12 @@ function ownershipQuery(table, id, userId) {
     switch (table) {
         case 'conversations':
             return {
-                text: `SELECT conversations.* FROM conversations JOIN matters ON conversations.matter_id = matters.id WHERE conversations.id = $1 AND matters.client_id = $2 LIMIT 1`,
+                text: `SELECT c.* FROM conversations c
+                       LEFT JOIN matters m ON m.id = c.matter_id
+                       LEFT JOIN requests r ON r.id = c.request_id
+                       WHERE c.id = $1
+                         AND (m.client_id = $2 OR c.client_id = $2 OR r.client_id = $2)
+                       LIMIT 1`,
                 params: [id, userId]
             };
         default:
