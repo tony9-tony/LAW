@@ -256,6 +256,17 @@ button { cursor: pointer; background: transparent; border: 0; padding: 0; }
     padding: 1.1rem 1.25rem;
     border-radius: var(--radius);
 }
+.kpi.kpi-clickable {
+    cursor: pointer;
+    transition: background-color 0.15s, border-color 0.15s;
+}
+.kpi.kpi-clickable:hover {
+    background: var(--bg-hover);
+    border-color: var(--primary);
+}
+.kpi.kpi-clickable:active {
+    transform: scale(0.995);
+}
 .kpi .kpi-label {
     font-size: 0.66rem;
     letter-spacing: 0.22em;

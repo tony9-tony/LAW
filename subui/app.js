@@ -891,10 +891,10 @@
                 </div>
             </div>
             <section class="kpi-grid">
-                <div class="kpi"><div class="kpi-label">Open Requests</div><div class="kpi-value" id="dash-requests">—</div><div class="kpi-trend" id="dash-requests-meta">Awaiting review</div></div>
-                <div class="kpi"><div class="kpi-label">Active Matters</div><div class="kpi-value" id="dash-matters">—</div><div class="kpi-trend" id="dash-matters-meta">In progress</div></div>
-                <div class="kpi"><div class="kpi-label">Upcoming Appointments</div><div class="kpi-value" id="dash-appts">—</div><div class="kpi-trend" id="dash-appts-meta">This week</div></div>
-                <div class="kpi"><div class="kpi-label">Unread Messages</div><div class="kpi-value" id="dash-notif">—</div><div class="kpi-trend" id="dash-notif-meta">Awaiting attention</div></div>
+                <div class="kpi kpi-clickable" onclick="window.location.hash='#requests';return false;"><div class="kpi-label">Open Requests</div><div class="kpi-value" id="dash-requests">—</div><div class="kpi-trend" id="dash-requests-meta">Awaiting review</div></div>
+                <div class="kpi kpi-clickable" onclick="window.location.hash='#matters';return false;"><div class="kpi-label">Active Matters</div><div class="kpi-value" id="dash-matters">—</div><div class="kpi-trend" id="dash-matters-meta">In progress</div></div>
+                <div class="kpi kpi-clickable" onclick="window.location.hash='#appointments';return false;"><div class="kpi-label">Upcoming Appointments</div><div class="kpi-value" id="dash-appts">—</div><div class="kpi-trend" id="dash-appts-meta">This week</div></div>
+                <div class="kpi kpi-clickable" onclick="window.location.hash='#messages';return false;"><div class="kpi-label">Unread Messages</div><div class="kpi-value" id="dash-notif">—</div><div class="kpi-trend" id="dash-notif-meta">Awaiting attention</div></div>
             </section>
             <section class="panel">
                 <div class="panel-head">

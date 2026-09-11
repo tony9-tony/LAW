@@ -62,10 +62,10 @@
                 </div>
 
                 <section class="kpi-grid" aria-label="Key indicators">
-                    <div class="kpi"><div class="kpi-label">Open requests</div><div class="kpi-value" id="kpi-open">—</div><div class="kpi-trend" id="kpi-open-meta">Loading…</div></div>
+                    <div class="kpi kpi-clickable" onclick="window.location.hash='#requests';return false;"><div class="kpi-label">Open requests</div><div class="kpi-value" id="kpi-open">—</div><div class="kpi-trend" id="kpi-open-meta">Loading…</div></div>
                     <div class="kpi"><div class="kpi-label">Pending intake</div><div class="kpi-value" id="kpi-intake">—</div><div class="kpi-trend">Custom matter submissions</div></div>
-                    <div class="kpi"><div class="kpi-label">Appointments</div><div class="kpi-value" id="kpi-appts">—</div><div class="kpi-trend">Upcoming this week</div></div>
-                    <div class="kpi"><div class="kpi-label">Active matters</div><div class="kpi-value" id="kpi-matters">—</div><div class="kpi-trend">In progress</div></div>
+                    <div class="kpi kpi-clickable" onclick="window.location.hash='#appointments';return false;"><div class="kpi-label">Appointments</div><div class="kpi-value" id="kpi-appts">—</div><div class="kpi-trend">Upcoming this week</div></div>
+                    <div class="kpi kpi-clickable" onclick="window.location.hash='#matters';return false;"><div class="kpi-label">Active matters</div><div class="kpi-value" id="kpi-matters">—</div><div class="kpi-trend">In progress</div></div>
                 </section>
 
                 <section class="panel" aria-labelledby="req-head">
