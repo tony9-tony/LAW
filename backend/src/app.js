@@ -41,7 +41,7 @@ app.use(cors({
     }
 }));
 app.use(express.json({ limit: '100kb' }));
-app.use(rateLimit({ windowMs: 15 * 60 * 1000, limit: 500 }));
+app.use(rateLimit({ windowMs: 15 * 60 * 1000, limit: process.env.NODE_ENV === 'test' ? 5000 : 500 }));
 
 const authLimiter = rateLimit({ windowMs: 15 * 60 * 1000, limit: 1000, standardHeaders: true, legacyHeaders: false, message: { error: { code: 'TOO_MANY_REQUESTS', message: 'Too many requests, please try again later' } } });
 app.use('/api/v1/auth', authLimiter);

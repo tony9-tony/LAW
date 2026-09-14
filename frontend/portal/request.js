@@ -1,4 +1,4 @@
-/* Portal — request detail with clear messaging action. */
+/* Portal — request detail with inline messaging composer. */
 (function () {
     'use strict';
     if (!window.Site || !window.Portal || !window.Portal.guard()) return;
@@ -53,6 +53,280 @@
             '</div>';
     }
 
+    /* --- Messaging state --- */
+    let conversationId = null;
+    let displayedMessageIds = new Set();
+    let lastKnownMessageId = null;
+    let pollTimer = null;
+    const POLL_INTERVAL_MS = 5000;
+    const POLL_INTERVAL_HIDDEN_MS = 15000;
+    let realtimeHandlersRegistered = false;
+
+    const threadEl = document.getElementById('msg-thread');
+    const msgStatusEl = document.getElementById('msg-status');
+    const msgMetaEl = document.getElementById('msg-meta');
+    const msgForm = document.getElementById('msg-form');
+    const msgBodyInput = document.getElementById('msg-body');
+    const msgSection = document.getElementById('message-section');
+
+    function unregisterRealtimeHandlers() {
+        const RT = window.Site && window.Site.Realtime;
+        if (!RT || !realtimeHandlersRegistered) return;
+        RT.off('message.created', onRealtimeMessage);
+        RT.off('message.read', onRealtimeRead);
+        realtimeHandlersRegistered = false;
+    }
+
+    function onRealtimeMessage(data) {
+        if (!conversationId || data.conversationId !== conversationId) return;
+        const msg = data.message;
+        if (!msg || displayedMessageIds.has(msg.id)) return;
+        displayedMessageIds.add(msg.id);
+        const fromClient = String(msg.sender_id) === String(API.user() && API.user().id);
+        const html = renderMessage(msg, fromClient);
+        threadEl.insertAdjacentHTML('beforeend', html);
+        if (lastKnownMessageId) lastKnownMessageId = msg.id;
+        updateMsgCount();
+        scrollToBottom();
+    }
+
+    function onRealtimeRead(data) {
+        if (!conversationId || data.conversationId !== conversationId) return;
+    }
+
+    function registerRealtimeHandlers() {
+        if (realtimeHandlersRegistered) return;
+        const RT = window.Site && window.Site.Realtime;
+        if (RT) {
+            RT.on('message.created', onRealtimeMessage);
+            RT.on('message.read', onRealtimeRead);
+            realtimeHandlersRegistered = true;
+        }
+    }
+
+    function renderMessage(m, fromClient) {
+        const name = m.sender_name || (fromClient ? 'You' : 'Firm');
+        return `
+            <div class="msg ${fromClient ? 'from-client' : ''}">
+                <div class="meta">${P.fmtDate(m.created_at)} · ${escape(name)}</div>
+                <div class="body">${escape(m.body)}</div>
+            </div>
+        `;
+    }
+
+    function renderThread(items) {
+        if (!items || !items.length) {
+            threadEl.innerHTML = `<div class="empty-state tight"><span class="ico">·</span><strong>No messages yet.</strong><p>Type your message below to start the conversation.</p></div>`;
+            lastKnownMessageId = null;
+            displayedMessageIds.clear();
+            return;
+        }
+        displayedMessageIds.clear();
+        threadEl.innerHTML = items.map((m) => {
+            displayedMessageIds.add(m.id);
+            const fromClient = String(m.sender_id) === String(API.user() && API.user().id);
+            return renderMessage(m, fromClient);
+        }).join('');
+        const last = items[items.length - 1];
+        if (last && last.id) lastKnownMessageId = last.id;
+        updateMsgCount();
+        scrollToBottom();
+    }
+
+    function appendMessages(newItems) {
+        if (!newItems || !newItems.length) return;
+        const emptyState = threadEl.querySelector('.empty-state');
+        if (emptyState) emptyState.remove();
+        const wasNearBottom = isNearBottom();
+        const html = newItems.map((m) => {
+            displayedMessageIds.add(m.id);
+            const fromClient = String(m.sender_id) === String(API.user() && API.user().id);
+            return renderMessage(m, fromClient);
+        }).join('');
+        threadEl.insertAdjacentHTML('beforeend', html);
+        const last = newItems[newItems.length - 1];
+        if (last && last.id) lastKnownMessageId = last.id;
+        updateMsgCount();
+        if (wasNearBottom) scrollToBottom();
+    }
+
+    function updateMsgCount() {
+        if (msgMetaEl) {
+            const count = threadEl.querySelectorAll('.msg').length;
+            msgMetaEl.textContent = `${count} message${count === 1 ? '' : 's'}`;
+        }
+    }
+
+    function scrollToBottom() {
+        const content = document.querySelector('.portal-content');
+        if (content) {
+            content.scrollTop = content.scrollHeight;
+        } else {
+            window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' });
+        }
+    }
+
+    function isNearBottom() {
+        const content = document.querySelector('.portal-content');
+        if (content) {
+            return (content.clientHeight + content.scrollTop) >= (content.scrollHeight - 120);
+        }
+        return (window.innerHeight + window.scrollY) >= (document.body.scrollHeight - 120);
+    }
+
+    function getPollInterval() {
+        return document.visibilityState === 'visible' ? POLL_INTERVAL_MS : POLL_INTERVAL_HIDDEN_MS;
+    }
+
+    function startPolling() {
+        stopPolling();
+        if (!conversationId) return;
+        pollTimer = setInterval(pollConversation, getPollInterval());
+    }
+
+    function stopPolling() {
+        if (pollTimer) { clearInterval(pollTimer); pollTimer = null; }
+    }
+
+    function pausePolling() {
+        if (pollTimer) { clearInterval(pollTimer); pollTimer = null; }
+    }
+
+    let pollErrorCount = 0;
+
+    async function pollConversation() {
+        if (!conversationId) return;
+        try {
+            const opts = lastKnownMessageId ? { after: lastKnownMessageId } : {};
+            const res = await API.getConversation(conversationId, opts);
+            const messages = (res && res.data && res.data.messages) || [];
+            const newMessages = messages.filter(m => !displayedMessageIds.has(m.id));
+            if (newMessages.length > 0) {
+                appendMessages(newMessages);
+            }
+            pollErrorCount = 0;
+        } catch (err) {
+            if (err && err.status === 401) { window.location.replace('../login.html'); return; }
+            pollErrorCount += 1;
+            if (pollErrorCount >= 3) {
+                pausePolling();
+            }
+        }
+    }
+
+    async function loadConversation(requestId, matterId) {
+        if (!msgSection || !threadEl) return;
+        msgSection.style.display = '';
+        if (msgMetaEl) msgMetaEl.textContent = 'Starting conversation…';
+        threadEl.innerHTML = `<div class="empty-state tight"><span class="ico">·</span><strong>Loading conversation…</strong></div>`;
+
+        try {
+            let convo;
+            if (matterId) {
+                const res = await API.getMatterConversation(matterId);
+                convo = res.data;
+            } else {
+                const res = await API.getRequestConversation(requestId);
+                convo = res.data;
+            }
+            conversationId = convo.id;
+            const detail = await API.getConversation(conversationId);
+            renderThread(detail.data.messages || []);
+            if (msgMetaEl) {
+                const count = (detail.data.messages || []).length;
+                msgMetaEl.textContent = `${count} message${count === 1 ? '' : 's'}`;
+            }
+            await API.markConversationRead(conversationId).catch(() => {});
+            registerRealtimeHandlers();
+            startPolling();
+        } catch (err) {
+            if (err && err.status === 401) { window.location.replace('../login.html'); return; }
+            threadEl.innerHTML = `<div class="empty-state tight"><span class="ico">!</span><strong>Could not load conversation.</strong><p>${escape(err.message || 'Please try again.')}</p></div>`;
+            if (msgMetaEl) msgMetaEl.textContent = 'Error';
+        }
+    }
+
+    async function sendMessage() {
+        if (!conversationId) return;
+        const body = msgBodyInput.value.trim();
+        if (!body) return;
+
+        const submitBtn = msgForm.querySelector('button[type="submit"]');
+        const originalText = submitBtn ? submitBtn.innerHTML : '';
+        if (submitBtn) {
+            submitBtn.disabled = true;
+            submitBtn.innerHTML = 'Sending…';
+        }
+        if (msgStatusEl) {
+            msgStatusEl.className = 'form-status';
+            msgStatusEl.textContent = 'Sending…';
+        }
+        msgBodyInput.disabled = true;
+
+        try {
+            const res = await API.sendMessage(conversationId, body);
+            const msg = res.data;
+            displayedMessageIds.add(msg.id);
+            const fromClient = String(msg.sender_id) === String(API.user() && API.user().id);
+            threadEl.insertAdjacentHTML('beforeend', renderMessage(msg, fromClient));
+            lastKnownMessageId = msg.id;
+            updateMsgCount();
+            scrollToBottom();
+            msgBodyInput.value = '';
+            if (msgStatusEl) {
+                msgStatusEl.className = 'form-status success';
+                msgStatusEl.textContent = 'Message sent.';
+                setTimeout(() => { msgStatusEl.className = 'form-status'; msgStatusEl.textContent = ''; }, 2500);
+            }
+        } catch (err) {
+            if (msgStatusEl) {
+                msgStatusEl.className = 'form-status error';
+                msgStatusEl.innerHTML = '<strong>Failed to send.</strong> ' + escape(err.message || 'Please try again.');
+            }
+        } finally {
+            if (submitBtn) { submitBtn.disabled = false; submitBtn.innerHTML = originalText; }
+            msgBodyInput.disabled = false;
+        }
+    }
+
+    function initComposer() {
+        if (!msgForm) return;
+        // Prevent empty submission
+        msgForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const body = msgBodyInput.value.trim();
+            if (!body) {
+                if (msgStatusEl) {
+                    msgStatusEl.className = 'form-status error';
+                    msgStatusEl.textContent = 'Please write a message before sending.';
+                }
+                msgBodyInput.focus();
+                return;
+            }
+            await sendMessage();
+        });
+
+        // Enter key sends (Shift+Enter for newline)
+        msgBodyInput.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault();
+                msgForm.dispatchEvent(new Event('submit', { cancelable: true, bubbles: true }));
+            }
+        });
+    }
+
+    document.addEventListener('visibilitychange', () => {
+        if (document.visibilityState === 'visible') {
+            if (conversationId) {
+                const draft = msgBodyInput && msgBodyInput.value.trim().length > 0;
+                if (draft) { startPolling(); }
+                else { loadConversation(conversationId, null); }
+            }
+        } else {
+            pausePolling();
+        }
+    });
+
     async function load() {
         const id = getParam('id');
         const root = document.getElementById('root');
@@ -91,7 +365,7 @@
             ...meta.map(([k, v]) => [k, escape(v)])
         ];
 
-        // Determine messaging action
+        // Determine messaging action for the "Next action" panel
         let messagesHref = '#';
         let messageLabel = 'Message lawyer';
         let messageBtnClass = 'btn primary';
@@ -102,36 +376,12 @@
             messageLabel = 'Open conversation';
             messageNote = 'A matter has been opened. Your conversation with the firm is linked below.';
         } else {
-            // Try to find an existing request-scoped conversation
-            let existingConvo = null;
-            try {
-                const convos = await API.listConversations({ limit: 50 });
-                const convList = (convos && convos.data) || [];
-                existingConvo = convList.find((c) => String(c.request_id) === String(request.id));
-            } catch (e) { /* ignore */ }
-
-            if (existingConvo) {
-                messagesHref = `messages.html?conversation=${existingConvo.id}`;
-                messageLabel = 'Open conversation';
-                messageNote = 'The firm has started a conversation about this request.';
-            } else {
-                const s = (request.status || '').toUpperCase();
-                if (['ACCEPTED', 'SCHEDULED', 'IN_PROGRESS', 'UNDER_REVIEW', 'ACTION_REQUIRED'].includes(s)) {
-                    messageNote = 'A matter should be linked to this request. Please contact the firm if you need assistance.';
-                    messageBtnClass = 'btn secondary';
-                } else if (s === 'DECLINED') {
-                    messageNote = 'This request was declined. If you have a new matter, please submit a new request.';
-                    messageBtnClass = 'btn secondary';
-                } else {
-                    messageNote = 'The firm will review your request and respond here. You will be able to message once a conversation is started.';
-                    messageBtnClass = 'btn secondary';
-                }
-            }
+            messageNote = 'You can message the lawyer directly below. The firm will respond as soon as possible.';
         }
 
         if (actionsEl) {
             actionsEl.innerHTML = `
-                <a class="${messageBtnClass}" href="${escape(messagesHref)}">${messageLabel} <span class="arrow" aria-hidden="true">→</span></a>
+                <a class="${messageBtnClass}" href="${escape(messagesHref)}" style="margin-top:0.75rem;">${messageLabel} <span class="arrow" aria-hidden="true">→</span></a>
                 <a class="btn secondary" href="documents.html">Documents</a>
             `;
         }
@@ -219,6 +469,11 @@
                 </aside>
             </div>
         `;
+
+        // Initialize the inline message composer
+        initComposer();
+        if (msgSection) msgSection.style.display = '';
+        await loadConversation(id, request.originating_matter && request.originating_matter.id ? request.originating_matter.id : null);
     }
 
     function acceptedCopy(status) {
@@ -228,7 +483,7 @@
         if (s === 'UNDER_REVIEW') return 'The firm is reviewing your request. You will be notified when the status changes.';
         if (s === 'SCHEDULED') return 'A consultation has been scheduled. Please check your messages for details.';
         if (s === 'COMPLETED' || s === 'CLOSED') return 'This request is closed. If you need further assistance, please submit a new request.';
-        return 'The firm will review your request and respond. You can track progress here and message the firm once a conversation is available.';
+        return 'The firm will review your request and respond. You can track progress here and message the firm.';
     }
 
     load();

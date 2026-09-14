@@ -258,7 +258,7 @@ test.describe('Client Portal', () => {
   });
 });
 
-test.describe('Responsive', () => {
+test.describe('Responsive Navigation', () => {
   test('mobile viewport does not overflow', async ({ page }) => {
     await page.setViewportSize({ width: 390, height: 844 });
     await loginClient(page);
@@ -278,5 +278,94 @@ test.describe('Responsive', () => {
     await page.waitForURL(/dashboard\.html/);
     await page.waitForSelector('.portal-sidebar', { timeout: 10000 });
     await expect(page.locator('.portal-sidebar')).toBeVisible();
+  });
+
+  test('mobile hamburger opens sidebar overlay', async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 844 });
+    await loginClient(page);
+    await page.goto(`${PORTAL}/dashboard.html`);
+    await page.waitForSelector('h1');
+
+    const toggle = page.locator('#portalNavToggle');
+    await expect(toggle).toBeVisible();
+    await expect(toggle).toHaveAttribute('aria-expanded', 'false');
+
+    await toggle.click();
+    await expect(toggle).toHaveAttribute('aria-expanded', 'true');
+    await expect(page.locator('.portal-sidebar')).toHaveClass(/nav-open/);
+    await expect(page.locator('.portal-nav-overlay')).toHaveClass(/nav-open/);
+  });
+
+  test('mobile hamburger closes sidebar', async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 844 });
+    await loginClient(page);
+    await page.goto(`${PORTAL}/dashboard.html`);
+    await page.waitForSelector('h1');
+
+    const toggle = page.locator('#portalNavToggle');
+    await toggle.click();
+    await expect(toggle).toHaveAttribute('aria-expanded', 'true');
+
+    await toggle.click();
+    await expect(toggle).toHaveAttribute('aria-expanded', 'false');
+    await expect(page.locator('.portal-sidebar')).not.toHaveClass(/nav-open/);
+    await expect(page.locator('.portal-nav-overlay')).not.toHaveClass(/nav-open/);
+  });
+
+  test('mobile overlay click closes sidebar', async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 844 });
+    await loginClient(page);
+    await page.goto(`${PORTAL}/dashboard.html`);
+    await page.waitForSelector('h1');
+
+    const toggle = page.locator('#portalNavToggle');
+    await toggle.click();
+    await expect(toggle).toHaveAttribute('aria-expanded', 'true');
+
+    // Click on the overlay at a position outside the sidebar (right side of viewport)
+    await page.mouse.click(360, 422);
+    await expect(toggle).toHaveAttribute('aria-expanded', 'false');
+    await expect(page.locator('.portal-sidebar')).not.toHaveClass(/nav-open/);
+  });
+
+  test('mobile Escape key closes sidebar', async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 844 });
+    await loginClient(page);
+    await page.goto(`${PORTAL}/dashboard.html`);
+    await page.waitForSelector('h1');
+
+    const toggle = page.locator('#portalNavToggle');
+    await toggle.click();
+    await expect(toggle).toHaveAttribute('aria-expanded', 'true');
+
+    await page.keyboard.press('Escape');
+    await expect(toggle).toHaveAttribute('aria-expanded', 'false');
+    await expect(page.locator('.portal-sidebar')).not.toHaveClass(/nav-open/);
+  });
+
+  test('mobile nav-link click closes sidebar', async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 844 });
+    await loginClient(page);
+    await page.goto(`${PORTAL}/dashboard.html`);
+    await page.waitForSelector('h1');
+
+    const toggle = page.locator('#portalNavToggle');
+    await toggle.click();
+    await expect(toggle).toHaveAttribute('aria-expanded', 'true');
+
+    await page.locator('.side-nav a[href="requests.html"]').first().click();
+    await expect(toggle).toHaveAttribute('aria-expanded', 'false');
+    await expect(page.locator('.portal-sidebar')).not.toHaveClass(/nav-open/);
+  });
+
+  test('desktop always shows sidebar (no hamburger)', async ({ page }) => {
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await loginClient(page);
+    await page.goto(`${PORTAL}/dashboard.html`);
+    await page.waitForSelector('h1');
+
+    await expect(page.locator('#portalNavToggle')).toBeHidden();
+    await expect(page.locator('.portal-sidebar')).toBeVisible();
+    await expect(page.locator('.portal-sidebar')).not.toHaveClass(/nav-open/);
   });
 });

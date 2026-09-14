@@ -16,26 +16,56 @@
 
                 <div class="page-head">
                     <div>
-                        <a class="link-muted" href="requests.html">← All requests</a>
+                        <a class="link-muted" href="requests.html">â† All requests</a>
                         <span class="kicker spacer-1" id="ref">Reference</span>
                         <h1 id="subject">Request details.</h1>
-                        <p class="head-meta" id="head-meta">Loading…</p>
+                        <p class="head-meta" id="head-meta">Loadingâ€¦</p>
                     </div>
                     <div class="page-actions" id="page-actions">
-                        <span class="text-tiny-mute">Loading…</span>
+                        <span class="text-tiny-mute">Loadingâ€¦</span>
                     </div>
                 </div>
 
-                <div id="root">
-                    <p class="text-mute-block">Loading request…</p>
-                </div>
+                 <div id="root">
+                     <p class="text-mute-block">Loading requestâ€¦</p>
+                 </div>
 
-            </div>
+                 <div id="message-section" style="display:none;">
+                     <section class="panel">
+                         <div class="panel-head">
+                             <h2>Message the lawyer</h2>
+                             <span class="panel-meta" id="msg-meta">Loadingâ€¦</span>
+                         </div>
+                         <div class="panel-body">
+                             <div class="thread" id="msg-thread"></div>
+                             <div class="compose">
+                                 <div class="alert info" id="msg-notice">
+                                     <strong>Secure messaging.</strong>
+                                     Messages are stored against your request and are visible to the firm only.
+                                 </div>
+                                 <form id="msg-form">
+                                     <div class="field">
+                                         <label for="msg-body">Write your message here...</label>
+                                         <textarea id="msg-body" name="body" placeholder="Write your message here..." required></textarea>
+                                     </div>
+                                     <div class="form-status" id="msg-status" role="status" aria-live="polite"></div>
+                                     <div class="page-actions">
+                                         <button type="submit" class="btn primary">Send Message <span class="arrow" aria-hidden="true">â†’</span></button>
+                                     </div>
+                                 </form>
+                             </div>
+                         </div>
+                     </section>
+                 </div>
+
+             </div>
         </main>
     </div>
 
     <script src="../js/site.js"></script>
+    <script src="../js/realtime.js"></script>
     <script src="portal.js"></script>
     <script src="request.js"></script>
 </body>
 </html>
+

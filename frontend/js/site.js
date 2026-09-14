@@ -171,6 +171,7 @@
         createRequest(payload) { return this.request('/requests', { method: 'POST', body: payload, auth: true }); },
         getRequest(id) { return this.request(`/requests/${encodeURIComponent(id)}`, { auth: true }); },
         getRequestEvents(id) { return this.request(`/requests/${encodeURIComponent(id)}/events`, { auth: true }); },
+        getRequestConversation(id) { return this.request(`/requests/${encodeURIComponent(id)}/conversation`, { auth: true }); },
         listMatters() { return this.request('/matters', { auth: true }); },
         getMatter(id) { return this.request(`/matters/${encodeURIComponent(id)}`, { auth: true }); },
         getMatterEvents(id) { return this.request(`/matters/${encodeURIComponent(id)}/events`, { auth: true }); },

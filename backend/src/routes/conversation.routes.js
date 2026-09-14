@@ -139,7 +139,8 @@ conversationRouter.post('/:id/messages', async (request, response, next) => {
 
         // Real-time notification via SSE
         const { notifyMessageCreated } = await import('../services/sse.js');
-        notifyMessageCreated(convo.id, inserted.rows[0].id, request.user.sub, input.body);
+        const senderUser = await query('SELECT full_name FROM users WHERE id = $1', [request.user.sub]);
+        notifyMessageCreated(convo.id, inserted.rows[0].id, request.user.sub, input.body, request.user.role, senderUser.rows[0]?.full_name || null);
 
         response.status(201).json({ data: inserted.rows[0] });
     } catch (error) { next(error); }

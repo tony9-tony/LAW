@@ -697,7 +697,7 @@ ownerRouter.post('/conversations/:id/messages', async (request, response, next) 
             entityId: convo.id
         });
         const { notifyMessageCreated } = await import('../services/sse.js');
-        notifyMessageCreated(convo.id, inserted.rows[0].id, request.user.sub, input.body);
+        notifyMessageCreated(convo.id, inserted.rows[0].id, request.user.sub, input.body, request.user.role, (await query('SELECT full_name FROM users WHERE id = $1', [request.user.sub])).rows[0]?.full_name || null);
 
         response.status(201).json({ data: inserted.rows[0] });
     } catch (error) { next(error); }
@@ -797,7 +797,7 @@ ownerRouter.post('/requests/:id/message', async (request, response, next) => {
             entityId: convoId
         });
         const { notifyMessageCreated } = await import('../services/sse.js');
-        notifyMessageCreated(convoId, inserted.rows[0].id, request.user.sub, input.body);
+        notifyMessageCreated(convoId, inserted.rows[0].id, request.user.sub, input.body, request.user.role, (await query('SELECT full_name FROM users WHERE id = $1', [request.user.sub])).rows[0]?.full_name || null);
 
         response.status(201).json({ data: { conversation_id: convoId, message: inserted.rows[0] } });
     } catch (error) { next(error); }

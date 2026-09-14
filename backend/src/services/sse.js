@@ -74,14 +74,14 @@ export function sendToUser(userId, event) {
     }
 }
 
-export async function notifyMessageCreated(conversationId, messageId, senderId, body) {
+export async function notifyMessageCreated(conversationId, messageId, senderId, body, senderRole, senderName) {
     const participants = await getConversationParticipants(conversationId);
     for (const pid of participants) {
         if (pid === senderId) continue;
         sendToUser(pid, {
             type: 'message.created',
             conversationId,
-            message: { id: messageId, sender_id: senderId, body, created_at: new Date().toISOString() },
+            message: { id: messageId, sender_id: senderId, sender_role: senderRole, sender_name: senderName, body, created_at: new Date().toISOString() },
             timestamp: Date.now()
         });
     }

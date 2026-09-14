@@ -37,6 +37,10 @@
     --radius: 4px;
     --radius-lg: 8px;
     --transition: 160ms ease;
+    --primary: #7a4f2e;
+    --primary-rgb: 122, 79, 46;
+    --primary-dark: #946236;
+    --bg-hover: #202020;
 }
 
 /* 2. Reset */

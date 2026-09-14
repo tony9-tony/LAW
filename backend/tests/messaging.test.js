@@ -8,6 +8,7 @@ import jwt from 'jsonwebtoken';
 import { app } from '../src/app.js';
 import { config } from '../src/config.js';
 import { query } from '../src/db.js';
+import { acquireDbTestLock, releaseDbTestLock } from './db-test-lock.js';
 
 const JWT_SECRET = process.env.JWT_SECRET || 'development-only-secret';
 
@@ -79,8 +80,13 @@ async function cleanupTestData() {
     cleanupIds = { users: [], matters: [], convos: [] };
 }
 
+test.beforeEach(async () => {
+    await acquireDbTestLock();
+});
+
 test.afterEach(async () => {
     await cleanupTestData();
+    await releaseDbTestLock();
 });
 
 test('A. CLIENT A can access own conversation', async () => {

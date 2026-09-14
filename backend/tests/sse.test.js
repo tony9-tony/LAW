@@ -5,6 +5,7 @@ import jwt from 'jsonwebtoken';
 import { app } from '../src/app.js';
 import { config } from '../src/config.js';
 import { query } from '../src/db.js';
+import { acquireDbTestLock, releaseDbTestLock } from './db-test-lock.js';
 
 const JWT_SECRET = config.jwtSecret || 'development-only-secret';
 
@@ -92,8 +93,13 @@ async function insertTestData(suffix) {
     return { clientA, clientB, owner, matterA, matterB, convoA, convoB };
 }
 
+test.beforeEach(async () => {
+    await acquireDbTestLock();
+});
+
 test.afterEach(async () => {
     await cleanupTestData();
+    await releaseDbTestLock();
 });
 
 test('SSE realtime flow verification', async () => {

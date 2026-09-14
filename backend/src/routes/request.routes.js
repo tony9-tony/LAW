@@ -74,11 +74,33 @@ requestRouter.get('/:id/events', async (request, response, next) => {
         await ensureOwned('requests', request.params.id, request.user.sub);
         const result = await query(
             `SELECT id, event_type, title, note, created_at
-             FROM request_events WHERE request_id = $1
-             ORDER BY created_at ASC`,
+              FROM request_events WHERE request_id = $1
+              ORDER BY created_at ASC`,
             [request.params.id]
         );
         response.json({ data: result.rows });
+    } catch (error) { next(error); }
+});
+
+/* Get or create a conversation for this request.
+   Allows a client to message the lawyer before a matter is opened.
+   Idempotent: returns the existing conversation if one already exists. */
+requestRouter.get('/:id/conversation', async (request, response, next) => {
+    try {
+        await ensureOwned('requests', request.params.id, request.user.sub);
+        const existing = await query(
+            `SELECT id, request_id, client_id, created_at FROM conversations WHERE request_id = $1 LIMIT 1`,
+            [request.params.id]
+        );
+        if (existing.rowCount > 0) {
+            return response.json({ data: existing.rows[0] });
+        }
+        const result = await query(
+            `INSERT INTO conversations (request_id, client_id) VALUES ($1, $2)
+             RETURNING id, request_id, client_id, created_at`,
+            [request.params.id, request.user.sub]
+        );
+        response.status(201).json({ data: result.rows[0] });
     } catch (error) { next(error); }
 });
 
