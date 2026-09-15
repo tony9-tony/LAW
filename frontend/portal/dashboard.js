@@ -27,7 +27,7 @@
                 tbody.innerHTML = `<tr><td colspan="5" class="empty-state tight"><span class="ico">·</span><strong>No requests yet.</strong><p>Submit a request to begin working with the firm. Your request will be reviewed and you will receive a response here.</p><div class="empty-actions"><a class="btn" href="custom-matter.html">Submit a request <span class="arrow">→</span></a><a class="btn secondary" href="consultation.html">Book consultation</a></div></td></tr>`;
             } else {
                 tbody.innerHTML = rows.slice(0, 6).map((r) => `
-                    <tr class="row-link" onclick="window.location.href='request.html?id=${r.id}'">
+                    <tr class="row-link" data-href="request.html?id=${r.id}">
                         <td><span class="ref">#${String(r.id).padStart(5, '0')}</span></td>
                         <td class="subj"><strong>${escape(r.subject || '—')}</strong></td>
                         <td>${P.statusPill(r.status)}</td>

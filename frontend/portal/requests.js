@@ -19,7 +19,7 @@
                 return;
             }
             tbody.innerHTML = rows.map((r) => `
-                <tr class="row-link" onclick="window.location.href='request.html?id=${r.id}'">
+                <tr class="row-link" data-href="request.html?id=${r.id}">
                     <td><span class="ref">#${String(r.id).padStart(5, '0')}</span></td>
                     <td class="subj"><strong>${escape(r.subject || '—')}</strong></td>
                     <td>${P.statusPill(r.status)}</td>

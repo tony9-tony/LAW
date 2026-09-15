@@ -138,7 +138,7 @@
                                 ` : ''}
                             </div>
                             <div class="notification-actions">
-                                <button class="btn btn-sm secondary" onclick="markNotificationRead('${notification.id}')">Mark as read</button>
+                                <button class="btn btn-sm secondary" data-id="${notification.id}">Mark as read</button>
                             </div>
                         </div>
                     `;
@@ -151,6 +151,12 @@
             item.addEventListener('click', () => {
                 const notificationId = item.getAttribute('data-id');
                 viewNotificationDetails(notificationId);
+            });
+        });
+        notificationsList.querySelectorAll('button[data-id]').forEach((btn) => {
+            btn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                markNotificationRead(btn.getAttribute('data-id'));
             });
         });
     }

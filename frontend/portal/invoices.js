@@ -56,7 +56,7 @@
                         </tr>
                     </thead>
                     <tbody>${items.map((inv) => `
-                        <tr class="row-link" onclick="window.location.href='invoices.html?id=${inv.id}'">
+                        <tr class="row-link" data-href="invoices.html?id=${inv.id}">
                             <td><span class="ref">#${String(inv.id).padStart(5, '0')}</span></td>
                             <td class="subj"><strong>${escape(inv.matter_reference || '—')}</strong>${inv.matter_title ? ' · ' + escape(inv.matter_title) : ''}</td>
                             <td>${P.statusPill(inv.status)}</td>

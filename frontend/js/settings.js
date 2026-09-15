@@ -84,7 +84,8 @@
                     <div class="theme-selector">
                         <button 
                             class="theme-option ${currentUserSettings?.theme === 'light' ? 'active' : ''}" 
-                            onclick="setUserSetting('theme', 'light')"
+                            data-setting-key="theme"
+                            data-setting-value="light"
                             data-theme="light"
                         >
                             <span class="theme-preview light"></span>
@@ -92,7 +93,8 @@
                         </button>
                         <button 
                             class="theme-option ${currentUserSettings?.theme === 'dark' ? 'active' : ''}" 
-                            onclick="setUserSetting('theme', 'dark')"
+                            data-setting-key="theme"
+                            data-setting-value="dark"
                             data-theme="dark"
                         >
                             <span class="theme-preview dark"></span>
@@ -100,7 +102,8 @@
                         </button>
                         <button 
                             class="theme-option ${currentUserSettings?.theme === 'system' ? 'active' : ''}" 
-                            onclick="setUserSetting('theme', 'system')"
+                            data-setting-key="theme"
+                            data-setting-value="system"
                             data-theme="system"
                         >
                             <span class="theme-preview system"></span>
@@ -118,7 +121,8 @@
                                 name="font_size" 
                                 value="small" 
                                 ${currentUserSettings?.font_size === 'small' ? 'checked' : ''}
-                                onclick="setUserSetting('font_size', 'small')"
+                                data-setting-key="font_size"
+                                data-setting-value="small"
                             >
                             <span>Small</span>
                         </label>
@@ -128,7 +132,8 @@
                                 name="font_size" 
                                 value="medium" 
                                 ${currentUserSettings?.font_size === 'medium' ? 'checked' : ''}
-                                onclick="setUserSetting('font_size', 'medium')"
+                                data-setting-key="font_size"
+                                data-setting-value="medium"
                             >
                             <span>Medium</span>
                         </label>
@@ -138,7 +143,8 @@
                                 name="font_size" 
                                 value="large" 
                                 ${currentUserSettings?.font_size === 'large' ? 'checked' : ''}
-                                onclick="setUserSetting('font_size', 'large')"
+                                data-setting-key="font_size"
+                                data-setting-value="large"
                             >
                             <span>Large</span>
                         </label>
@@ -150,7 +156,8 @@
                         <input 
                             type="checkbox" 
                             ${currentUserSettings?.reduced_motion ? 'checked' : ''}
-                            onclick="setUserSetting('reduced_motion', !currentUserSettings?.reduced_motion)"
+                            data-setting-key="reduced_motion"
+                            data-setting-value="toggle"
                         >
                         <span>Respect system reduced motion preference</span>
                     </label>
@@ -393,10 +400,26 @@
 
     (async function init() {
         if (!window.messageService) {
-            window.messageService = new (window.MessageService || window.messageService.constructor)();
-            await window.messageService.initialize();
+            if (window.MessageService) {
+                window.messageService = new MessageService();
+                await window.messageService.initialize();
+            }
         }
         
         await initSettings();
     })();
+
+    document.addEventListener('click', (e) => {
+        const target = e.target.closest('[data-setting-key]');
+        if (!target) return;
+        e.preventDefault();
+        const key = target.getAttribute('data-setting-key');
+        const valueAttr = target.getAttribute('data-setting-value');
+        if (valueAttr === 'toggle') {
+            const checked = target.type === 'checkbox' ? target.checked : false;
+            setUserSetting(key, checked);
+        } else {
+            setUserSetting(key, valueAttr);
+        }
+    });
 })();

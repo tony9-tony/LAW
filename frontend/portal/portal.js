@@ -148,6 +148,14 @@
             });
         });
 
+        document.addEventListener('click', (e) => {
+            const link = e.target.closest('.row-link[data-href], [data-nav]');
+            if (!link) return;
+            e.preventDefault();
+            const href = link.getAttribute('data-href') || link.getAttribute('data-nav');
+            if (href) window.location.href = href;
+        });
+
         refreshUnreadIndicators();
 
         if (window.Site.Realtime) {

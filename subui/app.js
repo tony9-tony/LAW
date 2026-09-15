@@ -248,7 +248,7 @@
                 return;
             }
             el.innerHTML = items.slice(0, 5).map(c => `
-                <div style="padding:0.6rem 1.25rem;border-bottom:1px solid var(--line);cursor:pointer;" onclick="window.location.hash='#messages';return false;">
+                <div style="padding:0.6rem 1.25rem;border-bottom:1px solid var(--line);cursor:pointer;" data-nav="messages">
                     <div style="display:flex;justify-content:space-between;align-items:center;">
                         <strong style="color:var(--ink);">${escape(c.client_name || 'Client')}</strong>
                         ${c.unread_count > 0 ? `<span class="pill status-new" style="font-size:0.65rem;">${c.unread_count} unread</span>` : ''}
@@ -609,15 +609,15 @@
                 </div>
             </div>
             <section class="kpi-grid">
-                <div class="kpi kpi-clickable" onclick="window.location.hash='#requests';return false;"><div class="kpi-label">Open Requests</div><div class="kpi-value" id="dash-requests">—</div><div class="kpi-trend" id="dash-requests-meta">Awaiting review</div></div>
-                <div class="kpi kpi-clickable" onclick="window.location.hash='#matters';return false;"><div class="kpi-label">Active Matters</div><div class="kpi-value" id="dash-matters">—</div><div class="kpi-trend" id="dash-matters-meta">In progress</div></div>
-                <div class="kpi kpi-clickable" onclick="window.location.hash='#appointments';return false;"><div class="kpi-label">Upcoming Appointments</div><div class="kpi-value" id="dash-appts">—</div><div class="kpi-trend" id="dash-appts-meta">This week</div></div>
-                <div class="kpi kpi-clickable" onclick="window.location.hash='#messages';return false;"><div class="kpi-label">Unread Messages</div><div class="kpi-value" id="dash-notif">—</div><div class="kpi-trend" id="dash-notif-meta">Awaiting attention</div></div>
+                <div class="kpi kpi-clickable" data-nav="requests"><div class="kpi-label">Open Requests</div><div class="kpi-value" id="dash-requests">—</div><div class="kpi-trend" id="dash-requests-meta">Awaiting review</div></div>
+                <div class="kpi kpi-clickable" data-nav="matters"><div class="kpi-label">Active Matters</div><div class="kpi-value" id="dash-matters">—</div><div class="kpi-trend" id="dash-matters-meta">In progress</div></div>
+                <div class="kpi kpi-clickable" data-nav="appointments"><div class="kpi-label">Upcoming Appointments</div><div class="kpi-value" id="dash-appts">—</div><div class="kpi-trend" id="dash-appts-meta">This week</div></div>
+                <div class="kpi kpi-clickable" data-nav="messages"><div class="kpi-label">Unread Messages</div><div class="kpi-value" id="dash-notif">—</div><div class="kpi-trend" id="dash-notif-meta">Awaiting attention</div></div>
             </section>
             <section class="panel">
                 <div class="panel-head">
                     <h2>Recent Client Requests</h2>
-                    <a class="btn ghost" href="#" onclick="window.location.hash='#requests';return false;">View all</a>
+                    <a class="btn ghost" href="#" data-nav="requests">View all</a>
                 </div>
                 <div class="panel-body tight" id="dash-recent-requests">
                     <div class="empty-state"><span class="ico">·</span><strong>Loading...</strong></div>
@@ -626,7 +626,7 @@
             <section class="panel">
                 <div class="panel-head">
                     <h2>Recent Messages</h2>
-                    <a class="btn ghost" href="#" onclick="window.location.hash='#messages';return false;">View all</a>
+                    <a class="btn ghost" href="#" data-nav="messages">View all</a>
                 </div>
                 <div class="panel-body tight" id="dash-recent-messages">
                     <div class="empty-state"><span class="ico">·</span><strong>Loading...</strong></div>
@@ -635,7 +635,7 @@
             <section class="panel">
                 <div class="panel-head">
                     <h2>Recent Matters</h2>
-                    <a class="btn ghost" href="#" onclick="window.location.hash='#matters';return false;">View all</a>
+                    <a class="btn ghost" href="#" data-nav="matters">View all</a>
                 </div>
                 <div class="panel-body tight" id="dash-recent-matters">
                     <div class="empty-state"><span class="ico">·</span><strong>Loading...</strong></div>
@@ -703,7 +703,7 @@
                 return;
             }
             el.innerHTML = items.slice(0, 5).map(c => `
-                <div style="padding:0.6rem 1.25rem;border-bottom:1px solid var(--line);cursor:pointer;" onclick="window.location.hash='#messages';return false;">
+                <div style="padding:0.6rem 1.25rem;border-bottom:1px solid var(--line);cursor:pointer;" data-nav="messages">
                     <div style="display:flex;justify-content:space-between;align-items:center;">
                         <strong style="color:var(--ink);">${escape(c.client_name || 'Client')}</strong>
                         ${c.unread_count > 0 ? `<span class="pill status-new" style="font-size:0.65rem;">${c.unread_count} unread</span>` : ''}
@@ -1944,6 +1944,11 @@
                     navigateTo('messages', btn.getAttribute('data-conversation-id'));
                 });
             });
+            container.querySelectorAll('tr[data-conversation-id]').forEach((row) => {
+                row.addEventListener('click', () => {
+                    navigateTo('messages', row.getAttribute('data-conversation-id'));
+                });
+            });
         } catch (error) {
             container.innerHTML = `<div class="empty-state"><span class="ico">!</span><strong>Could not load conversations.</strong><p>${escape(error.message)}</p></div>`;
         }
@@ -2619,7 +2624,7 @@
                     </div>
                     <div class="action-row">
                         <button class="btn ghost" id="btn-back-documents">← Back to Documents</button>
-                        <a class="btn primary" href="#" onclick="alert('Document storage is not yet configured.');return false;">Download</a>
+                        <a class="btn primary" id="btn-download-document" href="#">Download</a>
                     </div>
                 </div>
                 <section class="panel">
@@ -2642,6 +2647,12 @@
                 </section>
             `;
             document.getElementById('btn-back-documents')?.addEventListener('click', loadDocuments);
+            const downloadBtn = document.getElementById('btn-download-document');
+            if (downloadBtn) {
+                downloadBtn.addEventListener('click', () => {
+                    alert('Document storage is not yet configured.');
+                });
+            }
         } catch (error) {
             container.innerHTML = `<div class="empty-state"><span class="ico">!</span><strong>Could not load document.</strong><p>${escape(error.message)}</p></div>`;
         }
@@ -3153,6 +3164,14 @@
             e.preventDefault();
             navigateTo(link.getAttribute('href').substring(1));
         });
+    });
+
+    document.addEventListener('click', (e) => {
+        const navTarget = e.target.closest('[data-nav]');
+        if (navTarget) {
+            e.preventDefault();
+            navigateTo(navTarget.getAttribute('data-nav'));
+        }
     });
 
     window.addEventListener('hashchange', navigateFromLocation);

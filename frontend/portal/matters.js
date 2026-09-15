@@ -20,7 +20,7 @@
             }
             if (meta) meta.textContent = items.length + ' matter' + (items.length === 1 ? '' : 's');
             tbody.innerHTML = items.map((m) => `
-                <tr class="row-link" onclick="window.location.href='matter.html?id=${m.id}'">
+                <tr class="row-link" data-href="matter.html?id=${m.id}">
                     <td><span class="ref">${escape(m.reference || '—')}</span></td>
                     <td class="subj"><strong>${escape(m.title || '—')}</strong></td>
                     <td>${P.statusPill(m.status)}</td>

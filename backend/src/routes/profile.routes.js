@@ -183,22 +183,21 @@ profileRouter.patch('/settings', async (request, response, next) => {
 
         const cols = [];
         const params = [];
-        let i = 1;
-        for (const [k, v] of Object.entries(input)) {
-            if (v === undefined) continue;
-            cols.push(`"${k}" = $${i}`);
-            params.push(v);
-            i++;
+        const defaults = { theme: 'system', notify_email: true, notify_push: true, reduced_motion: false, font_size: 'medium' };
+        const insertValues = ['$6'];
+        for (const key of ['theme', 'notify_email', 'notify_push', 'reduced_motion', 'font_size']) {
+            const value = input[key] === undefined ? defaults[key] : input[key];
+            params.push(value);
+            cols.push(`"${key}" = $${params.length}`);
+            insertValues.push('$' + params.length);
         }
-        if (!cols.length) {
-            return response.status(400).json({ error: { code: 'BAD_REQUEST', message: 'No settings to update' } });
-        }
+        params.push(request.user.sub);
         const result = await query(
-            `INSERT INTO user_settings (user_id, theme, notify_email, notify_push, reduced_motion, font_size, updated_at)
-             VALUES ($${i}, 'system', true, true, false, 'medium', NOW())
+            `INSERT INTO user_settings (user_id, theme, notify_email, notify_push, reduced_motion, font_size)
+             VALUES (${insertValues.join(', ')})
              ON CONFLICT (user_id) DO UPDATE SET ${cols.join(', ')}, updated_at = NOW()
              RETURNING user_id, theme, notify_email, notify_push, reduced_motion, font_size, updated_at`,
-            [...params, request.user.sub]
+            params
         );
         await logAudit({ actorId: request.user.sub, action: 'SETTINGS_UPDATED', entityType: 'user', entityId: request.user.sub, metadata: { fields: cols.map(c => c.replace(/ .*/,'').replace(/"/g,'')) } });
         response.json({ data: result.rows[0] });
