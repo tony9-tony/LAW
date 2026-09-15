@@ -1,6 +1,7 @@
 /* Shared SSE client for real-time messaging.
    Uses Server-Sent Events with the existing JWT authentication.
-   Falls back to polling if SSE is unavailable. */
+   Pages that need guaranteed delivery (e.g. message thread) also use
+   periodic REST polling as a fallback. */
 (function () {
     'use strict';
     if (!window.Site) return;

@@ -9,7 +9,7 @@
 <body>
     <div class="app">
 
-        <aside class="sidebar" aria-label="SUBUI navigation">
+        <aside class="sidebar" id="admin-sidebar" aria-label="SUBUI navigation">
             <div class="sidebar-head">
                 <span class="sidebar-brand">Emmanuel Richard Machibya</span>
                 <span class="sidebar-tag">Advocate &amp; Legal Counsel</span>
@@ -22,7 +22,7 @@
             <a href="#matters"><span class="nav-mark"></span>Matters</a>
             <a href="#appointments"><span class="nav-mark"></span>Appointments</a>
             <a href="#documents"><span class="nav-mark"></span>Documents</a>
-            <a href="#messages"><span class="nav-mark"></span>Messages</a>
+            <a href="#messages"><span class="nav-mark"></span>Messages<span class="nav-badge" id="owner-msg-badge" aria-label="unread messages"></span></a>
             <a href="#notifications"><span class="nav-mark"></span>Notifications</a>
             <a href="#invoices"><span class="nav-mark"></span>Invoices</a>
             <a href="#analytics"><span class="nav-mark"></span>Analytics</a>
@@ -38,8 +38,14 @@
         </aside>
 
         <div class="app-content">
-            <header class="topbar">
-                <div class="crumbs">
+                <div class="sidebar-backdrop" id="subui-sidebar-backdrop"></div>
+                <header class="topbar">
+                 <button class="burger" id="subui-burger" aria-label="Toggle navigation" aria-controls="admin-sidebar" aria-expanded="false">
+                     <span></span>
+                     <span></span>
+                     <span></span>
+                 </button>
+                 <div class="crumbs">
                     <span>Practice</span>
                     <strong>Dashboard</strong>
                 </div>

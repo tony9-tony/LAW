@@ -104,7 +104,8 @@
                 setTimeout(() => { window.location.href = 'index.html'; }, 800);
             } catch (err) {
                 status.className = 'form-status error';
-                status.innerHTML = `<strong>Setup failed.</strong>${err.message}`;
+                const msg = err && err.message ? String(err.message).replace(/[&<>"']/g, (c) => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])) : 'Setup failed.';
+                status.innerHTML = `<strong>Setup failed.</strong>${msg}`;
             }
         });
     }
@@ -152,7 +153,8 @@
                 setTimeout(() => { window.location.href = 'index.html'; }, 500);
             } catch (err) {
                 status.className = 'form-status error';
-                status.innerHTML = `<strong>Sign-in failed.</strong>${err.message}`;
+                const msg = err && err.message ? String(err.message).replace(/[&<>"']/g, (c) => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])) : 'Sign-in failed.';
+                status.innerHTML = `<strong>Sign-in failed.</strong>${msg}`;
             }
         });
     }

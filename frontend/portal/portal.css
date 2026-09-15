@@ -278,6 +278,37 @@ img { max-width: 100%; display: block; }
     flex-shrink: 0;
 }
 .side-nav a.active .ico { color: var(--brown-soft); }
+.nav-badge {
+    display: none;
+    min-width: 18px;
+    height: 18px;
+    padding: 0 5px;
+    margin-left: auto;
+    font-size: 0.7rem;
+    font-weight: 600;
+    line-height: 18px;
+    text-align: center;
+    color: var(--ink-white);
+    background: var(--brown);
+    border-radius: 9px;
+    box-shadow: 0 0 6px rgba(122, 79, 46, 0.35);
+}
+.unread-dot {
+    display: inline-block;
+    width: 8px;
+    height: 8px;
+    margin-right: 0.5rem;
+    border-radius: 50%;
+    background: var(--brown);
+    box-shadow: 0 0 4px rgba(122, 79, 46, 0.4);
+    flex-shrink: 0;
+}
+.last-msg-preview {
+    max-width: 280px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
 .side-meta {
     padding: 0 0.75rem;
     font-size: 0.74rem;

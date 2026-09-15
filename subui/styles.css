@@ -147,6 +147,32 @@ button { cursor: pointer; background: transparent; border: 0; padding: 0; }
     flex-shrink: 0;
 }
 .sidebar-nav a.active .nav-mark { background: var(--brown-soft); }
+.sidebar-nav .nav-badge {
+    display: none;
+    min-width: 18px;
+    height: 18px;
+    padding: 0 5px;
+    margin-left: auto;
+    font-size: 0.7rem;
+    font-weight: 600;
+    line-height: 18px;
+    text-align: center;
+    color: var(--ink-white);
+    background: var(--brown);
+    border-radius: 9px;
+    box-shadow: 0 0 6px rgba(122, 79, 46, 0.35);
+}
+.sidebar-nav .nav-badge.has-unread { display: inline-flex; }
+.unread-dot {
+    display: inline-block;
+    width: 8px;
+    height: 8px;
+    margin-left: 0.5rem;
+    border-radius: 50%;
+    background: var(--brown);
+    box-shadow: 0 0 4px rgba(122, 79, 46, 0.4);
+    vertical-align: middle;
+}
 .sidebar-foot {
     padding: 1rem 1.25rem;
     border-top: 1px solid var(--line);
@@ -523,6 +549,18 @@ button { cursor: pointer; background: transparent; border: 0; padding: 0; }
     overflow-y: auto;
     box-shadow: var(--shadow-lg);
 }
+/* Inline modal dialogs use .modal-overlay as the full-screen backdrop and
+   .modal as the centered content card. The Modal-class stylesheet injected at
+   runtime sets .modal to display:none for its own full-viewport shell; scope
+   our rule (higher specificity) so it does not hide inline modal content. */
+.modal-overlay > .modal {
+    display: block;
+    position: relative;
+    width: auto;
+    height: auto;
+    max-width: 100%;
+    margin: auto;
+}
 .modal-header {
     display: flex;
     justify-content: space-between;
@@ -562,16 +600,73 @@ button { cursor: pointer; background: transparent; border: 0; padding: 0; }
 .form-status strong { display: block; font-weight: 500; margin-bottom: 0.25rem; color: var(--ink); }
 .actions { display: flex; gap: 0.75rem; justify-content: flex-end; margin-top: 1rem; }
 
-/* 15. Responsive */
+/* 15. Burger menu */
+.burger {
+    display: none;
+    position: relative;
+    z-index: 1001;
+    flex-direction: column;
+    justify-content: space-between;
+    align-items: center;
+    width: 32px;
+    height: 26px;
+    padding: 0;
+    margin-right: 0.5rem;
+    background: transparent;
+    border: none;
+    cursor: pointer;
+}
+.burger span {
+    display: block;
+    width: 100%;
+    height: 3px;
+    background: var(--ink-soft);
+    border-radius: 2px;
+    transition: all 0.2s ease;
+}
+.burger:hover span { background: var(--ink); }
+.burger[aria-expanded="true"] span:nth-child(1) {
+    transform: rotate(45deg) translate(5px, 5px);
+}
+.burger[aria-expanded="true"] span:nth-child(2) {
+    opacity: 0;
+}
+.burger[aria-expanded="true"] span:nth-child(3) {
+    transform: rotate(-45deg) translate(5px, -5px);
+}
+.sidebar-backdrop {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.5);
+    z-index: 998;
+}
+.sidebar-backdrop.sidebar-open { display: block; }
+
+/* 16. Responsive */
 @media (max-width: 1024px) {
     .kpi-grid { grid-template-columns: repeat(2, 1fr); }
 }
-@media (max-width: 760px) {
+@media (max-width: 860px) {
+    .burger { display: flex; }
     .app { grid-template-columns: 1fr; }
-    .sidebar { position: relative; height: auto; }
-    .sidebar-nav { display: flex; flex-wrap: wrap; padding: 0.5rem; }
-    .sidebar-nav .group-label { width: 100%; padding: 0.5rem 0.5rem 0.25rem; }
-    .sidebar-nav a { padding: 0.45rem 0.6rem; font-size: 0.82rem; }
+    .sidebar {
+        position: fixed;
+        top: 0;
+        left: 0;
+        height: 100vh;
+        width: min(280px, 85vw);
+        max-width: 85vw;
+        transform: translateX(-100%);
+        transition: transform 0.25s ease;
+        z-index: 1000;
+        box-shadow: 2px 0 24px rgba(0, 0, 0, 0.45);
+        overflow-y: auto;
+        overflow-x: hidden;
+    }
+    .sidebar.sidebar-open {
+        transform: translateX(0);
+    }
     .app-main { padding: 1.25rem; }
     .topbar { padding: 0.85rem 1.25rem; }
     .kpi-grid { grid-template-columns: 1fr; }

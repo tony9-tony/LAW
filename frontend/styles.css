@@ -687,18 +687,26 @@ h4 { font-size: clamp(1rem, 1.4vw, 1.1rem); line-height: 1.35; font-family: var(
     --------------------------------------------------------------------------
 */
 .hero-mark {
+    /* Kept anchored to the top-right of the hero on every breakpoint so the
+       emblem never jumps to a different part of the layout. Width scales with
+       the viewport via clamp() so the composition shrinks proportionally on
+       smaller screens instead of being repositioned arbitrarily. The natural
+       aspect ratio (1366x5827) is preserved so the image never distorts. */
     position: absolute;
-    top: 50%;
-    right: 2vw;
-    width: clamp(120px, 18vw, 220px);
-    transform: translateY(-50%);
+    top: -3.5vh;
+    right: 0;
+    width: clamp(120px, 42vw, 850px);
+    height: auto;
+    aspect-ratio: 1366 / 5827;
     z-index: 1;
     pointer-events: none;
+
     --hero-mark-glow: radial-gradient(circle at 50% 50%,
         rgba(122, 79, 46, 0.10) 0%,
         rgba(122, 79, 46, 0.03) 35%,
         rgba(122, 79, 46, 0) 55%);
 }
+
 .hero-mark::before {
     /* Halo layer, behind the image. */
     content: '';
@@ -720,11 +728,12 @@ h4 { font-size: clamp(1rem, 1.4vw, 1.1rem); line-height: 1.35; font-family: var(
     pointer-events: none;
 }
 .hero-mark img {
-    /* Slight rounding so corners never feel like a rectangle crop. */
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+    object-position: right center;
+    display: block;
     border-radius: 2px;
-    /* Aged-bronze treatment: desaturate, warm tone, slight dim.
-       mix-blend-mode absorbs the surrounding brown panel so any light
-       JPEG background blends into the page instead of standing out. */
     opacity: 0.9;
     filter:
         sepia(0.3)
@@ -733,20 +742,22 @@ h4 { font-size: clamp(1rem, 1.4vw, 1.1rem); line-height: 1.35; font-family: var(
         brightness(0.85)
         contrast(0.92);
     mix-blend-mode: luminosity;
-    /* Subtle inner shadow for depth. */
     box-shadow:
         0 1px 0 rgba(255, 255, 255, 0.02) inset,
         0 12px 24px -12px rgba(0, 0, 0, 0.4);
-}
-.hero-mark img {
-    width: 100%;
-    height: auto;
-    display: block;
-    border-radius: 2px;
-    opacity: 0.9;
-    filter: sepia(0.3) saturate(0.5) hue-rotate(-8deg) brightness(0.85) contrast(0.92);
-    mix-blend-mode: luminosity;
-    box-shadow: 0 1px 0 rgba(255, 255, 255, 0.02) inset, 0 12px 24px -12px rgba(0, 0, 0, 0.4);
+    /* Left-to-right fade: the left edge of the emblem fades to transparent
+       so it blends into the dark hero background. The ramp is spread across
+       most of the width with a gentle multi-stop curve so the transition is
+       smooth and gradual, with no noticeable boundary; the right side stays
+       fully sharp and visible. */
+    -webkit-mask-image: linear-gradient(to right, transparent 0%, rgba(0, 0, 0, 0.4) 35%, black 88%);
+    mask-image: linear-gradient(to right, transparent 0%, rgba(0, 0, 0, 0.4) 35%, black 88%);
+    -webkit-mask-repeat: no-repeat;
+    mask-repeat: no-repeat;
+    -webkit-mask-size: 100% 100%;
+    mask-size: 100% 100%;
+    -webkit-mask-mode: alpha;
+    mask-mode: alpha;
 }
 .hero-mark .hero-mark-quote {
     margin-top: 1.25rem;
@@ -771,35 +782,36 @@ h4 { font-size: clamp(1rem, 1.4vw, 1.1rem); line-height: 1.35; font-family: var(
 .hero-inner > aside.hero-side { margin-right: clamp(80px, 20vw, 120px); }
 
 @media (max-width: 1100px) {
-    .hero-mark { width: clamp(100px, 20vw, 200px); right: 2vw; }
+    /* Scale down proportionally while staying anchored to the top-right. */
+    .hero-mark { width: clamp(110px, 34vw, 420px); right: 2vw; top: -3vh; }
 }
 @media (max-width: 960px) {
     .hero-inner { align-items: start; }
-    /* On tablet: show the mark centered between text and aside. */
+    /* Layout is now single-column, but the emblem stays anchored to the
+       top-right and simply scales down proportionally — no jump to a
+       different part of the page. */
     .hero-mark {
-        position: relative;
-        width: 100px;
-        right: auto;
-        left: auto;
-        top: auto;
-        bottom: auto;
-        transform: none;
-        margin: 2rem auto 0;
-        opacity: 0.55;
+        position: absolute;
+        width: clamp(90px, 26vw, 260px);
+        right: 2vw;
+        top: -2.5vh;
+        opacity: 0.6;
     }
     .hero-mark::before { inset: -10% -8% -10% -8%; filter: none; }
     .hero-mark::after { display: none; }
     .hero-inner > aside.hero-side { margin-right: 0; }
 }
 @media (max-width: 760px) {
-    /* Mobile: small, restrained emblem centered below text. */
+    /* Mobile: emblem stays anchored to the top-right and scales down
+       proportionally so it never covers the text or buttons. It now starts
+       at the very top of the hero (top: 0) so its full length runs downward
+       from the top edge instead of being pushed above it. */
     .hero-mark {
-        display: block;
-        position: relative;
-        width: 60px;
-        transform: none;
-        margin: 1.5rem auto 0;
-        opacity: 0.4;
+        position: absolute;
+        width: clamp(70px, 20vw, 160px);
+        right: 2vw;
+        top: 0;
+        opacity: 0.5;
     }
     .hero-mark::before { inset: -10% -8% -10% -8%; filter: none; }
     .hero-mark::after { display: none; }

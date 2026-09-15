@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import { authenticate } from '../middleware/auth.js';
 import { listForUser, markRead, markAllRead, unreadCount } from '../services/notification.service.js';
+import { logAudit } from '../lib/audit.js';
 
 export const notificationRouter = Router();
 notificationRouter.use(authenticate);
@@ -20,6 +21,7 @@ notificationRouter.post('/:id/read', async (request, response, next) => {
         if (!ok) {
             return response.status(404).json({ error: { code: 'NOT_FOUND', message: 'Notification not found' } });
         }
+        await logAudit({ actorId: request.user.sub, action: 'NOTIFICATION_MARKED_READ', entityType: 'notification', entityId: request.params.id });
         response.json({ data: { id: request.params.id, read: true } });
     } catch (error) { next(error); }
 });
@@ -27,6 +29,7 @@ notificationRouter.post('/:id/read', async (request, response, next) => {
 notificationRouter.post('/read-all', async (request, response, next) => {
     try {
         const count = await markAllRead(request.user.sub);
+        await logAudit({ actorId: request.user.sub, action: 'NOTIFICATIONS_MARKED_READ_ALL', entityType: 'notification', entityId: null, metadata: { count } });
         response.json({ data: { marked: count } });
     } catch (error) { next(error); }
 });

@@ -7,6 +7,7 @@ import { authenticate } from '../middleware/auth.js';
 import { query } from '../db.js';
 import { config } from '../config.js';
 import { notifyNotificationCreated } from '../services/sse.js';
+import { logAudit } from '../lib/audit.js';
 
 export const profileRouter = Router();
 profileRouter.use(authenticate);
@@ -68,6 +69,7 @@ profileRouter.patch('/', async (request, response, next) => {
              RETURNING id, email, full_name, role, is_active, updated_at`,
             params
         );
+        await logAudit({ actorId: request.user.sub, action: 'PROFILE_UPDATED', entityType: 'user', entityId: request.user.sub, metadata: { fields: updates.map(u => u.replace(/ .*/,'').replace(/"/g,'')) } });
         response.json({ data: result.rows[0] });
     } catch (error) { next(error); }
 });
@@ -118,6 +120,7 @@ profileRouter.post('/photo', async (request, response, next) => {
             entity_id: request.user.sub,
             created_at: new Date().toISOString()
         });
+        await logAudit({ actorId: request.user.sub, action: 'PROFILE_PHOTO_UPLOADED', entityType: 'user', entityId: request.user.sub });
 
         response.json({ data: { photo_updated_at: new Date().toISOString() } });
     } catch (error) { next(error); }
@@ -197,6 +200,7 @@ profileRouter.patch('/settings', async (request, response, next) => {
              RETURNING user_id, theme, notify_email, notify_push, reduced_motion, font_size, updated_at`,
             [...params, request.user.sub]
         );
+        await logAudit({ actorId: request.user.sub, action: 'SETTINGS_UPDATED', entityType: 'user', entityId: request.user.sub, metadata: { fields: cols.map(c => c.replace(/ .*/,'').replace(/"/g,'')) } });
         response.json({ data: result.rows[0] });
     } catch (error) { next(error); }
 });

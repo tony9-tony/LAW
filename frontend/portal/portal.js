@@ -100,7 +100,8 @@
         const items = NAV.map((n) => {
             const target = (new URL(n.href, location.href)).pathname.split('/').pop() || n.href;
             const cls = current.toLowerCase() === target.toLowerCase() ? 'active' : '';
-            return `<a class="${cls}" href="${n.href}"><span class="ico" aria-hidden="true">${icon(n.icon)}</span>${n.label}</a>`;
+            const badge = (n.label === 'Messages') ? '<span class="nav-badge" id="nav-badge-messages" aria-label="unread messages" aria-hidden="true"></span>' : '';
+            return `<a class="${cls}" href="${n.href}"><span class="ico" aria-hidden="true">${icon(n.icon)}</span>${n.label}${badge}</a>`;
         }).join('');
         return `
 <aside class="portal-sidebar" id="portal-sidebar" aria-label="Portal navigation">
@@ -115,6 +116,25 @@
 </aside>`;
     }
 
+    function refreshUnreadIndicators() {
+        const badge = document.getElementById('nav-badge-messages');
+        if (!badge) return;
+        if (!window.Site.API.isAuthed()) {
+            badge.style.display = 'none';
+            return;
+        }
+        window.Site.API.listConversations({ limit: 100, offset: 0 })
+            .then((res) => {
+                const items = (res && res.data) || [];
+                const total = items.reduce((sum, c) => sum + (c.unread_count || 0), 0);
+                badge.textContent = total > 0 ? String(total) : '';
+                badge.style.display = total > 0 ? 'inline-flex' : 'none';
+            })
+            .catch(() => {
+                badge.style.display = 'none';
+            });
+    }
+
     function mount() {
         if (!guard()) return;
         const top = document.querySelector('[data-portal-topbar]');
@@ -127,6 +147,15 @@
                 window.location.href = '../login.html';
             });
         });
+
+        refreshUnreadIndicators();
+
+        if (window.Site.Realtime) {
+            const rt = window.Site.Realtime;
+            const onNewMsg = () => refreshUnreadIndicators();
+            rt.on('message.created', onNewMsg);
+            rt.on('message.read', () => refreshUnreadIndicators());
+        }
 
         initMobileNav();
     }
@@ -199,7 +228,7 @@
         return `<span class="pill status-${s}">${label}</span>`;
     }
 
-    window.Portal = { mount, guard, fmtDate, fmtDateShort, statusPill };
+    window.Portal = { mount, guard, fmtDate, fmtDateShort, statusPill, refreshUnreadIndicators };
 
     if (document.readyState === 'loading') {
         document.addEventListener('DOMContentLoaded', mount);

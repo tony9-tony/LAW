@@ -22,7 +22,7 @@ export async function registerUser({ email, password, fullName, role = 'CLIENT' 
 }
 
 export async function loginUser({ email, password }) {
-    const result = await query('SELECT * FROM users WHERE email = $1 AND is_active = TRUE', [email.toLowerCase()]);
+    const result = await query('SELECT id, email, password_hash, full_name, role FROM users WHERE email = $1 AND is_active = TRUE', [email.toLowerCase()]);
     const user = result.rows[0];
     if (!user || !(await bcrypt.compare(password, user.password_hash))) {
         const error = new Error('Invalid credentials');

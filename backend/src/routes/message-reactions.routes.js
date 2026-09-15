@@ -18,8 +18,9 @@ messageReactionsRouter.post('/:messageId/reactions', async (request, response, n
         const check = await query(
             `SELECT m.id FROM messages m
              JOIN conversations c ON c.id = m.conversation_id
-             JOIN matters mat ON mat.id = c.matter_id
-             WHERE m.id = $1 AND (mat.client_id = $2 OR $3 = 'OWNER')`,
+             LEFT JOIN matters mat ON mat.id = c.matter_id
+             LEFT JOIN requests r ON r.id = c.request_id
+             WHERE m.id = $1 AND ($3 = 'OWNER' OR mat.client_id = $2 OR c.client_id = $2 OR r.client_id = $2)`,
             [request.params.messageId, request.user.sub, request.user.role]
         );
         if (check.rowCount === 0) {
@@ -41,7 +42,7 @@ messageReactionsRouter.post('/:messageId/reactions', async (request, response, n
             [request.params.messageId]
         );
         if (msgRow.rowCount > 0) {
-            notifyReaction(msgRow.rows[0].conversation_id, request.params.messageId, input.emoji, request.user.sub, 'add');
+            notifyReaction(msgRow.rows[0].conversation_id, request.params.messageId, input.emoji, request.user.sub, 'add').catch(() => {});
         }
 
         response.status(201).json({ data: result.rows[0] });
@@ -54,8 +55,9 @@ messageReactionsRouter.delete('/:messageId/reactions/:emoji', async (request, re
         const check = await query(
             `SELECT m.id FROM messages m
              JOIN conversations c ON c.id = m.conversation_id
-             JOIN matters mat ON mat.id = c.matter_id
-             WHERE m.id = $1 AND (mat.client_id = $2 OR $3 = 'OWNER')`,
+             LEFT JOIN matters mat ON mat.id = c.matter_id
+             LEFT JOIN requests r ON r.id = c.request_id
+             WHERE m.id = $1 AND ($3 = 'OWNER' OR mat.client_id = $2 OR c.client_id = $2 OR r.client_id = $2)`,
             [request.params.messageId, request.user.sub, request.user.role]
         );
         if (check.rowCount === 0) {
@@ -73,7 +75,7 @@ messageReactionsRouter.delete('/:messageId/reactions/:emoji', async (request, re
             [request.params.messageId]
         );
         if (msgRow.rowCount > 0) {
-            notifyReaction(msgRow.rows[0].conversation_id, request.params.messageId, request.params.emoji, request.user.sub, 'remove');
+            notifyReaction(msgRow.rows[0].conversation_id, request.params.messageId, request.params.emoji, request.user.sub, 'remove').catch(() => {});
         }
 
         response.json({ data: { deleted: true } });
@@ -86,8 +88,9 @@ messageReactionsRouter.get('/:messageId/reactions', async (request, response, ne
         const check = await query(
             `SELECT m.id FROM messages m
              JOIN conversations c ON c.id = m.conversation_id
-             JOIN matters mat ON mat.id = c.matter_id
-             WHERE m.id = $1 AND (mat.client_id = $2 OR $3 = 'OWNER')`,
+             LEFT JOIN matters mat ON mat.id = c.matter_id
+             LEFT JOIN requests r ON r.id = c.request_id
+             WHERE m.id = $1 AND ($3 = 'OWNER' OR mat.client_id = $2 OR c.client_id = $2 OR r.client_id = $2)`,
             [request.params.messageId, request.user.sub, request.user.role]
         );
         if (check.rowCount === 0) {

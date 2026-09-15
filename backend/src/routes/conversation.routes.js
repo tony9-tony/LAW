@@ -4,6 +4,7 @@ import { authenticate } from '../middleware/auth.js';
 import { query } from '../db.js';
 import { ensureOwned } from '../lib/authorization.js';
 import { notify } from '../services/notification.service.js';
+import { logAudit } from '../lib/audit.js';
 
 export const conversationRouter = Router();
 conversationRouter.use(authenticate);
@@ -33,9 +34,9 @@ conversationRouter.get('/', async (request, response, next) => {
              FROM conversations c
              LEFT JOIN matters m ON m.id = c.matter_id
              LEFT JOIN requests r ON r.id = c.request_id
-             WHERE (m.client_id = $1 OR c.client_id = $1 OR r.client_id = $1)
-             ORDER BY c.created_at DESC
-             LIMIT $3 OFFSET $4`,
+              WHERE (m.client_id = $1 OR c.client_id = $1 OR r.client_id = $1)
+              ORDER BY last_message_at DESC NULLS LAST, c.created_at DESC
+              LIMIT $3 OFFSET $4`,
             [request.user.sub, request.user.sub, q.limit, q.offset]
         );
         response.json({ data: result.rows });
@@ -47,6 +48,7 @@ conversationRouter.get('/:id', async (request, response, next) => {
     try {
         const q = messageListSchema.parse(request.query);
         const convo = await ensureOwned('conversations', request.params.id, request.user.sub);
+        await logAudit({ actorId: request.user.sub, action: 'CONVERSATION_VIEWED', entityType: 'conversation', entityId: convo.id });
 
         let messagesQuery = `
             SELECT m.id, m.sender_id, m.body, m.created_at, m.read_at,
@@ -83,21 +85,22 @@ conversationRouter.post('/:id/messages', async (request, response, next) => {
         const convo = await ensureOwned('conversations', request.params.id, request.user.sub);
         const input = sendInput.parse(request.body);
 
-        // Validate parent message ownership if provided
-        if (input.parentMessageId) {
-            const parentCheck = await query(
-                `SELECT m.id FROM messages m
-                 JOIN conversations c ON c.id = m.conversation_id
-                 LEFT JOIN matters mat ON mat.id = c.matter_id
-                 LEFT JOIN requests r ON r.id = c.request_id
-                 WHERE m.id = $1
-                   AND (mat.client_id = $2 OR c.client_id = $2 OR r.client_id = $2 OR $3 = 'OWNER')`,
-                [input.parentMessageId, request.user.sub, request.user.role]
-            );
-            if (parentCheck.rowCount === 0) {
-                return response.status(403).json({ error: { code: 'FORBIDDEN', message: 'Cannot reference this message' } });
-            }
-        }
+         // Validate parent message ownership if provided
+         if (input.parentMessageId) {
+             const parentCheck = await query(
+                 `SELECT m.id FROM messages m
+                  JOIN conversations pc ON pc.id = m.conversation_id
+                  LEFT JOIN matters pm ON pm.id = pc.matter_id
+                  LEFT JOIN requests pr ON pr.id = pc.request_id
+                  WHERE m.id = $1
+                    AND m.conversation_id = $2
+                    AND ($3 = 'OWNER' OR pm.client_id = $4 OR pc.client_id = $4 OR pr.client_id = $4)`,
+                 [input.parentMessageId, convo.id, request.user.role, request.user.sub]
+             );
+             if (parentCheck.rowCount === 0) {
+                 return response.status(403).json({ error: { code: 'FORBIDDEN', message: 'Cannot reference this message' } });
+             }
+         }
 
         const inserted = await query(
             `INSERT INTO messages (conversation_id, sender_id, body, parent_message_id)
@@ -140,7 +143,8 @@ conversationRouter.post('/:id/messages', async (request, response, next) => {
         // Real-time notification via SSE
         const { notifyMessageCreated } = await import('../services/sse.js');
         const senderUser = await query('SELECT full_name FROM users WHERE id = $1', [request.user.sub]);
-        notifyMessageCreated(convo.id, inserted.rows[0].id, request.user.sub, input.body, request.user.role, senderUser.rows[0]?.full_name || null);
+        notifyMessageCreated(convo.id, inserted.rows[0].id, request.user.sub, input.body, request.user.role, senderUser.rows[0]?.full_name || null).catch(() => {});
+        await logAudit({ actorId: request.user.sub, action: 'MESSAGE_SENT', entityType: 'conversation', entityId: convo.id, metadata: { message_id: inserted.rows[0].id, body_length: input.body.length } });
 
         response.status(201).json({ data: inserted.rows[0] });
     } catch (error) { next(error); }
@@ -154,6 +158,9 @@ conversationRouter.post('/:id/read', async (request, response, next) => {
              WHERE conversation_id = $1 AND sender_id <> $2 AND read_at IS NULL`,
             [convo.id, request.user.sub]
         );
+        const { notifyConversationReadAll } = await import('../services/sse.js');
+        notifyConversationReadAll(convo.id, request.user.sub).catch(() => {});
+        await logAudit({ actorId: request.user.sub, action: 'CONVERSATION_MARKED_READ', entityType: 'conversation', entityId: convo.id });
         response.json({ data: { conversation_id: convo.id, read: true } });
     } catch (error) { next(error); }
 });

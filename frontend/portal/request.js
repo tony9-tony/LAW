@@ -92,6 +92,11 @@
 
     function onRealtimeRead(data) {
         if (!conversationId || data.conversationId !== conversationId) return;
+        if (data.messageId) {
+            const msg = threadEl.querySelector(`.msg[data-msg-id="${data.messageId}"]`);
+            if (msg) msg.classList.add('read-by-peer');
+        }
+        updateMsgCount();
     }
 
     function registerRealtimeHandlers() {
@@ -107,7 +112,7 @@
     function renderMessage(m, fromClient) {
         const name = m.sender_name || (fromClient ? 'You' : 'Firm');
         return `
-            <div class="msg ${fromClient ? 'from-client' : ''}">
+            <div class="msg ${fromClient ? 'from-client' : ''}" data-msg-id="${m.id}">
                 <div class="meta">${P.fmtDate(m.created_at)} · ${escape(name)}</div>
                 <div class="body">${escape(m.body)}</div>
             </div>
@@ -320,7 +325,7 @@
             if (conversationId) {
                 const draft = msgBodyInput && msgBodyInput.value.trim().length > 0;
                 if (draft) { startPolling(); }
-                else { loadConversation(conversationId, null); }
+                else { pollConversation(); }
             }
         } else {
             pausePolling();
@@ -366,7 +371,7 @@
         ];
 
         // Determine messaging action for the "Next action" panel
-        let messagesHref = '#';
+        let messagesHref = `messages.html?request=${request.id}`;
         let messageLabel = 'Message lawyer';
         let messageBtnClass = 'btn primary';
         let messageNote = '';

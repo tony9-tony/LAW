@@ -69,9 +69,8 @@
                     <div class="doc-name">${escape(d.original_name)}</div>
                     <div class="doc-meta">${P.fmtDateShort(d.created_at)} · ${escape((d.status || 'AVAILABLE').toUpperCase())}</div>
                 </div>
-                <span></span><span></span>
             </div>
-        `).join('') || '<p class="text-mute-block">No documents on this matter yet.</p>';
+         `).join('') || '<p class="text-mute-block">No documents on this matter yet.</p>';
 
         const requestLink = matter.originating_request_id
             ? `<a class="link-bronze" href="request.html?id=${matter.originating_request_id}">View originating request #${String(matter.originating_request_id).padStart(5, '0')}</a>`

@@ -67,7 +67,7 @@
         
         // Process new message
         handleMessageCreated(conversation, message, data) {
-            const isOwnMessage = data.senderId === this.getCurrentUserId();
+            const isOwnMessage = message && message.sender_id === this.getCurrentUserId();
             
             if (!isOwnMessage) {
                 conversation.unreadCount = (conversation.unreadCount || 0) + 1;

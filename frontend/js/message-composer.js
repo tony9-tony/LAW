@@ -171,8 +171,6 @@
             this.handleInput();
             this.textarea.focus();
         }
-        
-        // Public API
         setConversationId(conversationId) {
             this.conversationId = conversationId;
         }
@@ -187,11 +185,6 @@
         
         focus() {
             this.textarea.focus();
-        }
-        
-        clear() {
-            this.textarea.value = '';
-            this.handleInput();
         }
     }
     

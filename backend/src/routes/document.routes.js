@@ -2,6 +2,7 @@ import { Router } from 'express';
 import { authenticate } from '../middleware/auth.js';
 import { query } from '../db.js';
 import { ensureOwned } from '../lib/authorization.js';
+import { logAudit } from '../lib/audit.js';
 
 export const documentRouter = Router();
 documentRouter.use(authenticate);
@@ -33,6 +34,7 @@ documentRouter.get('/:id/download', async (request, response, next) => {
             [request.params.id]
         );
         if (doc.rowCount === 0 || doc.rows[0].client_id !== request.user.sub) {
+            await logAudit({ actorId: request.user.sub, action: 'DOCUMENT_ACCESS_DENIED', entityType: 'document', entityId: null, metadata: { document_id: request.params.id } });
             return response.status(404).json({ error: { code: 'NOT_FOUND', message: 'Document not found' } });
         }
         /* Storage backend is not yet wired. Return a controlled 501 so the

@@ -81,7 +81,7 @@
                 }
             } catch (err) {
                 status.className = 'form-status error';
-                const msg = err && err.message ? err.message : 'The request could not be completed.';
+                const msg = err && err.message ? String(err.message).replace(/[&<>"']/g, (c) => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])) : 'The request could not be completed.';
                 status.innerHTML = `<strong>${mode === 'register' ? 'Could not create account.' : 'Sign-in failed.'}</strong>${msg}`;
             }
         });

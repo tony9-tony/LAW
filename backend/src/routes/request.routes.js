@@ -4,6 +4,7 @@ import { authenticate } from '../middleware/auth.js';
 import { query } from '../db.js';
 import { ensureOwned } from '../lib/authorization.js';
 import { notifyRequestCreated } from '../services/sse.js';
+import { logAudit } from '../lib/audit.js';
 
 const requestInput = z.object({
     subject: z.string().trim().min(3).max(200),
@@ -51,6 +52,7 @@ requestRouter.post('/', async (request, response, next) => {
             );
         }
         await notifyRequestCreated(row.id, request.user.sub, row.subject);
+        await logAudit({ actorId: request.user.sub, action: 'REQUEST_CREATED', entityType: 'request', entityId: row.id, metadata: { subject: row.subject.slice(0, 200) } });
         response.status(201).json({ data: row });
     } catch (error) { next(error); }
 });
@@ -59,6 +61,7 @@ requestRouter.post('/', async (request, response, next) => {
 requestRouter.get('/:id', async (request, response, next) => {
     try {
         const row = await ensureOwned('requests', request.params.id, request.user.sub);
+        await logAudit({ actorId: request.user.sub, action: 'REQUEST_VIEWED', entityType: 'request', entityId: row.id });
         /* Join the originating matter so the portal can deep-link to it. */
         const matter = await query(
             `SELECT id, reference, status FROM matters WHERE originating_request_id = $1 LIMIT 1`,
@@ -119,6 +122,7 @@ requestRouter.post('/:id/responses', async (request, response, next) => {
             response: input.response,
             infoRequestId: input.infoRequestId || null
         });
+        await logAudit({ actorId: request.user.sub, action: 'RESPONSE_SUBMITTED', entityType: 'request', entityId: request.params.id, metadata: { info_request_id: input.infoRequestId || null } });
         response.status(201).json({ data: result });
     } catch (error) { next(error); }
 });

@@ -16,6 +16,16 @@
             .replace(/'/g, '&#39;');
     }
 
+    function statusPill(status) {
+        const s = (status || 'new').toLowerCase().replace(/\s+/g, '_');
+        const label = (status || 'new').replace(/_/g, ' ');
+        return `<span class="pill status-${s}">${escape(label)}</span>`;
+    }
+
+    const P = {
+        fmtDate: (d) => (d ? new Date(d).toLocaleDateString() : '')
+    };
+
     function api(path, opts) {
         opts = opts || {};
         const headers = { 'Content-Type': 'application/json' };
@@ -1038,7 +1048,7 @@
                             setTimeout(() => { closeModal(); loadOwners(); }, 600);
                         } catch (err) {
                             status.className = 'form-status error';
-                            status.innerHTML = `<strong>Failed.</strong>${err.message}`;
+                            status.innerHTML = `<strong>Failed.</strong>${escape(err.message)}`;
                         }
                     });
                 });
@@ -1128,37 +1138,132 @@
         try {
             const res = await api(`/owner/requests/${encodeURIComponent(id)}`, { auth: true });
             const r = (res && res.data) || {};
+            const infoReqs = (res && res.info_requests) || [];
+            const clientResponses = (res && res.client_responses) || [];
+            const events = (res && res.events) || [];
+            const status = (r.status || 'NEW').toUpperCase();
+            const isResolved = ['ACCEPTED', 'DECLINED', 'COMPLETED', 'CLOSED'].includes(status);
+            const canRequestInfo = ['NEW', 'SUBMITTED', 'PENDING', 'OPEN', 'UNDER_REVIEW', 'IN_PROGRESS', 'ACTION_REQUIRED', 'SCHEDULED'].includes(status);
             container.innerHTML = `
                 <div class="page-head">
                     <div>
                         <span class="kicker">Request</span>
                         <h1>${escape(r.subject || '—')}</h1>
-                        <p class="head-meta">Request #${escape(r.id.split('-')[0])}</p>
+                        <p class="head-meta">Request #${escape(r.id.split('-')[0])} · Status: ${statusPill(r.status || 'new')}</p>
                     </div>
                     <div class="action-row">
                         <button class="btn ghost" id="back-requests">← Back</button>
-                        <button class="btn primary" id="message-client">Message client</button>
+                        ${!isResolved ? `<button class="btn primary" id="btn-accept">Accept &amp; open matter</button>` : ''}
+                        ${!isResolved ? `<button class="btn secondary" id="btn-decline">Decline</button>` : ''}
+                        ${!isResolved && canRequestInfo ? `<button class="btn" id="btn-info">Request info</button>` : ''}
+                        <button class="btn" id="message-client">Message client</button>
                         ${r.matter_id ? `<button class="btn" id="start-convo">Open matter conversation</button>` : ''}
                     </div>
                 </div>
-                <section class="panel">
-                    <div class="panel-head"><h2>Request Details</h2></div>
-                    <div class="panel-body">
-                        <table class="table">
-                            <tbody>
-                                <tr><th style="width:30%">Client</th><td>${escape(r.client_name || '—')}<br><span class="muted">${escape(r.client_email || '')}</span></td></tr>
-                                <tr><th>Status</th><td>${escape(r.status || '—')}</td></tr>
-                                <tr><th>Created</th><td class="muted">${escape(r.created_at || '—')}</td></tr>
-                                <tr><th>Updated</th><td class="muted">${escape(r.updated_at || '—')}</td></tr>
-                                ${r.matter_id ? `<tr><th>Related Matter</th><td>${escape(r.matter_reference || '')} — ${escape(r.matter_title || '')}<br><span class="muted">${escape(r.matter_type || '')} · ${escape(r.matter_status || '')}</span></td></tr>` : ''}
-                            </tbody>
-                        </table>
-                        <div style="margin-top:1.5rem;">
-                            <h3 style="font-size:0.78rem;letter-spacing:0.16em;text-transform:uppercase;color:var(--ink-mute);margin-bottom:0.5rem;">Description</h3>
-                            <p style="white-space:pre-wrap;color:var(--ink-soft);line-height:1.6;">${escape(r.description || 'No description provided.')}</p>
-                        </div>
+
+                <div class="detail-grid">
+                    <div>
+                        <section class="panel">
+                            <div class="panel-head"><h2>Request Details</h2></div>
+                            <div class="panel-body">
+                                <table class="table">
+                                    <tbody>
+                                        <tr><th style="width:30%">Client</th><td>${escape(r.client_name || '—')}<br><span class="muted">${escape(r.client_email || '')}</span></td></tr>
+                                        <tr><th>Status</th><td>${statusPill(r.status || 'new')}</td></tr>
+                                        <tr><th>Created</th><td class="muted">${escape(r.created_at || '—')}</td></tr>
+                                        <tr><th>Updated</th><td class="muted">${escape(r.updated_at || r.created_at || '—')}</td></tr>
+                                        ${r.matter_id ? `<tr><th>Related Matter</th><td>${escape(r.matter_reference || '')} — ${escape(r.matter_title || '')}<br><span class="muted">${escape(r.matter_type || '')} · ${escape(r.matter_status || '')}</span></td></tr>` : ''}
+                                    </tbody>
+                                </table>
+                                ${r.description ? `<div class="section-divider">${escape(r.description)}</div>` : ''}
+                            </div>
+                        </section>
+
+                        ${!isResolved ? `
+                        <section class="panel" id="workflow-panel">
+                            <div class="panel-head"><h2>Workflow Actions</h2><span class="panel-meta">Take action on this request</span></div>
+                            <div class="panel-body">
+                                <ul class="workflow-steps">
+                                    <li><strong>Accept request</strong> — Create a matter and open a conversation.</li>
+                                    <li><strong>Decline request</strong> — Close with an optional reason.</li>
+                                    <li><strong>Request information</strong> — Ask the client for additional details.</li>
+                                    <li><strong>Message client</strong> — Send a message before a matter is created.</li>
+                                </ul>
+                                <div class="form-status" id="workflow-status" role="status" aria-live="polite"></div>
+                            </div>
+                        </section>
+                        ` : ''}
+
+                        ${infoReqs.length ? `
+                        <section class="panel">
+                            <div class="panel-head"><h2>Information requests</h2></div>
+                            <div class="panel-body">
+                                ${infoReqs.map((ir) => `
+                                    <div class="activity-row">
+                                        <div class="dot"></div>
+                                        <div class="body">
+                                            <div class="ts">${P.fmtDate(ir.created_at)}</div>
+                                            <div class="lead"><strong>${ir.message ? escape(ir.message) : 'Additional information requested'}</strong></div>
+                                            ${ir.items && ir.items.length ? `<div class="muted">${escape(ir.items.join(', '))}</div>` : ''}
+                                            ${ir.deadline ? `<div class="muted">Deadline: ${escape(ir.deadline)}</div>` : ''}
+                                        </div>
+                                    </div>
+                                `).join('')}
+                            </div>
+                        </section>
+                        ` : ''}
+
+                        ${clientResponses.length ? `
+                        <section class="panel">
+                            <div class="panel-head"><h2>Client responses</h2></div>
+                            <div class="panel-body">
+                                ${clientResponses.map((cr) => `
+                                    <div class="activity-row">
+                                        <div class="dot"></div>
+                                        <div class="body">
+                                            <div class="ts">${P.fmtDate(cr.created_at)}</div>
+                                            <div class="lead">${escape(cr.response)}</div>
+                                        </div>
+                                    </div>
+                                `).join('')}
+                            </div>
+                        </section>
+                        ` : ''}
                     </div>
-                </section>
+
+                    <aside>
+                        <section class="panel">
+                            <div class="panel-head"><h2>Timeline</h2></div>
+                            <div class="panel-body">
+                                <ul class="timeline">
+                                    ${events.length ? events.map((ev) => `
+                                        <li>
+                                            <div class="ts">${P.fmtDate(ev.created_at)}</div>
+                                            <div class="label">${escape(ev.title || ev.event_type)}</div>
+                                            ${ev.note ? `<div class="note">${escape(ev.note)}</div>` : ''}
+                                        </li>
+                                    `).join('') : `
+                                        <li>
+                                            <div class="ts">${P.fmtDate(r.created_at)}</div>
+                                            <div class="label">Request submitted</div>
+                                            <div class="note">Client submitted this request.</div>
+                                        </li>
+                                    `}
+                                </ul>
+                            </div>
+                        </section>
+
+                        <section class="panel">
+                            <div class="panel-head"><h2>Messaging</h2></div>
+                            <div class="panel-body">
+                                ${r.matter_id
+                                    ? `<p class="text-small-mute">This request has been accepted. Use the matter conversation to communicate with the client.</p><a class="btn primary" href="#" id="open-matter-chat">Open matter conversation</a>`
+                                    : `<p class="text-small-mute">Before accepting, you can message the client about this request. Once accepted, messaging continues in the matter conversation.</p><a class="btn primary" href="#" id="open-request-chat">Message client about request</a>`
+                                }
+                            </div>
+                        </section>
+                    </aside>
+                </div>
             `;
             document.getElementById('back-requests')?.addEventListener('click', loadRequests);
 
@@ -1227,6 +1332,99 @@
                         const convoRes = await api(`/owner/matters/${encodeURIComponent(r.matter_id)}/conversation`, { auth: true });
                         const convo = (convoRes && convoRes.data) || {};
                         if (convo.id) { navigateTo('messages', convo.id); }
+                    } catch (err) { alert(err.message || 'Could not open conversation.'); }
+                });
+            }
+
+            const msgStatusEl = document.getElementById('workflow-status');
+            function setWorkflowStatus(html, cls) {
+                if (msgStatusEl) {
+                    msgStatusEl.className = cls || 'form-status';
+                    msgStatusEl.innerHTML = html;
+                }
+            }
+
+            const acceptBtn = document.getElementById('btn-accept');
+            if (acceptBtn) {
+                acceptBtn.addEventListener('click', async () => {
+                    setWorkflowStatus('Accepting…', 'form-status');
+                    try {
+                        const title = r.subject || 'Matter';
+                        await api(`/owner/requests/${encodeURIComponent(r.id)}/accept`, { method: 'POST', body: { title, description: r.description || '' }, auth: true });
+                        refreshOwnerUnreadBadge();
+                        loadRequestDetail(r.id);
+                    } catch (err) {
+                        setWorkflowStatus(`<strong>Failed.</strong> ${escape(err.message)}`, 'form-status error');
+                    }
+                });
+            }
+
+            const declineBtn = document.getElementById('btn-decline');
+            if (declineBtn) {
+                declineBtn.addEventListener('click', async () => {
+                    const reason = prompt('Reason for declining (optional):');
+                    if (reason === null) return;
+                    setWorkflowStatus('Declining…', 'form-status');
+                    try {
+                        await api(`/owner/requests/${encodeURIComponent(r.id)}/decline`, { method: 'POST', body: { reason: reason.trim() }, auth: true });
+                        refreshOwnerUnreadBadge();
+                        loadRequestDetail(r.id);
+                    } catch (err) {
+                        setWorkflowStatus(`<strong>Failed.</strong> ${escape(err.message)}`, 'form-status error');
+                    }
+                });
+            }
+
+            const infoBtn = document.getElementById('btn-info');
+            if (infoBtn) {
+                infoBtn.addEventListener('click', () => {
+                    const itemsStr = prompt('What information do you need? (one per line)');
+                    if (!itemsStr) return;
+                    const items = itemsStr.split('\n').map(s => s.trim()).filter(Boolean);
+                    if (!items.length) return;
+                    const message = prompt('Optional message to the client:') || '';
+                    setWorkflowStatus('Requesting information…', 'form-status');
+                    api(`/owner/requests/${encodeURIComponent(r.id)}/request-info`, {
+                        method: 'POST',
+                        body: { items, message: message.trim() || undefined },
+                        auth: true
+                    }).then(() => {
+                        loadRequestDetail(r.id);
+                    }).catch((err) => {
+                        setWorkflowStatus(`<strong>Failed.</strong> ${escape(err.message)}`, 'form-status error');
+                    });
+                });
+            }
+
+            const openMatterChat = document.getElementById('open-matter-chat');
+            if (openMatterChat) {
+                openMatterChat.addEventListener('click', async (e) => {
+                    e.preventDefault();
+                    try {
+                        const convoRes = await api(`/owner/matters/${encodeURIComponent(r.matter_id)}/conversation`, { auth: true });
+                        const convo = (convoRes && convoRes.data) || {};
+                        if (convo.id) { navigateTo('messages', convo.id); }
+                    } catch (err) { alert(err.message || 'Could not open conversation.'); }
+                });
+            }
+
+            const openRequestChat = document.getElementById('open-request-chat');
+            if (openRequestChat) {
+                openRequestChat.addEventListener('click', async (e) => {
+                    e.preventDefault();
+                    if (r.matter_id) {
+                        try {
+                            const convoRes = await api(`/owner/matters/${encodeURIComponent(r.matter_id)}/conversation`, { auth: true });
+                            if (convoRes.data && convoRes.data.id) { navigateTo('messages', convoRes.data.id); }
+                        } catch (err) { alert(err.message || 'Could not open conversation.'); }
+                        return;
+                    }
+                    const body = prompt('Write your message to the client:') || '';
+                    if (!body.trim()) return;
+                    try {
+                        const convoRes = await api(`/owner/requests/${encodeURIComponent(r.id)}/message`, { method: 'POST', body: { body: body.trim() }, auth: true });
+                        const convoId = (convoRes && convoRes.data && convoRes.data.conversation_id) || null;
+                        if (convoId) { navigateTo('messages', convoId); }
                     } catch (err) { alert(err.message || 'Could not open conversation.'); }
                 });
             }
@@ -1377,7 +1575,7 @@
                         setTimeout(() => loadAppointments(), 600);
                     } catch (err) {
                         statusEl.className = 'form-status error';
-                        statusEl.innerHTML = `<strong>Failed.</strong>${err.message}`;
+                        statusEl.innerHTML = `<strong>Failed.</strong>${escape(err.message)}`;
                     }
                 });
             }
@@ -1506,10 +1704,18 @@
             es.onmessage = (event) => {
                 try {
                     const data = JSON.parse(event.data);
-                    if (data.type === 'message.created' && data.conversationId === currentOwnerConversationId) {
-                        if (!ownerDisplayedMessageIds.has(data.message && data.message.id)) {
-                            ownerAppendMessages([data.message]);
+                    if (data.type === 'message.created') {
+                        if (data.conversationId === currentOwnerConversationId) {
+                            if (!ownerDisplayedMessageIds.has(data.message && data.message.id)) {
+                                ownerAppendMessages([data.message]);
+                            }
                         }
+                        if (data.conversationId !== currentOwnerConversationId) {
+                            refreshOwnerUnreadBadge();
+                        }
+                    }
+                    if (data.type === 'message.read') {
+                        refreshOwnerUnreadBadge();
                     }
                 } catch (e) { /* ignore malformed */ }
             };
@@ -1551,6 +1757,33 @@
             ownerSseConnect();
         }, ownerSseReconnectDelay);
         ownerSseReconnectDelay = Math.min(ownerSseReconnectDelay * 2, OWNER_SSE_MAX_RECONNECT_DELAY);
+    }
+
+    let ownerUnreadBadgeTimer = null;
+
+    async function refreshOwnerUnreadBadge() {
+        const badge = document.getElementById('owner-msg-badge');
+        if (!badge) return;
+        try {
+            const res = await api('/owner/conversations', { auth: true });
+            const items = (res && res.data) || [];
+            const total = items.reduce((sum, c) => sum + (c.unread_count || 0), 0);
+            badge.textContent = total > 0 ? String(total) : '';
+            badge.classList.toggle('has-unread', total > 0);
+        } catch (err) {
+            badge.textContent = '';
+            badge.classList.remove('has-unread');
+        }
+    }
+
+    function startOwnerUnreadBadgePolling() {
+        if (ownerUnreadBadgeTimer) { clearInterval(ownerUnreadBadgeTimer); ownerUnreadBadgeTimer = null; }
+        refreshOwnerUnreadBadge();
+        ownerUnreadBadgeTimer = setInterval(refreshOwnerUnreadBadge, 30000);
+    }
+
+    function stopOwnerUnreadBadgePolling() {
+        if (ownerUnreadBadgeTimer) { clearInterval(ownerUnreadBadgeTimer); ownerUnreadBadgeTimer = null; }
     }
 
     function ownerIsNearBottom() {
@@ -1688,16 +1921,19 @@
                             ? '<div class="empty-state"><span class="ico">·</span><strong>No conversations yet.</strong><p>Conversations will appear here when clients message through their matters.</p></div>'
                             : `<table class="table">
                             <thead><tr><th>Matter</th><th>Client</th><th>Last Message</th><th>Date</th><th>Status</th><th>Actions</th></tr></thead>
-                            <tbody>${items.map((c) => `
-                                <tr>
-                                    <td class="mono">${escape(c.reference || '—')}${c.title ? ' — ' + escape(c.title) : ''}</td>
+                            <tbody>${items.map((c) => {
+                                const isUnread = (c.unread_count || 0) > 0;
+                                return `
+                                <tr data-conversation-id="${c.id}">
+                                    <td class="mono">${escape(c.reference || '—')}${c.title ? ' — ' + escape(c.title) : ''}${isUnread ? '<span class="unread-dot" aria-hidden="true" title="Unread"></span>' : ''}</td>
                                     <td>${escape(c.client_name || '—')}<br><span class="muted">${escape(c.client_email || '')}</span></td>
                                     <td>${escape(c.last_message_body || '—')}</td>
                                     <td class="muted">${escape(c.last_message_at || c.created_at)}</td>
-                                    <td>${(c.unread_count > 0) ? `<span class="pill status-new">Unread (${c.unread_count})</span>` : '<span class="pill status-closed">Read</span>'}</td>
+                                    <td>${isUnread ? `<span class="pill status-new">${c.unread_count} unread</span>` : '<span class="pill status-closed">Read</span>'}</td>
                                     <td><button class="btn small secondary" data-conversation-id="${c.id}">Open</button></td>
                                 </tr>
-                            `).join('')}</tbody>
+                                `;
+                            }).join('')}</tbody>
                         </table>`
                         }
                     </div>
@@ -1721,6 +1957,7 @@
                 api(`/owner/conversations/${encodeURIComponent(id)}`, { auth: true }),
                 api(`/owner/conversations/${encodeURIComponent(id)}/read`, { method: 'POST', auth: true }).catch(() => ({})),
             ]);
+            refreshOwnerUnreadBadge();
             const convo = detailRes.data || {};
             const messages = (convo.messages) || [];
             ownerDisplayedMessageIds.clear();
@@ -1770,6 +2007,7 @@
                 </section>
             `;
             document.getElementById('btn-back-inbox')?.addEventListener('click', () => {
+                refreshOwnerUnreadBadge();
                 navigateTo('messages');
             });
             const replyForm = document.getElementById('owner-reply-form');
@@ -2846,8 +3084,69 @@
         if (link) link.classList.add('active');
 
         updateTopbar(section);
+        closeMobileSidebar();
         loadSection(section, detailId);
     }
+
+    function isMobileNav() {
+        return window.matchMedia('(max-width: 860px)').matches;
+    }
+
+    function closeMobileSidebar() {
+        if (!isMobileNav()) return;
+        const sidebar = document.getElementById('admin-sidebar');
+        const burger = document.getElementById('subui-burger');
+        const backdrop = document.getElementById('subui-sidebar-backdrop');
+        if (sidebar) sidebar.classList.remove('sidebar-open');
+        if (burger) burger.setAttribute('aria-expanded', 'false');
+        if (backdrop) backdrop.classList.remove('sidebar-open');
+        document.body.style.overflow = '';
+    }
+
+    function openMobileSidebar() {
+        const sidebar = document.getElementById('admin-sidebar');
+        const burger = document.getElementById('subui-burger');
+        const backdrop = document.getElementById('subui-sidebar-backdrop');
+        if (sidebar) sidebar.classList.add('sidebar-open');
+        if (burger) burger.setAttribute('aria-expanded', 'true');
+        if (backdrop) backdrop.classList.add('sidebar-open');
+        document.body.style.overflow = 'hidden';
+    }
+
+    function toggleMobileSidebar() {
+        if (!isMobileNav()) return;
+        const sidebar = document.getElementById('admin-sidebar');
+        if (sidebar && sidebar.classList.contains('sidebar-open')) {
+            closeMobileSidebar();
+        } else {
+            openMobileSidebar();
+        }
+    }
+
+    const burgerBtn = document.getElementById('subui-burger');
+    const sidebarEl = document.getElementById('admin-sidebar');
+    const sidebarBackdrop = document.getElementById('subui-sidebar-backdrop');
+    if (burgerBtn) {
+        burgerBtn.addEventListener('click', toggleMobileSidebar);
+    }
+    if (sidebarBackdrop) {
+        sidebarBackdrop.addEventListener('click', closeMobileSidebar);
+    }
+    if (sidebarEl) {
+        sidebarEl.addEventListener('click', (e) => {
+            if (e.target.tagName === 'A' || e.target.closest('a')) {
+                closeMobileSidebar();
+            }
+        });
+    }
+    document.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape' && isMobileNav() && sidebarEl && sidebarEl.classList.contains('sidebar-open')) {
+            closeMobileSidebar();
+        }
+    });
+    window.matchMedia('(min-width: 861px)').addEventListener('change', (e) => {
+        if (e.matches) closeMobileSidebar();
+    });
 
     document.querySelectorAll('.sidebar-nav a').forEach((link) => {
         link.addEventListener('click', (e) => {
@@ -2870,4 +3169,5 @@
     loadCurrentUser();
     startAuthPoller();
     navigateFromLocation();
+    startOwnerUnreadBadgePolling();
 })();

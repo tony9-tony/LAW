@@ -36,7 +36,7 @@ app.use(helmet());
 const corsOrigin = (process.env.CORS_ORIGIN || '').split(',').map((o) => o.trim()).filter(Boolean);
 app.use(cors({
     origin: (origin, cb) => {
-        if (!origin || origin === 'null' || corsOrigin.includes(origin)) return cb(null, true);
+        if (!origin || corsOrigin.includes(origin)) return cb(null, true);
         cb(new Error('Not allowed by CORS'));
     }
 }));

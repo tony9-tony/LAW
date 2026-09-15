@@ -8,15 +8,19 @@
             this.messageHandler = new MessageHandler();
             this.conversationCache = new Map();
             this.isInitialized = false;
-            this.setupMessageHandlerIntegration();
+            this.isSetupComplete = false;
         }
         
         // Initialize the service
         async initialize() {
             if (this.isInitialized) return;
+            this.isInitialized = true;
             
-            // Setup message handler integration
-            this.setupMessageHandler();
+            // Setup message handler integration (only once)
+            if (!this.isSetupComplete) {
+                this.isSetupComplete = true;
+                this.setupMessageHandler();
+            }
             
             // Connect to SSE
             try {
@@ -24,7 +28,10 @@
             } catch (error) {
                 console.error('Failed to connect SSE:', error);
                 // Schedule reconnection for later
-                setTimeout(() => this.initialize(), 5000);
+                setTimeout(() => {
+                    this.isInitialized = false;
+                    this.initialize();
+                }, 5000);
             }
             
             this.isInitialized = true;

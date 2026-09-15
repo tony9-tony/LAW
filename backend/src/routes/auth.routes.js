@@ -2,6 +2,7 @@ import { Router } from 'express';
 import { z } from 'zod';
 import { loginUser, registerUser } from '../services/auth.service.js';
 import { query } from '../db.js';
+import { logAudit } from '../lib/audit.js';
 
 const credentials = z.object({ email: z.string().email(), password: z.string().min(12) });
 const registration = credentials.extend({ fullName: z.string().trim().min(2).max(160) });
@@ -12,6 +13,7 @@ authRouter.post('/register', async (request, response, next) => {
     try {
         const input = registration.parse(request.body);
         const user = await registerUser(input);
+        await logAudit({ actorId: user.id, action: 'REGISTER', entityType: 'user', entityId: user.id, metadata: { role: user.role } });
         response.status(201).json({ data: user });
     } catch (error) { next(error); }
 });
@@ -19,7 +21,9 @@ authRouter.post('/register', async (request, response, next) => {
 authRouter.post('/login', async (request, response, next) => {
     try {
         const input = credentials.parse(request.body);
-        response.json({ data: await loginUser(input) });
+        const result = await loginUser(input);
+        await logAudit({ actorId: result.user.id, action: 'LOGIN', entityType: 'user', entityId: result.user.id });
+        response.json({ data: result });
     } catch (error) { next(error); }
 });
 

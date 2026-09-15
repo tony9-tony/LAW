@@ -110,6 +110,20 @@ export async function notifyMessageRead(conversationId, messageId, readBy) {
     }
 }
 
+export async function notifyConversationReadAll(conversationId, readBy) {
+    const participants = await getConversationParticipants(conversationId);
+    for (const pid of participants) {
+        if (pid === readBy) continue;
+        sendToUser(pid, {
+            type: 'message.read',
+            conversationId,
+            messageId: null,
+            readBy,
+            timestamp: Date.now()
+        });
+    }
+}
+
 export async function notifyTyping(conversationId, userId, userName, isTyping) {
     const participants = await getConversationParticipants(conversationId);
     for (const pid of participants) {

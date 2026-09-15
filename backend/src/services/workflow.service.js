@@ -138,13 +138,15 @@ export async function updateRequestStatus({ requestId, actorId, status, note }) 
         throw error;
     }
     const updated = await query(
-        `UPDATE requests SET status = $2, updated_at = NOW() WHERE id = $1 RETURNING client_id`,
+        `UPDATE requests SET status = $2, updated_at = NOW()
+         WHERE id = $1 AND status NOT IN ('ACCEPTED', 'DECLINED')
+         RETURNING client_id, status`,
         [requestId, status]
     );
     if (updated.rowCount === 0) {
-        const error = new Error('Request not found');
-        error.statusCode = 404;
-        error.code = 'NOT_FOUND';
+        const error = new Error('Request not found or cannot be updated');
+        error.statusCode = 409;
+        error.code = 'INVALID_STATUS';
         throw error;
     }
     await recordRequestEvent(requestId, actorId, 'STATUS_CHANGED', `Status: ${status}`, note || null);
@@ -537,10 +539,10 @@ export async function changeAppointmentStatus({ appointmentId, actorId, status, 
     let kind = 'APPOINTMENT_UPDATED';
     let title = 'Appointment updated';
     let body = `Your appointment status is now ${status.toLowerCase()}.`;
-    if (status === 'CANCELLED') { kind = 'APPOINTMENT_CANCELLED'; title = 'Appointment cancelled'; body = 'Your appointment has been cancelled.'; notifyAppointmentCancelled(appointmentId, row.client_id, row.matter_id); }
-    else if (status === 'COMPLETED') { kind = 'APPOINTMENT_COMPLETED'; title = 'Appointment completed'; body = 'Your appointment has been marked as completed.'; notifyAppointmentCompleted(appointmentId, row.client_id, row.matter_id); }
-    else if (status === 'NO_SHOW') { notifyAppointmentUpdated(appointmentId, row.client_id, row.matter_id, row.starts_at, status); }
-    else { notifyAppointmentUpdated(appointmentId, row.client_id, row.matter_id, row.starts_at, status); }
+    if (status === 'CANCELLED') { kind = 'APPOINTMENT_CANCELLED'; title = 'Appointment cancelled'; body = 'Your appointment has been cancelled.'; notifyAppointmentCancelled(appointmentId, row.client_id, row.matter_id).catch(() => {}); }
+    else if (status === 'COMPLETED') { kind = 'APPOINTMENT_COMPLETED'; title = 'Appointment completed'; body = 'Your appointment has been marked as completed.'; notifyAppointmentCompleted(appointmentId, row.client_id, row.matter_id).catch(() => {}); }
+    else if (status === 'NO_SHOW') { notifyAppointmentUpdated(appointmentId, row.client_id, row.matter_id, row.starts_at, status).catch(() => {}); }
+    else { notifyAppointmentUpdated(appointmentId, row.client_id, row.matter_id, row.starts_at, status).catch(() => {}); }
 
     await notify(row.client_id, { kind, title, body, entityType: 'appointment', entityId: appointmentId });
     return updated.rows[0];

@@ -7,6 +7,7 @@ import { authenticate, requireRole } from '../middleware/auth.js';
 import { query } from '../db.js';
 import { notify } from '../services/notification.service.js';
 import { acceptRequest, declineRequest, updateRequestStatus, requestMoreInfo, processClientResponse, updateMatterStatus, addInternalNote, scheduleAppointment, rescheduleAppointment, changeAppointmentStatus, recordMatterEvent } from '../services/workflow.service.js';
+import { logAudit } from '../lib/audit.js';
 
 export const ownerRouter = Router();
 ownerRouter.use(authenticate, requireRole('OWNER'));
@@ -139,6 +140,7 @@ ownerRouter.post('/owners', async (request, response, next) => {
         const input = createOwnerSchema.parse(request.body);
         const { registerUser } = await import('../services/auth.service.js');
         const user = await registerUser({ ...input, role: 'OWNER' });
+        await logAudit({ actorId: request.user.sub, action: 'USER_CREATED', entityType: 'user', entityId: user.id, metadata: { role: 'OWNER', target_id: user.id } });
         response.status(201).json({ data: user });
     } catch (error) { next(error); }
 });
@@ -155,6 +157,7 @@ ownerRouter.post('/users', async (request, response, next) => {
         const input = createUserSchema.parse(request.body);
         const { registerUser } = await import('../services/auth.service.js');
         const user = await registerUser(input);
+        await logAudit({ actorId: request.user.sub, action: 'USER_CREATED', entityType: 'user', entityId: user.id, metadata: { role: user.role, target_id: user.id } });
         response.status(201).json({ data: user });
     } catch (error) { next(error); }
 });
@@ -461,6 +464,7 @@ ownerRouter.patch('/settings/:key', async (request, response, next) => {
         if (result.rowCount === 0) {
             return response.status(404).json({ error: { code: 'NOT_FOUND', message: 'Setting not found' } });
         }
+        await logAudit({ actorId: request.user.sub, action: 'SETTING_UPDATED', entityType: 'setting', entityId: null, metadata: { key: request.params.key } });
         response.json({ data: result.rows[0] });
     } catch (error) {
         next(error);
@@ -610,7 +614,7 @@ ownerRouter.get('/conversations', async (request, response, next) => {
              FROM conversations c
              JOIN matters m ON m.id = c.matter_id
              JOIN users u ON u.id = m.client_id
-             ORDER BY c.created_at DESC
+             ORDER BY last_message_at DESC NULLS LAST, c.created_at DESC
              LIMIT $1 OFFSET $2`,
             [q.limit, q.offset]
         );
@@ -668,12 +672,12 @@ ownerRouter.post('/conversations/:id/messages', async (request, response, next) 
     try {
         const input = ownerMessageSchema.parse(request.body);
         const convoResult = await query(
-            `SELECT c.id, c.matter_id, c.request_id, c.client_id,
-                    COALESCE(m.client_id, r.client_id, c.client_id) AS client_id
-             FROM conversations c
-             LEFT JOIN matters m ON m.id = c.matter_id
-             LEFT JOIN requests r ON r.id = c.request_id
-             WHERE c.id = $1 LIMIT 1`,
+            `SELECT c.id, c.matter_id, c.request_id,
+                   COALESCE(m.client_id, r.client_id, c.client_id) AS client_id
+            FROM conversations c
+            LEFT JOIN matters m ON m.id = c.matter_id
+            LEFT JOIN requests r ON r.id = c.request_id
+            WHERE c.id = $1 LIMIT 1`,
             [request.params.id]
         );
         if (convoResult.rowCount === 0) {
@@ -697,7 +701,8 @@ ownerRouter.post('/conversations/:id/messages', async (request, response, next) 
             entityId: convo.id
         });
         const { notifyMessageCreated } = await import('../services/sse.js');
-        notifyMessageCreated(convo.id, inserted.rows[0].id, request.user.sub, input.body, request.user.role, (await query('SELECT full_name FROM users WHERE id = $1', [request.user.sub])).rows[0]?.full_name || null);
+        notifyMessageCreated(convo.id, inserted.rows[0].id, request.user.sub, input.body, request.user.role, (await query('SELECT full_name FROM users WHERE id = $1', [request.user.sub])).rows[0]?.full_name || null).catch(() => {});
+        await logAudit({ actorId: request.user.sub, action: 'OWNER_MESSAGE_SENT', entityType: 'conversation', entityId: convo.id, metadata: { message_id: inserted.rows[0].id, body_length: input.body.length } });
 
         response.status(201).json({ data: inserted.rows[0] });
     } catch (error) { next(error); }
@@ -718,6 +723,8 @@ ownerRouter.post('/conversations/:id/read', async (request, response, next) => {
              WHERE conversation_id = $1 AND sender_id <> $2 AND read_at IS NULL`,
             [convo.id, request.user.sub]
         );
+        const { notifyConversationReadAll } = await import('../services/sse.js');
+        notifyConversationReadAll(convo.id, request.user.sub).catch(() => {});
         response.json({ data: { conversation_id: convo.id, read: true } });
     } catch (error) { next(error); }
 });
@@ -759,7 +766,7 @@ ownerRouter.post('/requests/:id/message', async (request, response, next) => {
     try {
         const input = ownerMessageSchema.parse(request.body);
         const r = await query(
-            `SELECT r.id, r.client_id FROM requests r WHERE r.id = $1 LIMIT 1`,
+            `SELECT r.id, r.client_id, r.subject FROM requests r WHERE r.id = $1 LIMIT 1`,
             [request.params.id]
         );
         if (r.rowCount === 0) {
@@ -797,7 +804,8 @@ ownerRouter.post('/requests/:id/message', async (request, response, next) => {
             entityId: convoId
         });
         const { notifyMessageCreated } = await import('../services/sse.js');
-        notifyMessageCreated(convoId, inserted.rows[0].id, request.user.sub, input.body, request.user.role, (await query('SELECT full_name FROM users WHERE id = $1', [request.user.sub])).rows[0]?.full_name || null);
+        notifyMessageCreated(convoId, inserted.rows[0].id, request.user.sub, input.body, request.user.role, (await query('SELECT full_name FROM users WHERE id = $1', [request.user.sub])).rows[0]?.full_name || null).catch(() => {});
+        await logAudit({ actorId: request.user.sub, action: 'OWNER_MESSAGE_SENT', entityType: 'conversation', entityId: convoId, metadata: { message_id: inserted.rows[0].id, body_length: input.body.length, request_id: requestId } });
 
         response.status(201).json({ data: { conversation_id: convoId, message: inserted.rows[0] } });
     } catch (error) { next(error); }
@@ -1069,6 +1077,7 @@ ownerRouter.post('/requests/:id/request-info', async (request, response, next) =
             message: input.message,
             deadline: input.deadline
         });
+        await logAudit({ actorId: request.user.sub, action: 'REQUEST_INFO_REQUESTED', entityType: 'request', entityId: request.params.id, metadata: { has_message: !!input.message } });
         response.status(201).json({ data: result });
     } catch (error) { next(error); }
 });
@@ -1153,6 +1162,7 @@ ownerRouter.post('/requests/:id/accept', async (request, response, next) => {
             title: input.title,
             description: input.description
         });
+        await logAudit({ actorId: request.user.sub, action: 'REQUEST_ACCEPTED', entityType: 'request', entityId: request.params.id, metadata: { matter_id: matter.id } });
         response.status(201).json({ data: matter });
     } catch (error) { next(error); }
 });
@@ -1166,6 +1176,7 @@ ownerRouter.post('/requests/:id/decline', async (request, response, next) => {
             actorId: request.user.sub,
             reason: input.reason
         });
+        await logAudit({ actorId: request.user.sub, action: 'REQUEST_DECLINED', entityType: 'request', entityId: request.params.id, metadata: { has_reason: !!input.reason } });
         response.json({ data: result });
     } catch (error) { next(error); }
 });
@@ -1197,6 +1208,7 @@ ownerRouter.post('/requests/:id/internal-note', async (request, response, next) 
             authorId: request.user.sub,
             note: input.note
         });
+        await logAudit({ actorId: request.user.sub, action: 'INTERNAL_NOTE_ADDED', entityType: 'request', entityId: request.params.id, metadata: { note_id: result.id } });
         response.status(201).json({ data: result });
     } catch (error) { next(error); }
 });
@@ -1230,6 +1242,7 @@ ownerRouter.post('/matters/:id/internal-note', async (request, response, next) =
             authorId: request.user.sub,
             note: input.note
         });
+        await logAudit({ actorId: request.user.sub, action: 'INTERNAL_NOTE_ADDED', entityType: 'matter', entityId: request.params.id, metadata: { note_id: result.id } });
         response.status(201).json({ data: result });
     } catch (error) { next(error); }
 });
@@ -1282,14 +1295,15 @@ ownerRouter.post('/matters/:id/document-request', async (request, response, next
              VALUES ($1, $2, $3)`,
             [convoId, request.user.sub, `Document request: ${input.description}${input.message ? ' — ' + input.message : ''}`]
         );
-        await notify(matter.client_id, {
-            kind: 'DOCUMENT_REQUESTED',
-            title: 'Document requested',
-            body: input.description.slice(0, 160),
-            entityType: 'matter',
-            entityId: matter.id
-        });
-        response.status(201).json({ data: { matterId: matter.id, reference: matter.reference, conversationId: convoId } });
+         await notify(matter.client_id, {
+             kind: 'DOCUMENT_REQUESTED',
+             title: 'Document requested',
+             body: input.description.slice(0, 160),
+             entityType: 'matter',
+             entityId: matter.id
+         });
+         await logAudit({ actorId: request.user.sub, action: 'DOCUMENT_REQUEST_SENT', entityType: 'matter', entityId: matter.id, metadata: { conversation_id: convoId, has_message: !!input.message } });
+         response.status(201).json({ data: { matterId: matter.id, reference: matter.reference, conversationId: convoId } });
     } catch (error) { next(error); }
 });
 
@@ -1490,14 +1504,15 @@ ownerRouter.post('/matters/:id/assign', async (request, response, next) => {
             'Matter assigned',
             `Assigned to ${assigned.rows[0]?.full_name || assigned.rows[0]?.email || input.userId}.`
         );
-        await notify(input.userId, {
-            kind: 'MATTER_ASSIGNED',
-            title: 'Assigned to you',
-            body: `You have been assigned to a matter.`,
-            entityType: 'matter',
-            entityId: request.params.id
-        });
-        response.json({ data: assignment.rows[0] });
+         await notify(input.userId, {
+             kind: 'MATTER_ASSIGNED',
+             title: 'Assigned to you',
+             body: `You have been assigned to a matter.`,
+             entityType: 'matter',
+             entityId: request.params.id
+         });
+         await logAudit({ actorId: request.user.sub, action: 'MATTER_ASSIGNED', entityType: 'matter', entityId: request.params.id, metadata: { assigned_user_id: input.userId } });
+         response.json({ data: assignment.rows[0] });
     } catch (error) { next(error); }
 });
 
@@ -1631,13 +1646,14 @@ ownerRouter.post('/appointments', async (request, response, next) => {
             endsAt: input.endsAt,
             notes: input.notes,
             actorId: request.user.sub
-        });
-        response.status(201).json({ data: result });
-    } catch (error) { next(error); }
-});
+         });
+          await logAudit({ actorId: request.user.sub, action: 'APPOINTMENT_CREATED', entityType: 'appointment', entityId: result.id, metadata: { matter_id: result.matter_id || null, client_id: result.client_id } });
+          response.status(201).json({ data: result });
+     } catch (error) { next(error); }
+ });
 
-/* PATCH /api/v1/owner/appointments/:id — reschedule / update details */
-const updateAppointmentSchema = z.object({
+ /* PATCH /api/v1/owner/appointments/:id — reschedule / update details */
+ const updateAppointmentSchema = z.object({
     startsAt: z.string().datetime().optional(),
     endsAt: z.string().datetime().optional(),
     consultationType: z.enum(CONSULTATION_TYPES).optional(),
@@ -1661,12 +1677,13 @@ ownerRouter.patch('/appointments/:id', async (request, response, next) => {
             locationDetails: input.locationDetails,
             notes: input.notes
         });
-        response.json({ data: result });
-    } catch (error) { next(error); }
-});
+          await logAudit({ actorId: request.user.sub, action: 'APPOINTMENT_RESCHEDULED', entityType: 'appointment', entityId: result.id, metadata: { matter_id: result.matter_id || null, client_id: result.client_id } });
+          response.json({ data: result });
+     } catch (error) { next(error); }
+ });
 
-/* POST /api/v1/owner/appointments/:id/status — change status (confirm/cancel/complete/no-show) */
-const appointmentStatusSchema = z.object({
+ /* POST /api/v1/owner/appointments/:id/status — change status (confirm/cancel/complete/no-show) */
+ const appointmentStatusSchema = z.object({
     status: z.enum(APPOINTMENT_STATUSES),
     reason: z.string().trim().max(2000).optional()
 });
@@ -1680,6 +1697,7 @@ ownerRouter.post('/appointments/:id/status', async (request, response, next) => 
             status: input.status,
             reason: input.reason
         });
+        await logAudit({ actorId: request.user.sub, action: 'APPOINTMENT_STATUS_CHANGED', entityType: 'appointment', entityId: request.params.id, metadata: { new_status: input.status, has_reason: !!input.reason } });
         response.json({ data: result });
     } catch (error) { next(error); }
 });
@@ -1688,10 +1706,11 @@ ownerRouter.post('/appointments/:id/status', async (request, response, next) => 
 ownerRouter.post('/appointments/:id/cancel', async (request, response, next) => {
     try {
         const { reason } = z.object({ reason: z.string().trim().max(2000).optional() }).parse(request.body || {});
-        const result = await changeAppointmentStatus({
-            appointmentId: request.params.id, actorId: request.user.sub, status: 'CANCELLED', reason
-        });
-        response.json({ data: result });
+         const result = await changeAppointmentStatus({
+             appointmentId: request.params.id, actorId: request.user.sub, status: 'CANCELLED', reason
+         });
+         await logAudit({ actorId: request.user.sub, action: 'APPOINTMENT_CANCELLED', entityType: 'appointment', entityId: request.params.id, metadata: { has_reason: !!reason } });
+         response.json({ data: result });
     } catch (error) { next(error); }
 });
 

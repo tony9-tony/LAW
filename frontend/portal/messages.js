@@ -32,6 +32,8 @@
     const POLL_INTERVAL_MS = 5000;
     const POLL_INTERVAL_HIDDEN_MS = 15000;
     let realtimeHandlersRegistered = false;
+    let inboxRealtimeHandlersRegistered = false;
+    const inboxConversations = new Map();
 
     function unregisterRealtimeHandlers() {
         const RT = window.Site && window.Site.Realtime;
@@ -44,8 +46,43 @@
         realtimeHandlersRegistered = false;
     }
 
+    function unregisterInboxRealtimeHandlers() {
+        const RT = window.Site && window.Site.Realtime;
+        if (!RT || !inboxRealtimeHandlersRegistered) return;
+        RT.off('message.created', onInboxRealtimeMessage);
+        RT.off('message.read', onInboxRealtimeRead);
+        inboxRealtimeHandlersRegistered = false;
+    }
+
+    function onInboxRealtimeMessage(data) {
+        const cid = data.conversationId;
+        const msg = data.message;
+        if (!cid || !msg) return;
+        const convo = inboxConversations.get(cid);
+        if (convo) {
+            convo.last_message_body = msg.body;
+            convo.last_message_at = msg.created_at;
+            if (convo.unread_count > 0) {
+                convo.unread_count = convo.unread_count + 1;
+            } else {
+                convo.unread_count = 1;
+            }
+        }
+        renderInbox();
+    }
+
+    function onInboxRealtimeRead(data) {
+        const cid = data.conversationId;
+        const convo = inboxConversations.get(cid);
+        if (convo) {
+            convo.unread_count = 0;
+        }
+        renderInbox();
+    }
+
     function showThread() {
         unregisterRealtimeHandlers();
+        unregisterInboxRealtimeHandlers();
         if (inboxEl) inboxEl.style.display = 'none';
         if (threadEl) threadEl.style.display = '';
         if (msgActions) msgActions.innerHTML = `<button class="btn ghost" id="btn-back-inbox2">← Back to conversations</button>`;
@@ -71,7 +108,7 @@
         const fromClient = String(msg.sender_id) === String(API.user() && API.user().id);
         const name = msg.sender_name || (fromClient ? 'You' : 'Firm');
         const html = `
-            <div class="msg ${fromClient ? 'from-client' : ''}">
+            <div class="msg ${fromClient ? 'from-client' : ''}" data-msg-id="${msg.id}">
                 <div class="meta">${P.fmtDate(msg.created_at)} · ${escape(name)}</div>
                 <div class="body">${escape(msg.body)}</div>
             </div>
@@ -86,6 +123,10 @@
 
     function onRealtimeRead(data) {
         if (data.conversationId !== conversationId) return;
+        const msg = thread.querySelector(`.msg[data-msg-id="${data.messageId}"]`);
+        if (msg) msg.classList.add('read-by-peer');
+        const readerEl = document.getElementById('thread-meta-read');
+        if (readerEl) readerEl.textContent = 'Read';
     }
 
     function onRealtimeTyping(data) {
@@ -115,13 +156,24 @@
 
     async function loadReactions(messageId) {
         try {
-            const res = await API.request(`/messages/${messageId}/reactions`);
+            const res = await API.request(`/messages/${messageId}/reactions`, { auth: true });
             const reactions = (res && res.data) || [];
+            const msg = thread.querySelector(`.msg[data-msg-id="${messageId}"]`);
+            if (msg && reactions.length > 0) {
+                const existing = msg.querySelector('.reactions');
+                if (existing) existing.remove();
+                const html = reactions.reduce((acc, r) => acc + r.emoji, '');
+                const el = document.createElement('span');
+                el.className = 'reactions';
+                el.textContent = html;
+                msg.appendChild(el);
+            }
         } catch (e) { /* ignore */ }
     }
 
     function showInbox() {
         unregisterRealtimeHandlers();
+        unregisterInboxRealtimeHandlers();
         stopPolling();
         conversationId = null;
         lastKnownMessageId = null;
@@ -132,6 +184,12 @@
         if (inboxEl) inboxEl.style.display = '';
         if (msgActions) msgActions.innerHTML = `<a class="btn secondary" href="requests.html">← Back to requests</a>`;
         loadInbox();
+        const RT = window.Site && window.Site.Realtime;
+        if (RT && !inboxRealtimeHandlersRegistered) {
+            RT.on('message.created', onInboxRealtimeMessage);
+            RT.on('message.read', onInboxRealtimeRead);
+            inboxRealtimeHandlersRegistered = true;
+        }
     }
 
     function isNearBottom() {
@@ -165,7 +223,7 @@
             const fromClient = String(m.sender_id) === String(API.user() && API.user().id);
             const name = m.sender_name || (fromClient ? 'You' : 'Firm');
             return `
-                <div class="msg ${fromClient ? 'from-client' : ''}">
+                <div class="msg ${fromClient ? 'from-client' : ''}" data-msg-id="${m.id}">
                     <div class="meta">${P.fmtDate(m.created_at)} · ${escape(name)}</div>
                     <div class="body">${escape(m.body)}</div>
                 </div>
@@ -197,7 +255,7 @@
             const fromClient = String(m.sender_id) === String(API.user() && API.user().id);
             const name = m.sender_name || (fromClient ? 'You' : 'Firm');
             return `
-                <div class="msg ${fromClient ? 'from-client' : ''}">
+                <div class="msg ${fromClient ? 'from-client' : ''}" data-msg-id="${m.id}">
                     <div class="meta">${P.fmtDate(m.created_at)} · ${escape(name)}</div>
                     <div class="body">${escape(m.body)}</div>
                 </div>
@@ -275,12 +333,59 @@
             renderThread(detail.data.messages || [], detail.data);
             meta.textContent = `${(detail.data.messages || []).length} message${(detail.data.messages || []).length === 1 ? '' : 's'}`;
             await API.markConversationRead(convoId).catch(() => {});
+            if (window.Portal && window.Portal.refreshUnreadIndicators) {
+                window.Portal.refreshUnreadIndicators();
+            }
             startPolling();
         } catch (err) {
             if (err && err.status === 401) { window.location.replace('../login.html'); return; }
             thread.innerHTML = `<div class="empty-state tight"><span class="ico">!</span><strong>Could not load this conversation.</strong><p>${escape(err.message || 'Please try again.')}</p><button class="btn" type="button" id="retry-thread">Retry</button></div>`;
             document.getElementById('retry-thread')?.addEventListener('click', () => loadThread(convoId, { requestId: currentConvoRequestId, matterId: currentConvoMatterId }));
         }
+    }
+
+    function renderInbox() {
+        if (!inboxList) return;
+        const items = Array.from(inboxConversations.values()).sort((a, b) => {
+            const ta = a.last_message_at || a.created_at;
+            const tb = b.last_message_at || b.created_at;
+            return new Date(tb) - new Date(ta);
+        });
+        const totalUnread = items.reduce((sum, c) => sum + (c.unread_count || 0), 0);
+        inboxMeta.textContent = `${items.length} total · ${totalUnread} unread`;
+
+        if (window.Portal && window.Portal.refreshUnreadIndicators) {
+            window.Portal.refreshUnreadIndicators();
+        }
+
+        inboxList.innerHTML = `<table class="requests-table"><thead><tr><th>Request / Matter</th><th>Last Message</th><th>Date</th><th>Status</th></tr></thead><tbody>${items.map((c) => {
+            const isUnread = (c.unread_count || 0) > 0;
+            const label = c.request_subject
+                ? `Request: ${escape(c.request_subject)}`
+                : (c.reference ? `${escape(c.reference)}${c.title ? ' — ' + escape(c.title) : ''}` : 'Conversation');
+            const dot = isUnread ? '<span class="unread-dot" aria-hidden="true" title="Unread"></span>' : '';
+            return `
+                <tr style="cursor:pointer;" data-conversation-id="${c.id}" data-request-id="${c.request_id || ''}" data-matter-id="${c.matter_id || ''}" ${isUnread ? 'data-unread="true"' : ''}>
+                    <td class="subj">${dot}${label}</td>
+                    <td class="last-msg-preview">${escape(c.last_message_body || '—')}</td>
+                    <td class="muted">${escape(c.last_message_at || c.created_at)}</td>
+                    <td class="status-cell">${isUnread ? `<span class="pill status-new">${c.unread_count} unread</span>` : '<span class="pill status-closed">Read</span>'}</td>
+                </tr>
+            `;
+        }).join('')}</tbody></table>`;
+        inboxList.querySelectorAll('tr[data-conversation-id]').forEach((row) => {
+            row.addEventListener('click', () => {
+                const cid = row.getAttribute('data-conversation-id');
+                const rid = row.getAttribute('data-request-id');
+                const mid = row.getAttribute('data-matter-id');
+                const href = new URL(location);
+                href.searchParams.set('conversation', cid);
+                if (rid) href.searchParams.set('request', rid);
+                if (mid) href.searchParams.set('matter', mid);
+                history.pushState({ conversationId: cid, requestId: rid, matterId: mid }, '', href);
+                loadThread(cid, { requestId: rid, matterId: mid });
+            });
+        });
     }
 
     async function loadInbox() {
@@ -290,8 +395,8 @@
         try {
             const res = await API.listConversations({ limit: 50 });
             const items = (res && res.data) || [];
-            const totalUnread = items.reduce((sum, c) => sum + (c.unread_count || 0), 0);
-            inboxMeta.textContent = `${items.length} total · ${totalUnread} unread`;
+            inboxConversations.clear();
+            items.forEach((c) => inboxConversations.set(c.id, c));
             if (!items.length) {
                 inboxList.innerHTML = `
                     <div class="empty-state">
@@ -305,32 +410,7 @@
                     </div>`;
                 return;
             }
-            inboxList.innerHTML = `<table class="requests-table"><thead><tr><th>Request / Matter</th><th>Last Message</th><th>Date</th><th>Status</th></tr></thead><tbody>${items.map((c) => {
-                const label = c.request_subject
-                    ? `Request: ${escape(c.request_subject)}`
-                    : (c.reference ? `${escape(c.reference)}${c.title ? ' — ' + escape(c.title) : ''}` : 'Conversation');
-                return `
-                    <tr style="cursor:pointer;" data-conversation-id="${c.id}" data-request-id="${c.request_id || ''}" data-matter-id="${c.matter_id || ''}">
-                        <td class="subj">${label}</td>
-                        <td>${escape(c.last_message_body || '—')}</td>
-                        <td class="muted">${escape(c.last_message_at || c.created_at)}</td>
-                        <td>${(c.unread_count > 0) ? `<span class="pill status-new">Unread (${c.unread_count})</span>` : '<span class="pill status-closed">Read</span>'}</td>
-                    </tr>
-                `;
-            }).join('')}</tbody></table>`;
-            inboxList.querySelectorAll('tr[data-conversation-id]').forEach((row) => {
-                row.addEventListener('click', () => {
-                    const cid = row.getAttribute('data-conversation-id');
-                    const rid = row.getAttribute('data-request-id');
-                    const mid = row.getAttribute('data-matter-id');
-                    const href = new URL(location);
-                    href.searchParams.set('conversation', cid);
-                    if (rid) href.searchParams.set('request', rid);
-                    if (mid) href.searchParams.set('matter', mid);
-                    history.pushState({ conversationId: cid, requestId: rid, matterId: mid }, '', href);
-                    loadThread(cid, { requestId: rid, matterId: mid });
-                });
-            });
+            renderInbox();
         } catch (err) {
             if (err && err.status === 401) { window.location.replace('../login.html'); return; }
             inboxList.innerHTML = `<div class="empty-state"><span class="ico">!</span><strong>Could not load conversations.</strong><p>${escape(err.message || 'Please try again.')}</p></div>`;
@@ -430,7 +510,7 @@
             } catch (err) {
                 if (statusEl) {
                     statusEl.className = 'form-status error';
-                    statusEl.innerHTML = '<strong>Failed to send.</strong> ' + (err && err.message ? err.message : 'Please try again.');
+                    statusEl.innerHTML = '<strong>Failed to send.</strong> ' + escape(err && err.message ? err.message : 'Please try again.');
                 }
             } finally {
                 submitBtn.disabled = false;

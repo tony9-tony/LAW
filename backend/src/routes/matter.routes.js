@@ -2,6 +2,7 @@ import { Router } from 'express';
 import { authenticate } from '../middleware/auth.js';
 import { query } from '../db.js';
 import { ensureOwned } from '../lib/authorization.js';
+import { logAudit } from '../lib/audit.js';
 
 export const matterRouter = Router();
 matterRouter.use(authenticate);
@@ -73,6 +74,7 @@ matterRouter.get('/:id/appointments', async (request, response, next) => {
 matterRouter.get('/:id/conversation', async (request, response, next) => {
     try {
         await ensureOwned('matters', request.params.id, request.user.sub);
+        await logAudit({ actorId: request.user.sub, action: 'CONVERSATION_ACCESSED', entityType: 'matter', entityId: request.params.id });
         const result = await query(
             `INSERT INTO conversations (matter_id) VALUES ($1)
              ON CONFLICT (matter_id) DO NOTHING
