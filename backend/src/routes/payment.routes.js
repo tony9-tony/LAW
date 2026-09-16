@@ -1,5 +1,6 @@
 import { Router } from 'express';
 import { z } from 'zod';
+import fs from 'node:fs';
 import { authenticate } from '../middleware/auth.js';
 import { query } from '../db.js';
 import { logAudit } from '../lib/audit.js';
@@ -9,6 +10,8 @@ import {
     listPaymentsForClient,
     listPaymentsForInvoice,
     listActiveDestinations,
+    getPaymentById,
+    receiptPath,
     PAYMENT_RECORD_STATUS
 } from '../services/payment.service.js';
 import {
@@ -107,6 +110,47 @@ paymentRouter.get('/invoice/:invoiceId', async (request, response, next) => {
     try {
         const payments = await listPaymentsForInvoice(request.params.invoiceId, request.user.sub);
         response.json({ data: payments });
+    } catch (error) {
+        next(error);
+    }
+});
+
+/* GET /api/v1/payments/:id — authenticated client retrieves their own payment. */
+paymentRouter.get('/:id', async (request, response, next) => {
+    try {
+        const payment = await getPaymentById(request.params.id);
+        if (!payment || payment.client_id !== request.user.sub) {
+            return response.status(404).json({ error: { code: 'NOT_FOUND', message: 'Payment not found' } });
+        }
+        response.json({ data: payment });
+    } catch (error) {
+        next(error);
+    }
+});
+
+/* GET /api/v1/payments/:id/receipt — stream a payment receipt file (client owner only). */
+paymentRouter.get('/:id/receipt', async (request, response, next) => {
+    try {
+        const payment = await getPaymentById(request.params.id);
+        if (!payment || payment.client_id !== request.user.sub) {
+            return response.status(404).json({ error: { code: 'NOT_FOUND', message: 'Payment not found' } });
+        }
+        if (!payment.receipt_storage_key || !payment.receipt_content_type) {
+            return response.status(404).json({ error: { code: 'NOT_FOUND', message: 'Receipt not found' } });
+        }
+        const filePath = receiptPath(payment.receipt_storage_key);
+        if (!fs.existsSync(filePath)) {
+            return response.status(404).json({ error: { code: 'NOT_FOUND', message: 'Receipt file not found' } });
+        }
+        response.writeHead(200, {
+            'Content-Type': payment.receipt_content_type,
+            'Content-Disposition': `inline; filename="${payment.receipt_original_name || 'receipt'}"`,
+            'Content-Length': payment.receipt_size_bytes || undefined,
+            'Cache-Control': 'private, max-age=3600'
+        });
+        const stream = fs.createReadStream(filePath);
+        stream.on('error', () => response.status(500).json({ error: { code: 'INTERNAL_ERROR', message: 'Failed to read receipt' } }));
+        stream.pipe(response);
     } catch (error) {
         next(error);
     }

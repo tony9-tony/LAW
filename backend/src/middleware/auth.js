@@ -3,7 +3,11 @@ import { config } from '../config.js';
 
 export function authenticate(request, response, next) {
     const header = request.get('authorization');
-    const token = header?.startsWith('Bearer ') ? header.slice(7) : null;
+    let token = header?.startsWith('Bearer ') ? header.slice(7) : null;
+    if (!token) {
+        const queryToken = request.query && request.query.token;
+        if (queryToken) token = queryToken;
+    }
     if (!token) return response.status(401).json({ error: { code: 'UNAUTHENTICATED', message: 'Authentication required' } });
 
     try {

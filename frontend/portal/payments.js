@@ -56,8 +56,8 @@
                             <td><span class="ref">#${String(p.id).padStart(5, '0')}</span></td>
                             <td class="muted">#${p.invoice_id ? p.invoice_id.split('-')[0] : '—'}</td>
                             <td>${P.statusPill(p.status || 'pending')}</td>
-                            <td style="text-align:right;font-family:var(--mono);font-size:0.88rem;">${fmtCurrency(p.amount_cents, p.currency)}</td>
-                            <td class="muted">${fmtDate(p.submitted_at)}</td>
+                            <td style="text-align:right;font-family:var(--mono);font-size:0.88rem;">${fmtCurrency(p.amount, p.currency)}</td>
+                            <td class="muted">${fmtDate(p.created_at)}</td>
                             <td class="muted">${fmtDate(p.verified_at || p.paid_at)}</td>
                         </tr>
                     `).join('')}</tbody>
@@ -96,12 +96,12 @@
                                 <dl class="detail-meta">
                                     <dt>Invoice</dt><dd>#${escape(p.invoice_id ? p.invoice_id.split('-')[0] : '—')}</dd>
                                     <dt>Status</dt><dd>${P.statusPill(p.status || 'pending')}</dd>
-                                    <dt>Amount</dt><dd>${fmtCurrency(p.amount_cents, p.currency)}</dd>
+                                    <dt>Amount</dt><dd>${fmtCurrency(p.amount, p.currency)}</dd>
                                     <dt>Method</dt><dd>${escape(p.method || '—')}</dd>
                                     <dt>Reference</dt><dd>${escape(p.reference || '—')}</dd>
-                                    <dt>Submitted</dt><dd>${fmtDate(p.submitted_at)}</dd>
+                                    <dt>Submitted</dt><dd>${fmtDate(p.created_at)}</dd>
                                     <dt>Verified</dt><dd>${fmtDate(p.verified_at || '—')}</dd>
-                                    <dt>Receipt</dt><dd>${p.receipt_path ? `<a href="${escape(p.receipt_path)}" target="_blank">View receipt</a>` : '—'}</dd>
+                                    <dt>Receipt</dt><dd>${p.receipt_storage_key ? `<a href="${API.base()}/payments/${encodeURIComponent(p.id)}/receipt?token=${API.token()}" target="_blank">View receipt</a>` : '—'}</dd>
                                     ${p.note ? `<dt>Note</dt><dd>${escape(p.note)}</dd>` : ''}
                                 </dl>
                             </div>

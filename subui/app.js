@@ -3014,10 +3014,10 @@
             el.innerHTML = `<table class="table"><thead><tr><th>ID</th><th>Amount</th><th>Status</th><th>Method</th><th>Submitted</th><th>Verified</th><th>Actions</th></tr></thead><tbody>${items.map((p) => `
                 <tr>
                     <td class="mono">#${p.id.split('-')[0]}</td>
-                    <td class="muted">${escape(p.currency || 'TZS')} ${Number(p.amount_cents || 0).toFixed(0)}</td>
+                    <td class="muted">${escape(p.currency || 'TZS')} ${Number(p.amount || 0).toFixed(0)}</td>
                     <td>${escape(p.status || 'pending')}</td>
                     <td class="muted">${escape(p.method || '—')}</td>
-                    <td class="muted">${escape(p.submitted_at || '—')}</td>
+                    <td class="muted">${escape(p.created_at || '—')}</td>
                     <td class="muted">${escape(p.verified_at || '—')}</td>
                     <td><button class="btn small secondary" data-payment="${p.id}">View</button></td>
                 </tr>
@@ -3050,10 +3050,10 @@
                                     <td class="mono">#${p.id.split('-')[0]}</td>
                                     <td class="mono">${escape(p.invoice_id ? p.invoice_id.split('-')[0] : '—')}</td>
                                     <td>${escape(p.client_name || '—')}</td>
-                                    <td class="muted">${escape(p.currency || 'TZS')} ${Number(p.amount_cents || 0).toFixed(0)}</td>
+                                    <td class="muted">${escape(p.currency || 'TZS')} ${Number(p.amount || 0).toFixed(0)}</td>
                                     <td>${escape(p.status || 'pending')}</td>
                                     <td class="muted">${escape(p.method || '—')}</td>
-                                    <td class="muted">${escape(p.submitted_at || '—')}</td>
+                                    <td class="muted">${escape(p.created_at || '—')}</td>
                                     <td><button class="btn small secondary" data-payment="${p.id}">View</button></td>
                                 </tr>
                             `).join('')}</tbody>
@@ -3095,12 +3095,12 @@
                         <table class="table">
                             <tbody>
                                 <tr><th>Status</th><td>${escape(p.status || 'pending')}</td></tr>
-                                <tr><th>Amount</th><td>${escape(p.currency || 'TZS')} ${Number(p.amount_cents || 0).toFixed(0)}</td></tr>
+                                <tr><th>Amount</th><td>${escape(p.currency || 'TZS')} ${Number(p.amount || 0).toFixed(0)}</td></tr>
                                 <tr><th>Method</th><td>${escape(p.method || '—')}</td></tr>
                                 <tr><th>Reference</th><td>${escape(p.reference || '—')}</td></tr>
-                                <tr><th>Submitted</th><td class="muted">${escape(p.submitted_at || '—')}</td></tr>
+                                <tr><th>Submitted</th><td class="muted">${escape(p.created_at || '—')}</td></tr>
                                 <tr><th>Verified</th><td class="muted">${escape(p.verified_at || '—')}</td></tr>
-                                <tr><th>Receipt</th><td class="muted">${p.receipt_path ? `<a href="${escape(p.receipt_path)}" target="_blank">View receipt</a>` : '—'}</td></tr>
+                                <tr><th>Receipt</th><td class="muted">${p.receipt_storage_key ? `<a href="/api/v1/owner/payments/${encodeURIComponent(p.id)}/receipt?token=${token()}" target="_blank">View receipt</a>` : '—'}</td></tr>
                                 ${p.note ? `<tr><th>Note</th><td>${escape(p.note)}</td></tr>` : ''}
                             </tbody>
                         </table>

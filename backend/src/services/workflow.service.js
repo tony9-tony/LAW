@@ -5,7 +5,7 @@ import { query, withTransaction } from '../db.js';
 import { notify } from './notification.service.js';
 import { createInvoiceForRequest, PAYMENT_STATUS } from './billing.service.js';
 import { getServiceCatalog } from './payment.service.js';
-import { notifyMessageCreated, notifyRequestCreated, notifyRequestStatusChanged, notifyRequestMoreInfo, notifyRequestAccepted, notifyRequestDeclined, notifyMatterCreated, notifyMatterStatusChanged, notifyAppointmentCreated, notifyAppointmentUpdated, notifyAppointmentCancelled, notifyAppointmentCompleted, notifyDocumentRequested, notifyNotificationCreated, notifyPaymentProofSubmitted } from './sse.js';
+import { notifyMessageCreated, notifyRequestCreated, notifyRequestStatusChanged, notifyRequestMoreInfo, notifyRequestAccepted, notifyRequestDeclined, notifyMatterCreated, notifyMatterStatusChanged, notifyAppointmentCreated, notifyAppointmentUpdated, notifyAppointmentCancelled, notifyAppointmentCompleted, notifyDocumentRequested, notifyNotificationCreated } from './sse.js';
 
 function referenceForMatter() {
     /* Deterministic-ish short reference: "M-" + 6 hex chars. The DB has a
@@ -136,7 +136,6 @@ export async function acceptRequest({ requestId, actorId, matterType, title, des
                         paymentStatus: PAYMENT_STATUS.PAYMENT_REQUIRED
                     });
                     invoiceId = invoice.id;
-                    await notifyPaymentProofSubmitted(invoice.id, invoiceId, result.client_id, Number(invoice.total), invoice.currency);
                 }
             }
 

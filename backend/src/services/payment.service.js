@@ -30,7 +30,7 @@ function uploadRoot() {
     return dir;
 }
 
-function receiptPath(storageKey) {
+export function receiptPath(storageKey) {
     const dir = path.join(uploadRoot(), path.dirname(storageKey));
     if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
     return path.join(uploadRoot(), storageKey);
@@ -373,6 +373,7 @@ export async function getPaymentById(id) {
     const result = await query(
         `SELECT p.id, p.invoice_id, p.client_id, p.amount, p.currency, p.method, p.reference_number,
                 p.payment_message, p.status, p.verified_by, p.verified_at, p.rejection_reason,
+                p.receipt_storage_key, p.receipt_original_name, p.receipt_content_type, p.receipt_size_bytes,
                 p.created_at, p.updated_at,
                 i.total AS invoice_total, i.payment_status AS invoice_payment_status,
                 m.reference AS matter_reference, m.title AS matter_title,
