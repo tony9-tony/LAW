@@ -4,7 +4,7 @@
 import { query } from '../db.js';
 
 /* Fixed allowlist — never user-controlled, prevents SQL injection via table name. */
-const ALLOWED = new Set(['requests', 'matters', 'appointments', 'conversations', 'documents']);
+const ALLOWED = new Set(['requests', 'matters', 'appointments', 'conversations', 'documents', 'payments']);
 
 function ownershipQuery(table, id, userId) {
     switch (table) {

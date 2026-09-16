@@ -42,8 +42,8 @@ requestRouter.post('/', async (request, response, next) => {
              VALUES ($1, $2, 'SUBMITTED', 'Request submitted')`,
             [row.id, request.user.sub]
         );
-        /* Notify all internal staff with a NEW_REQUEST entry. */
-        const staff = await query(`SELECT id FROM users WHERE role IN ('LAWYER','STAFF') AND is_active = TRUE`);
+        /* Notify all internal operators with a NEW_REQUEST entry. */
+        const staff = await query(`SELECT id FROM users WHERE role IN ('LAWYER','STAFF','OWNER') AND is_active = TRUE`);
         for (const s of staff.rows) {
             await query(
                 `INSERT INTO notifications (user_id, kind, title, body, entity_type, entity_id)

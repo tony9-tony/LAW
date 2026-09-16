@@ -13,6 +13,7 @@
             appointments: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.2"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M12 11h.01M12 15h.01M12 11a3 3 0 1 0 0 4 3 3 0 0 0 0-4z"/></svg>',
             documents: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/></svg>',
             invoices: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/><path d="M12 18v-6"/><path d="M9 15l3 3 3-3"/></svg>',
+            payments: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.2"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18"/><path d="M9 14h.01M15 14h.01M7 19l1-1h8l1 1z"/></svg>',
             notifications: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.2"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>',
             practice: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.2"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>',
             profile: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>'
@@ -29,6 +30,7 @@
         { href: 'consultation.html', label: 'Consultation', icon: 'appointments' },
         { href: 'documents.html', label: 'Documents',     icon: 'documents' },
         { href: 'invoices.html', label: 'Invoices',       icon: 'invoices' },
+        { href: 'payments.html', label: 'Payments',       icon: 'payments' },
         { href: 'notifications.html', label: 'Notifications', icon: 'notifications' },
         { href: 'practice.html',  label: 'Practice',     icon: 'practice' },
         { href: 'practice-areas.html', label: 'Practice Areas', icon: 'practice' },

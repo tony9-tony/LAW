@@ -7,6 +7,8 @@ import { authenticate, requireRole } from '../middleware/auth.js';
 import { query } from '../db.js';
 import { notify } from '../services/notification.service.js';
 import { acceptRequest, declineRequest, updateRequestStatus, requestMoreInfo, processClientResponse, updateMatterStatus, addInternalNote, scheduleAppointment, rescheduleAppointment, changeAppointmentStatus, recordMatterEvent } from '../services/workflow.service.js';
+import { verifyPayment, rejectPayment, listPaymentsForOwner, getPaymentById, getPaymentDestinations, createPaymentDestination, updatePaymentDestination, getServiceCatalog } from '../services/payment.service.js';
+import { notifyPaymentVerified, notifyPaymentRejected } from '../services/sse.js';
 import { logAudit } from '../lib/audit.js';
 
 export const ownerRouter = Router();
@@ -1153,14 +1155,20 @@ ownerRouter.post('/requests/:id/accept', async (request, response, next) => {
         const input = z.object({
             matterType: z.string().trim().max(120).optional(),
             title: z.string().trim().min(3).max(200),
-            description: z.string().trim().max(4000).optional()
+            description: z.string().trim().max(4000).optional(),
+            invoiceItems: z.array(z.object({
+                description: z.string().trim().min(1).max(500),
+                quantity: z.number().positive(),
+                unit_price: z.number().nonnegative()
+            })).optional()
         }).parse(request.body);
         const matter = await acceptRequest({
             requestId: request.params.id,
             actorId: request.user.sub,
             matterType: input.matterType,
             title: input.title,
-            description: input.description
+            description: input.description,
+            invoiceItems: input.invoiceItems
         });
         await logAudit({ actorId: request.user.sub, action: 'REQUEST_ACCEPTED', entityType: 'request', entityId: request.params.id, metadata: { matter_id: matter.id } });
         response.status(201).json({ data: matter });
@@ -1731,5 +1739,221 @@ ownerRouter.post('/appointments/:id/no-show', async (request, response, next) =>
             appointmentId: request.params.id, actorId: request.user.sub, status: 'NO_SHOW'
         });
         response.json({ data: result });
+    } catch (error) { next(error); }
+});
+
+/* --- Payment Management --- */
+
+/* GET /api/v1/owner/payments?method=&status=&page=&limit= */
+ownerRouter.get('/payments', async (request, response, next) => {
+    try {
+        const q = z.object({
+            method: z.enum(['mobile_money', 'bank', 'qr']).optional(),
+            status: z.enum(['PENDING', 'VERIFIED', 'REJECTED']).optional(),
+            page: z.coerce.number().min(1).default(1),
+            limit: z.coerce.number().min(1).max(200).default(50)
+        }).parse(request.query);
+        const result = await listPaymentsForOwner({ method: q.method, status: q.status, page: q.page, limit: q.limit });
+        response.json(result);
+    } catch (error) { next(error); }
+});
+
+/* GET /api/v1/owner/payments/:id */
+ownerRouter.get('/payments/:id', async (request, response, next) => {
+    try {
+        const payment = await getPaymentById(request.params.id);
+        if (!payment) {
+            return response.status(404).json({ error: { code: 'NOT_FOUND', message: 'Payment not found' } });
+        }
+        response.json({ data: payment });
+    } catch (error) { next(error); }
+});
+
+/* POST /api/v1/owner/payments/:id/verify */
+ownerRouter.post('/payments/:id/verify', async (request, response, next) => {
+    try {
+        const result = await verifyPayment({
+            paymentId: request.params.id,
+            actorId: request.user.sub
+        });
+        await logAudit({
+            actorId: request.user.sub,
+            action: 'PAYMENT_VERIFIED',
+            entityType: 'payment',
+            entityId: request.params.id,
+            metadata: { invoice_id: result.invoiceId, amount: Number(result.payment.amount) }
+        });
+        await notify(result.clientId, {
+            kind: 'PAYMENT_VERIFIED',
+            title: 'Payment verified',
+            body: 'Your payment has been verified and the invoice is now marked as paid.',
+            entityType: 'payment',
+            entityId: request.params.id
+        });
+        await notifyPaymentVerified(
+            result.payment.id, result.invoiceId, result.clientId,
+            Number(result.payment.amount), result.payment.currency
+        );
+        response.json({ data: result.payment });
+    } catch (error) { next(error); }
+});
+
+/* POST /api/v1/owner/payments/:id/reject */
+ownerRouter.post('/payments/:id/reject', async (request, response, next) => {
+    try {
+        const input = z.object({ reason: z.string().trim().min(1).max(1000).optional() }).parse(request.body || {});
+        const payment = await getPaymentById(request.params.id);
+        if (!payment) {
+            return response.status(404).json({ error: { code: 'NOT_FOUND', message: 'Payment not found' } });
+        }
+        await rejectPayment({
+            paymentId: request.params.id,
+            actorId: request.user.sub,
+            reason: input.reason
+        });
+        await logAudit({
+            actorId: request.user.sub,
+            action: 'PAYMENT_REJECTED',
+            entityType: 'payment',
+            entityId: request.params.id,
+            metadata: { invoice_id: payment.invoice_id, has_reason: !!input.reason }
+        });
+        await notify(payment.client_id, {
+            kind: 'PAYMENT_REJECTED',
+            title: 'Payment rejected',
+            body: input.reason
+                ? `Your payment was rejected: ${input.reason.slice(0, 160)}`
+                : 'Your payment was rejected. Please review the details and resubmit.',
+            entityType: 'payment',
+            entityId: request.params.id
+        });
+        await notifyPaymentRejected(request.params.id, payment.invoice_id, payment.client_id, input.reason || null);
+        response.json({ data: { id: request.params.id, status: 'REJECTED' } });
+    } catch (error) { next(error); }
+});
+
+/* --- Payment Destinations CRUD --- */
+
+/* GET /api/v1/owner/payment-destinations */
+ownerRouter.get('/payment-destinations', async (_request, response, next) => {
+    try {
+        const destinations = await getPaymentDestinations();
+        response.json({ data: destinations });
+    } catch (error) { next(error); }
+});
+
+/* POST /api/v1/owner/payment-destinations */
+const createDestinationSchema = z.object({
+    method: z.enum(['mobile_money', 'bank', 'qr']),
+    label: z.string().trim().min(1).max(200),
+    lipa_number: z.string().trim().max(100).optional(),
+    bank_name: z.string().trim().max(200).optional(),
+    bank_account_name: z.string().trim().max(200).optional(),
+    bank_account_number: z.string().trim().max(100).optional(),
+    instructions: z.string().trim().max(1000).optional(),
+    is_active: z.boolean().optional()
+});
+
+ownerRouter.post('/payment-destinations', async (request, response, next) => {
+    try {
+        const input = createDestinationSchema.parse(request.body);
+        const dest = await createPaymentDestination(input);
+        await logAudit({ actorId: request.user.sub, action: 'PAYMENT_DESTINATION_CREATED', entityType: 'payment_destination', entityId: dest.id, metadata: { method: dest.method } });
+        response.status(201).json({ data: dest });
+    } catch (error) { next(error); }
+});
+
+/* PATCH /api/v1/owner/payment-destinations/:id */
+const updateDestinationSchema = z.object({
+    label: z.string().trim().min(1).max(200).optional(),
+    lipa_number: z.string().trim().max(100).optional(),
+    bank_name: z.string().trim().max(200).optional(),
+    bank_account_name: z.string().trim().max(200).optional(),
+    bank_account_number: z.string().trim().max(100).optional(),
+    instructions: z.string().trim().max(1000).optional(),
+    is_active: z.boolean().optional()
+});
+
+ownerRouter.patch('/payment-destinations/:id', async (request, response, next) => {
+    try {
+        const input = updateDestinationSchema.parse(request.body || {});
+        const dest = await updatePaymentDestination(request.params.id, input);
+        if (!dest) {
+            return response.status(404).json({ error: { code: 'NOT_FOUND', message: 'Payment destination not found' } });
+        }
+        await logAudit({ actorId: request.user.sub, action: 'PAYMENT_DESTINATION_UPDATED', entityType: 'payment_destination', entityId: request.params.id, metadata: { updates: Object.keys(input) } });
+        response.json({ data: dest });
+    } catch (error) { next(error); }
+});
+
+/* --- Service Catalog CRUD --- */
+
+/* GET /api/v1/owner/service-catalog?activeOnly= */
+ownerRouter.get('/service-catalog', async (request, response, next) => {
+    try {
+        const activeOnly = request.query.activeOnly === 'true';
+        const services = await getServiceCatalog({ activeOnly });
+        response.json({ data: services });
+    } catch (error) { next(error); }
+});
+
+/* POST /api/v1/owner/service-catalog */
+const createServiceSchema = z.object({
+    code: z.string().trim().min(1).max(100),
+    name: z.string().trim().min(1).max(200),
+    description: z.string().trim().max(1000).optional(),
+    pricing_mode: z.enum(['FIXED', 'CUSTOM']),
+    fixed_price: z.coerce.number().min(0).default(0)
+});
+
+ownerRouter.post('/service-catalog', async (request, response, next) => {
+    try {
+        const input = createServiceSchema.parse(request.body);
+        const result = await query(
+            `INSERT INTO service_catalog (code, name, description, pricing_mode, fixed_price)
+             VALUES ($1, $2, $3, $4, $5)
+             RETURNING id, code, name, description, pricing_mode, fixed_price, is_active, created_at, updated_at`,
+            [input.code, input.name, input.description || null, input.pricing_mode, input.fixed_price]
+        );
+        await logAudit({ actorId: request.user.sub, action: 'SERVICE_CREATED', entityType: 'service_catalog', entityId: result.rows[0].id, metadata: { code: input.code, pricing_mode: input.pricing_mode } });
+        response.status(201).json({ data: result.rows[0] });
+    } catch (error) { next(error); }
+});
+
+/* PATCH /api/v1/owner/service-catalog/:id */
+const updateServiceSchema = z.object({
+    name: z.string().trim().min(1).max(200).optional(),
+    description: z.string().trim().max(1000).optional(),
+    pricing_mode: z.enum(['FIXED', 'CUSTOM']).optional(),
+    fixed_price: z.coerce.number().min(0).optional(),
+    is_active: z.boolean().optional()
+});
+
+ownerRouter.patch('/service-catalog/:id', async (request, response, next) => {
+    try {
+        const input = updateServiceSchema.parse(request.body || {});
+        if (Object.keys(input).length === 0) {
+            return response.status(400).json({ error: { code: 'BAD_REQUEST', message: 'No fields to update' } });
+        }
+        const updates = [];
+        const params = [];
+        let i = 1;
+        if (input.name !== undefined) { updates.push(`name = $${i}`); params.push(input.name); i++; }
+        if (input.description !== undefined) { updates.push(`description = $${i}`); params.push(input.description); i++; }
+        if (input.pricing_mode !== undefined) { updates.push(`pricing_mode = $${i}`); params.push(input.pricing_mode); i++; }
+        if (input.fixed_price !== undefined) { updates.push(`fixed_price = $${i}`); params.push(input.fixed_price); i++; }
+        if (input.is_active !== undefined) { updates.push(`is_active = $${i}`); params.push(input.is_active); i++; }
+        params.push(request.params.id);
+        const result = await query(
+            `UPDATE service_catalog SET ${updates.join(', ')}, updated_at = NOW()
+             WHERE id = $${i}
+             RETURNING id, code, name, description, pricing_mode, fixed_price, is_active, created_at, updated_at`,
+            [...params]
+        );
+        if (result.rowCount === 0) {
+            return response.status(404).json({ error: { code: 'NOT_FOUND', message: 'Service not found' } });
+        }
+        await logAudit({ actorId: request.user.sub, action: 'SERVICE_UPDATED', entityType: 'service_catalog', entityId: request.params.id, metadata: { updates: Object.keys(input) } });
+        response.json({ data: result.rows[0] });
     } catch (error) { next(error); }
 });

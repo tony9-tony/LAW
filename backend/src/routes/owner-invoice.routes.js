@@ -8,12 +8,13 @@ ownerInvoiceRouter.use(authenticate, requireRole('OWNER'));
 ownerInvoiceRouter.get('/', async (request, response, next) => {
     try {
         const result = await query(
-            `SELECT i.id, i.matter_id, i.client_id, i.status, i.currency, i.subtotal, i.tax, i.total,
-                     i.issued_at, i.due_at, i.paid_at, i.created_at, i.updated_at,
+            `SELECT i.id, i.matter_id, i.client_id, i.request_id, i.status, i.currency, i.subtotal, i.tax, i.total,
+                     i.issued_at, i.due_at, i.paid_at, i.payment_status, i.payment_instructions,
+                     i.created_at, i.updated_at,
                      m.reference AS matter_reference, m.title AS matter_title,
                      u.full_name AS client_name
               FROM invoices i
-              JOIN matters m ON m.id = i.matter_id
+              LEFT JOIN matters m ON m.id = i.matter_id
               JOIN users u ON u.id = i.client_id
               ORDER BY i.created_at DESC`,
             []
@@ -25,12 +26,13 @@ ownerInvoiceRouter.get('/', async (request, response, next) => {
 ownerInvoiceRouter.get('/:id', async (request, response, next) => {
     try {
         const result = await query(
-            `SELECT i.id, i.matter_id, i.client_id, i.status, i.currency, i.subtotal, i.tax, i.total,
-                     i.issued_at, i.due_at, i.paid_at, i.created_at, i.updated_at,
+            `SELECT i.id, i.matter_id, i.client_id, i.request_id, i.status, i.currency, i.subtotal, i.tax, i.total,
+                     i.issued_at, i.due_at, i.paid_at, i.payment_status, i.payment_instructions,
+                     i.created_at, i.updated_at,
                      m.reference AS matter_reference, m.title AS matter_title,
                      u.full_name AS client_name
               FROM invoices i
-              JOIN matters m ON m.id = i.matter_id
+              LEFT JOIN matters m ON m.id = i.matter_id
               JOIN users u ON u.id = i.client_id
               WHERE i.id = $1`,
             [request.params.id]
@@ -44,11 +46,18 @@ ownerInvoiceRouter.get('/:id', async (request, response, next) => {
 
 ownerInvoiceRouter.get('/:id/items', async (request, response, next) => {
     try {
+        const invoiceCheck = await query(
+            `SELECT id FROM invoices WHERE id = $1`,
+            [request.params.id]
+        );
+        if (invoiceCheck.rowCount === 0) {
+            return response.status(404).json({ error: { code: 'NOT_FOUND', message: 'Invoice not found' } });
+        }
         const result = await query(
             `SELECT id, invoice_id, description, quantity, unit_price, amount, created_at
-             FROM invoice_items
-             WHERE invoice_id = $1
-             ORDER BY created_at ASC`,
+              FROM invoice_items
+              WHERE invoice_id = $1
+              ORDER BY created_at ASC`,
             [request.params.id]
         );
         response.json({ data: result.rows });
@@ -57,10 +66,8 @@ ownerInvoiceRouter.get('/:id/items', async (request, response, next) => {
 
 ownerInvoiceRouter.post('/', async (request, response, next) => {
     try {
-        const { matter_id, client_id, status, currency, subtotal, tax, total, issued_at, due_at } = request.body || {};
-        if (!matter_id || !client_id) {
-            return response.status(400).json({ error: { code: 'BAD_REQUEST', message: 'matter_id and client_id are required' } });
-        }
+        const { matter_id, client_id, status, currency, subtotal, tax, total,
+                issued_at, due_at, payment_status, payment_instructions } = request.body || {};
         const matterCheck = await query(`SELECT client_id FROM matters WHERE id = $1`, [matter_id]);
         if (matterCheck.rowCount === 0) {
             return response.status(404).json({ error: { code: 'NOT_FOUND', message: 'Matter not found' } });
@@ -69,10 +76,11 @@ ownerInvoiceRouter.post('/', async (request, response, next) => {
             return response.status(400).json({ error: { code: 'BAD_REQUEST', message: 'Matter does not belong to the specified client' } });
         }
         const result = await query(
-            `INSERT INTO invoices (matter_id, client_id, status, currency, subtotal, tax, total, issued_at, due_at)
-             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
-             RETURNING id, matter_id, client_id, status, currency, subtotal, tax, total, issued_at, due_at, paid_at, created_at, updated_at`,
-            [matter_id, client_id, status || 'DRAFT', currency || 'TZS', subtotal || 0, tax || 0, total || 0, issued_at || null, due_at || null]
+            `INSERT INTO invoices (matter_id, client_id, status, currency, subtotal, tax, total, issued_at, due_at, payment_status, payment_instructions)
+             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+             RETURNING id, matter_id, client_id, status, currency, subtotal, tax, total, issued_at, due_at, paid_at, payment_status, payment_instructions, created_at, updated_at`,
+            [matter_id, client_id, status || 'DRAFT', currency || 'TZS', subtotal || 0, tax || 0, total || 0,
+             issued_at || null, due_at || null, payment_status || 'UNPAID', payment_instructions || null]
         );
         response.status(201).json({ data: result.rows[0] });
     } catch (error) { next(error); }
@@ -96,17 +104,20 @@ ownerInvoiceRouter.post('/:id/items', async (request, response, next) => {
 
 ownerInvoiceRouter.patch('/:id', async (request, response, next) => {
     try {
-        const { status, issued_at, due_at, paid_at } = request.body || {};
+        const { status, issued_at, due_at, paid_at, payment_status, payment_instructions } = request.body || {};
         const result = await query(
             `UPDATE invoices
              SET status = COALESCE($1, status),
                  issued_at = COALESCE($2, issued_at),
                  due_at = COALESCE($3, due_at),
                  paid_at = COALESCE($4, paid_at),
+                 payment_status = COALESCE($5, payment_status),
+                 payment_instructions = COALESCE($6, payment_instructions),
                  updated_at = NOW()
-             WHERE id = $5
-             RETURNING id, matter_id, client_id, status, currency, subtotal, tax, total, issued_at, due_at, paid_at, created_at, updated_at`,
-            [status, issued_at, due_at, paid_at, request.params.id]
+             WHERE id = $7
+             RETURNING id, matter_id, client_id, status, currency, subtotal, tax, total, issued_at, due_at, paid_at,
+                       payment_status, payment_instructions, created_at, updated_at`,
+            [status, issued_at, due_at, paid_at, payment_status, payment_instructions, request.params.id]
         );
         if (result.rowCount === 0) {
             return response.status(404).json({ error: { code: 'NOT_FOUND', message: 'Invoice not found' } });

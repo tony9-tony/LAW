@@ -76,6 +76,7 @@
                 case 'settings':          await loadSettings(); break;
                 case 'health':            await loadHealth(); break;
                 case 'invoices':          detailId ? await loadInvoiceDetail(detailId) : await loadInvoices(); break;
+                case 'payments':          detailId ? await loadPaymentDetail(detailId) : await loadPayments(); break;
                 case 'dashboard':
                 default:                  await loadDashboard(); break;
             }
@@ -89,6 +90,8 @@
             container.innerHTML = `<div class="empty-state"><span class="ico">!</span><strong>Error loading section.</strong><p>${escape(error.message)}</p></div>`;
         }
     }
+
+    let currentSection = 'dashboard';
 
     function updateTopbar(section) {
         let title = 'Dashboard';
@@ -105,8 +108,9 @@
         else if (section === 'audit') { title = 'Audit'; kicker = 'Compliance'; }
         else if (section === 'security') { title = 'Security'; kicker = 'Protection'; }
         else if (section === 'health') { title = 'Health'; kicker = 'System'; }
-        else if (section === 'invoices') { title = 'Invoices'; kicker = 'Billing'; }
-        else if (section === 'roles') { title = 'Roles'; kicker = 'Access'; }
+         else if (section === 'invoices') { title = 'Invoices'; kicker = 'Billing'; }
+         else if (section === 'payments') { title = 'Payments'; kicker = 'Billing'; }
+         else if (section === 'roles') { title = 'Roles'; kicker = 'Access'; }
         else if (section === 'users') { title = 'Users'; kicker = 'Administration'; }
         else if (section === 'lawyers') { title = 'Lawyers'; kicker = 'Administration'; }
         else if (section === 'staff') { title = 'Staff'; kicker = 'Administration'; }
@@ -642,6 +646,14 @@
                 </div>
             </section>
         `;
+        loadAnalytics();
+        loadRecentRequests();
+        loadRecentMessages();
+        loadRecentMatters();
+    }
+
+    function refreshOwnerDashboard() {
+        if (currentSection !== 'dashboard') return;
         loadAnalytics();
         loadRecentRequests();
         loadRecentMessages();
@@ -1716,6 +1728,11 @@
                     }
                     if (data.type === 'message.read') {
                         refreshOwnerUnreadBadge();
+                    }
+                    if (data.type === 'request.created' || data.type === 'request.status_changed'
+                        || data.type === 'matter.created' || data.type === 'matter.status_changed'
+                        || data.type === 'notification.created' || data.type === 'appointment.created') {
+                        refreshOwnerDashboard();
                     }
                 } catch (e) { /* ignore malformed */ }
             };
@@ -2941,6 +2958,7 @@
                         <table class="table">
                             <tbody>
                                 <tr><th style="width:30%">Status</th><td>${escape(inv.status)}</td></tr>
+                                <tr><th>Payment Status</th><td>${escape(inv.payment_status || 'unpaid')}</td></tr>
                                 <tr><th>Currency</th><td>${escape(inv.currency || 'TZS')}</td></tr>
                                 <tr><th>Subtotal</th><td>${escape(inv.currency || 'TZS')} ${Number(inv.subtotal || 0).toFixed(2)}</td></tr>
                                 <tr><th>Tax</th><td>${escape(inv.currency || 'TZS')} ${Number(inv.tax || 0).toFixed(2)}</td></tr>
@@ -2950,6 +2968,7 @@
                                 <tr><th>Paid</th><td class="muted">${escape(inv.paid_at || '—')}</td></tr>
                             </tbody>
                         </table>
+                        ${inv.payment_status !== 'paid' ? `<div style="margin-top:1rem;"><strong>Payment instructions:</strong><pre style="background:#f5f5f5;padding:0.75rem;border-radius:6px;font-size:0.85rem;white-space:pre-wrap;">${escape(inv.payment_instructions || 'No payment instructions available.')}</pre></div>` : ''}
                     </div>
                 </section>
                 <section class="panel">
@@ -2965,22 +2984,182 @@
                                     <td class="muted">${escape(it.amount)}</td>
                                 </tr>
                             `).join('')}</tbody></table>`
-                            }
+                        }
+                    </div>
+                </section>
+                <section class="panel">
+                    <div class="panel-head"><h2>Payments</h2><span class="panel-meta">Payment records for this invoice</span></div>
+                    <div class="panel-body tight" id="invoice-payments-body">
+                        <div class="empty-state"><span class="ico">·</span><strong>Loading payments…</strong></div>
                     </div>
                 </section>
             `;
             document.getElementById('btn-back-invoices')?.addEventListener('click', loadInvoices);
+            loadInvoicePayments(inv.id);
         } catch (error) {
             container.innerHTML = `<div class="empty-state"><span class="ico">!</span><strong>Could not load invoice.</strong><p>${escape(error.message)}</p></div>`;
         }
     }
 
+    async function loadInvoicePayments(invoiceId) {
+        const el = document.getElementById('invoice-payments-body');
+        if (!el) return;
+        try {
+            const res = await api('/payments/invoice/' + encodeURIComponent(invoiceId), { auth: true });
+            const items = (res && res.data) || [];
+            if (!items.length) {
+                el.innerHTML = '<div class="empty-state tight"><span class="ico">·</span><strong>No payments recorded.</strong></div>';
+                return;
+            }
+            el.innerHTML = `<table class="table"><thead><tr><th>ID</th><th>Amount</th><th>Status</th><th>Method</th><th>Submitted</th><th>Verified</th><th>Actions</th></tr></thead><tbody>${items.map((p) => `
+                <tr>
+                    <td class="mono">#${p.id.split('-')[0]}</td>
+                    <td class="muted">${escape(p.currency || 'TZS')} ${Number(p.amount_cents || 0).toFixed(0)}</td>
+                    <td>${escape(p.status || 'pending')}</td>
+                    <td class="muted">${escape(p.method || '—')}</td>
+                    <td class="muted">${escape(p.submitted_at || '—')}</td>
+                    <td class="muted">${escape(p.verified_at || '—')}</td>
+                    <td><button class="btn small secondary" data-payment="${p.id}">View</button></td>
+                </tr>
+            `).join('')}</tbody></table>`;
+            el.querySelectorAll('button[data-payment]').forEach((btn) => {
+                btn.addEventListener('click', () => loadPaymentDetail(btn.getAttribute('data-payment')));
+            });
+        } catch (error) {
+            el.innerHTML = `<div class="empty-state tight"><span class="ico">!</span><strong>Could not load payments.</strong></div>`;
+        }
+    }
+
+    async function loadPayments() {
+        const container = document.getElementById('main-content');
+        container.innerHTML = '<div class="empty-state"><span class="ico">·</span><strong>Loading payments…</strong></div>';
+        try {
+            const res = await api('/owner/payments', { auth: true });
+            const items = (res && res.data) || [];
+            container.innerHTML = `
+                <div class="page-head"><div><h1>Payments</h1><p class="head-meta">Manage all client payments and verification.</p></div></div>
+                <section class="panel">
+                    <div class="panel-head"><h2>All Payments</h2><span class="panel-meta">${items.length} total</span></div>
+                    <div class="panel-body tight">
+                        ${items.length === 0
+                            ? '<div class="empty-state"><span class="ico">·</span><strong>No payments yet.</strong></div>'
+                            : `<table class="table">
+                            <thead><tr><th>ID</th><th>Invoice</th><th>Client</th><th>Amount</th><th>Status</th><th>Method</th><th>Submitted</th><th>Actions</th></tr></thead>
+                            <tbody>${items.map((p) => `
+                                <tr>
+                                    <td class="mono">#${p.id.split('-')[0]}</td>
+                                    <td class="mono">${escape(p.invoice_id ? p.invoice_id.split('-')[0] : '—')}</td>
+                                    <td>${escape(p.client_name || '—')}</td>
+                                    <td class="muted">${escape(p.currency || 'TZS')} ${Number(p.amount_cents || 0).toFixed(0)}</td>
+                                    <td>${escape(p.status || 'pending')}</td>
+                                    <td class="muted">${escape(p.method || '—')}</td>
+                                    <td class="muted">${escape(p.submitted_at || '—')}</td>
+                                    <td><button class="btn small secondary" data-payment="${p.id}">View</button></td>
+                                </tr>
+                            `).join('')}</tbody>
+                            </table>`
+                        }
+                    </div>
+                </section>
+            `;
+            container.querySelectorAll('button[data-payment]').forEach((btn) => {
+                btn.addEventListener('click', () => loadPaymentDetail(btn.getAttribute('data-payment')));
+            });
+        } catch (error) {
+            container.innerHTML = `<div class="empty-state"><span class="ico">!</span><strong>Could not load payments.</strong><p>${escape(error.message)}</p></div>`;
+        }
+    }
+
+    async function loadPaymentDetail(id) {
+        const container = document.getElementById('main-content');
+        container.innerHTML = '<div class="empty-state"><span class="ico">·</span><strong>Loading payment…</strong></div>';
+        try {
+            const res = await api('/owner/payments/' + encodeURIComponent(id), { auth: true });
+            const p = (res && res.data) || {};
+            container.innerHTML = `
+                <div class="page-head">
+                    <div>
+                        <span class="kicker">Payment</span>
+                        <h1>#${escape(p.id.split('-')[0])}</h1>
+                        <p class="head-meta">Invoice #${escape(p.invoice_id ? p.invoice_id.split('-')[0] : '—')} · ${escape(p.client_name || '—')}</p>
+                    </div>
+                    <div class="action-row">
+                        <button class="btn ghost" id="btn-back-payments">← Back to Payments</button>
+                        ${p.status === 'pending' ? `<button class="btn primary" id="btn-verify-payment">Verify Payment</button>` : ''}
+                        ${p.status === 'pending' ? `<button class="btn secondary" id="btn-reject-payment">Reject Payment</button>` : ''}
+                    </div>
+                </div>
+                <section class="panel">
+                    <div class="panel-head"><h2>Payment Details</h2></div>
+                    <div class="panel-body">
+                        <table class="table">
+                            <tbody>
+                                <tr><th>Status</th><td>${escape(p.status || 'pending')}</td></tr>
+                                <tr><th>Amount</th><td>${escape(p.currency || 'TZS')} ${Number(p.amount_cents || 0).toFixed(0)}</td></tr>
+                                <tr><th>Method</th><td>${escape(p.method || '—')}</td></tr>
+                                <tr><th>Reference</th><td>${escape(p.reference || '—')}</td></tr>
+                                <tr><th>Submitted</th><td class="muted">${escape(p.submitted_at || '—')}</td></tr>
+                                <tr><th>Verified</th><td class="muted">${escape(p.verified_at || '—')}</td></tr>
+                                <tr><th>Receipt</th><td class="muted">${p.receipt_path ? `<a href="${escape(p.receipt_path)}" target="_blank">View receipt</a>` : '—'}</td></tr>
+                                ${p.note ? `<tr><th>Note</th><td>${escape(p.note)}</td></tr>` : ''}
+                            </tbody>
+                        </table>
+                    </div>
+                </section>
+            `;
+            document.getElementById('btn-back-payments')?.addEventListener('click', loadPayments);
+            const verifyBtn = document.getElementById('btn-verify-payment');
+            if (verifyBtn) {
+                verifyBtn.addEventListener('click', async () => {
+                    const note = prompt('Verification note (optional):') || '';
+                    setPaymentActionStatus('Verifying…', 'form-status');
+                    try {
+                        await api('/owner/payments/' + encodeURIComponent(p.id) + '/verify', { method: 'POST', body: { note: note.trim() || undefined }, auth: true });
+                        loadPaymentDetail(p.id);
+                    } catch (err) {
+                        setPaymentActionStatus('<strong>Failed.</strong> ' + escape(err.message), 'form-status error');
+                    }
+                });
+            }
+            const rejectBtn = document.getElementById('btn-reject-payment');
+            if (rejectBtn) {
+                rejectBtn.addEventListener('click', async () => {
+                    const note = prompt('Reason for rejecting (optional):') || '';
+                    setPaymentActionStatus('Rejecting…', 'form-status');
+                    try {
+                        await api('/owner/payments/' + encodeURIComponent(p.id) + '/reject', { method: 'POST', body: { note: note.trim() || undefined }, auth: true });
+                        loadPaymentDetail(p.id);
+                    } catch (err) {
+                        setPaymentActionStatus('<strong>Failed.</strong> ' + escape(err.message), 'form-status error');
+                    }
+                });
+            }
+        } catch (error) {
+            container.innerHTML = `<div class="empty-state"><span class="ico">!</span><strong>Could not load payment.</strong><p>${escape(error.message)}</p></div>`;
+        }
+    }
+
+    function setPaymentActionStatus(html, cls) {
+        let el = document.getElementById('payment-action-status');
+        if (!el) {
+            el = document.createElement('div');
+            el.id = 'payment-action-status';
+            el.className = cls || 'form-status';
+            el.setAttribute('role', 'status');
+            el.setAttribute('aria-live', 'polite');
+            const backBtn = document.querySelector('.action-row');
+            if (backBtn) backBtn.appendChild(el);
+        }
+        el.className = cls || 'form-status';
+        el.innerHTML = html;
+    }
+
     function loadCurrentUser() {
         api('/profile', { auth: true })
             .then((res) => {
-                const user = res && res.data ? res.data : { fullName: 'Emmanuel Richard Machibya', email: 'ermachibya@firm.tz', role: 'OWNER' };
+                const user = res && res.data ? res.data : { fullName: 'ET Cetra', email: 'admin@etcetra.co.tz', role: 'OWNER' };
                 const nameEl = document.getElementById('subui-user-name');
-                if (nameEl) nameEl.textContent = user.full_name || user.fullName || user.email || 'Emmanuel Richard Machibya';
+                if (nameEl) nameEl.textContent = user.full_name || user.fullName || user.email || 'ET Cetra';
                 const roleEl = document.getElementById('subui-user');
                 if (roleEl) roleEl.textContent = user.role || 'OWNER';
 
@@ -3016,7 +3195,7 @@
 
     const subuiSections = [
         'dashboard', 'users', 'clients', 'lawyers', 'staff', 'owners', 'requests', 'matters',
-        'appointments', 'documents', 'messages', 'notifications', 'invoices', 'analytics',
+        'appointments', 'documents', 'messages', 'notifications', 'invoices', 'payments', 'analytics',
         'audit', 'security', 'roles', 'settings', 'health'
     ];
     const sectionAliases = {
@@ -3027,6 +3206,7 @@
         appointment: 'appointments',
         document: 'documents',
         invoice: 'invoices',
+        payment: 'payments',
         client: 'clients',
         user: 'users',
         lawyer: 'lawyers',
@@ -3095,6 +3275,7 @@
         if (link) link.classList.add('active');
 
         updateTopbar(section);
+        currentSection = section;
         closeMobileSidebar();
         loadSection(section, detailId);
     }

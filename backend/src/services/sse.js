@@ -380,6 +380,66 @@ export async function notifyDocumentRequested(matterId, clientId, description) {
     }
 }
 
+/* Payment events */
+export async function notifyPaymentProofSubmitted(paymentId, invoiceId, clientId, amount, currency) {
+    const owners = await query(`SELECT id FROM users WHERE role = 'OWNER' AND is_active = TRUE`);
+    for (const o of owners.rows) {
+        sendToUser(o.id, {
+            type: 'payment.proof_submitted',
+            paymentId,
+            invoiceId,
+            clientId,
+            amount,
+            currency,
+            timestamp: Date.now()
+        });
+    }
+}
+
+export async function notifyPaymentVerified(paymentId, invoiceId, clientId, amount, currency) {
+    sendToUser(clientId, {
+        type: 'payment.verified',
+        paymentId,
+        invoiceId,
+        amount,
+        currency,
+        timestamp: Date.now()
+    });
+    const owners = await query(`SELECT id FROM users WHERE role = 'OWNER' AND is_active = TRUE`);
+    for (const o of owners.rows) {
+        sendToUser(o.id, {
+            type: 'payment.verified',
+            paymentId,
+            invoiceId,
+            clientId,
+            amount,
+            currency,
+            timestamp: Date.now()
+        });
+    }
+}
+
+export async function notifyPaymentRejected(paymentId, invoiceId, clientId, reason) {
+    sendToUser(clientId, {
+        type: 'payment.rejected',
+        paymentId,
+        invoiceId,
+        reason: reason || null,
+        timestamp: Date.now()
+    });
+    const owners = await query(`SELECT id FROM users WHERE role = 'OWNER' AND is_active = TRUE`);
+    for (const o of owners.rows) {
+        sendToUser(o.id, {
+            type: 'payment.rejected',
+            paymentId,
+            invoiceId,
+            clientId,
+            reason: reason || null,
+            timestamp: Date.now()
+        });
+    }
+}
+
 async function getConversationParticipants(conversationId) {
     const result = await query(
         `SELECT c.client_id AS convo_client, c.request_id, m.client_id AS matter_client, m.assigned_to

@@ -10,11 +10,12 @@ invoiceRouter.get('/', async (request, response, next) => {
     try {
         const result = await query(
             `SELECT i.id, i.matter_id, i.client_id, i.status, i.currency, i.subtotal, i.tax, i.total,
-                     i.issued_at, i.due_at, i.paid_at, i.created_at, i.updated_at,
+                     i.issued_at, i.due_at, i.paid_at, i.payment_status, i.payment_instructions, i.request_id,
+                     i.created_at, i.updated_at,
                      m.reference AS matter_reference, m.title AS matter_title,
                      u.full_name AS client_name
               FROM invoices i
-              JOIN matters m ON m.id = i.matter_id
+              LEFT JOIN matters m ON m.id = i.matter_id
               JOIN users u ON u.id = i.client_id
               WHERE i.client_id = $1
               ORDER BY i.created_at DESC`,
@@ -28,11 +29,12 @@ invoiceRouter.get('/:id', async (request, response, next) => {
     try {
         const result = await query(
             `SELECT i.id, i.matter_id, i.client_id, i.status, i.currency, i.subtotal, i.tax, i.total,
-                     i.issued_at, i.due_at, i.paid_at, i.created_at, i.updated_at,
+                     i.issued_at, i.due_at, i.paid_at, i.payment_status, i.payment_instructions, i.request_id,
+                     i.created_at, i.updated_at,
                      m.reference AS matter_reference, m.title AS matter_title,
                      u.full_name AS client_name
               FROM invoices i
-              JOIN matters m ON m.id = i.matter_id
+              LEFT JOIN matters m ON m.id = i.matter_id
               JOIN users u ON u.id = i.client_id
               WHERE i.id = $1 AND i.client_id = $2`,
             [request.params.id, request.user.sub]

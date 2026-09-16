@@ -3,7 +3,9 @@
    emits timeline events, and notifies the client. */
 import { query, withTransaction } from '../db.js';
 import { notify } from './notification.service.js';
-import { notifyMessageCreated, notifyRequestCreated, notifyRequestStatusChanged, notifyRequestMoreInfo, notifyRequestAccepted, notifyRequestDeclined, notifyMatterCreated, notifyMatterStatusChanged, notifyAppointmentCreated, notifyAppointmentUpdated, notifyAppointmentCancelled, notifyAppointmentCompleted, notifyDocumentRequested, notifyNotificationCreated } from './sse.js';
+import { createInvoiceForRequest, PAYMENT_STATUS } from './billing.service.js';
+import { getServiceCatalog } from './payment.service.js';
+import { notifyMessageCreated, notifyRequestCreated, notifyRequestStatusChanged, notifyRequestMoreInfo, notifyRequestAccepted, notifyRequestDeclined, notifyMatterCreated, notifyMatterStatusChanged, notifyAppointmentCreated, notifyAppointmentUpdated, notifyAppointmentCancelled, notifyAppointmentCompleted, notifyDocumentRequested, notifyNotificationCreated, notifyPaymentProofSubmitted } from './sse.js';
 
 function referenceForMatter() {
     /* Deterministic-ish short reference: "M-" + 6 hex chars. The DB has a
@@ -27,7 +29,7 @@ export async function recordMatterEvent(matterId, actorId, eventType, title, not
     );
 }
 
-export async function acceptRequest({ requestId, actorId, matterType, title, description }) {
+export async function acceptRequest({ requestId, actorId, matterType, title, description, invoiceItems = null }) {
     /* Idempotent: refuse to create a second matter for a single request. */
     const existing = await query(
         `SELECT id FROM matters WHERE originating_request_id = $1`,
@@ -39,6 +41,15 @@ export async function acceptRequest({ requestId, actorId, matterType, title, des
         error.code = 'MATTER_EXISTS';
         throw error;
     }
+
+    /* Check for a pre-existing invoice on this request. If one exists and is
+       not yet paid, allow the matter to open but keep the payment gate active.
+       The client must submit and have their payment verified before full
+       matter services proceed. */
+    const existingInvoice = await query(
+        `SELECT id, payment_status FROM invoices WHERE request_id = $1 LIMIT 1`,
+        [requestId]
+    );
 
     /* Try a few times for the unique reference. The matter INSERT + the
        follow-up updates run inside a single transaction so we never end up
@@ -64,6 +75,15 @@ export async function acceptRequest({ requestId, actorId, matterType, title, des
                     throw error;
                 }
                 const matter = inserted.rows[0];
+
+                /* If a pre-existing invoice has no matter link, link it now. */
+                if (existingInvoice.rowCount > 0) {
+                    await client.query(
+                        `UPDATE invoices SET matter_id = $1, updated_at = NOW()
+                         WHERE request_id = $2 AND matter_id IS NULL`,
+                        [matter.id, requestId]
+                    );
+                }
 
                 await client.query(
                     `UPDATE requests SET status = 'ACCEPTED', updated_at = NOW() WHERE id = $1`,
@@ -91,7 +111,37 @@ export async function acceptRequest({ requestId, actorId, matterType, title, des
             });
             await notifyRequestAccepted(requestId, result.client_id, result.id, result.reference);
             await notifyMatterCreated(result.id, result.client_id, result.reference, title);
-            return result;
+
+            /* Payment gate: create an invoice if none exists yet or the existing
+               one was fully paid (new scope for continued representation). */
+            let invoiceId = existingInvoice.rowCount > 0 ? existingInvoice.rows[0].id : null;
+            if (!existingInvoice.rowCount || existingInvoice.rows[0].payment_status === PAYMENT_STATUS.PAID) {
+                const services = await getServiceCatalog({ activeOnly: true });
+                const defaultService = services.find((s) => s.code === 'CONSULTATION');
+                let items = invoiceItems;
+                if (!items && defaultService) {
+                    items = [{
+                        description: defaultService.name,
+                        quantity: 1,
+                        unit_price: Number(defaultService.fixed_price) || 0,
+                        amount: Number(defaultService.fixed_price) || 0
+                    }];
+                }
+                if (items && items.length > 0) {
+                    const invoice = await createInvoiceForRequest({
+                        requestId,
+                        matterId: result.id,
+                        clientId: result.client_id,
+                        items: items,
+                        paymentStatus: PAYMENT_STATUS.PAYMENT_REQUIRED
+                    });
+                    invoiceId = invoice.id;
+                    await notifyPaymentProofSubmitted(invoice.id, invoiceId, result.client_id, Number(invoice.total), invoice.currency);
+                }
+            }
+
+            /* If no invoice was created at all, skip payment notifications. */
+            return { ...result, invoiceId: invoiceId || null };
         } catch (err) {
             if (err && err.code === '23505') { lastError = err; continue; } /* unique_violation */
             throw err;

@@ -88,6 +88,8 @@
             const items = (itemsRes && itemsRes.data) || [];
             if (meta) meta.textContent = 'Invoice #' + String(inv.id).padStart(5, '0');
             const matterHref = inv.matter_id ? `matter.html?id=${inv.matter_id}` : '#';
+            const isPaid = (inv.payment_status || 'unpaid') === 'paid';
+            const paymentStatusLabel = isPaid ? 'Paid' : (inv.payment_status || 'unpaid');
             root.innerHTML = `
                 <div class="detail-grid">
                     <div>
@@ -97,6 +99,7 @@
                                 <dl class="detail-meta">
                                     <dt>Matter</dt><dd><a class="link-bronze" href="${escape(matterHref)}">${escape(inv.matter_reference || '—')}${inv.matter_title ? ' · ' + escape(inv.matter_title) : ''}</a></dd>
                                     <dt>Status</dt><dd>${P.statusPill(inv.status)}</dd>
+                                    <dt>Payment</dt><dd><span class="pill ${isPaid ? 'status-open' : 'status-new'}">${escape(paymentStatusLabel)}</span></dd>
                                     <dt>Issued</dt><dd>${fmtDate(inv.issued_at)}</dd>
                                     <dt>Due</dt><dd>${fmtDate(inv.due_at)}</dd>
                                     <dt>Paid</dt><dd>${inv.paid_at ? fmtDate(inv.paid_at) : '—'}</dd>
@@ -123,6 +126,32 @@
                                 }
                             </div>
                         </section>
+                        ${!isPaid ? `
+                        <section class="panel" id="payment-section">
+                            <div class="panel-head"><h2>Pay This Invoice</h2><span class="panel-meta">Submit a payment using one of the firm's accepted methods</span></div>
+                            <div class="panel-body">
+                                <form id="pay-form" novalidate>
+                                    <div class="field">
+                                        <label for="pay-method">Payment method</label>
+                                        <select id="pay-method" name="method" required></select>
+                                    </div>
+                                    <div class="field">
+                                        <label for="pay-reference">Reference / Note (optional)</label>
+                                        <input id="pay-reference" name="reference" type="text" placeholder="e.g. M-Pesa transaction ID" maxlength="200">
+                                    </div>
+                                    <div class="field">
+                                        <label for="pay-receipt"><img src="../assets/paperclip.svg" alt="" class="input-icon">Receipt image</label>
+                                        <input id="pay-receipt" name="receipt" type="file" accept="image/*" required>
+                                        <span class="help">Upload a screenshot or photo of your payment confirmation.</span>
+                                    </div>
+                                    <div class="form-status" id="pay-status" role="status" aria-live="polite"></div>
+                                    <div class="actions" style="display:flex;gap:0.75rem;justify-content:flex-end;">
+                                        <button type="submit" class="btn primary">Submit payment</button>
+                                    </div>
+                                </form>
+                            </div>
+                        </section>
+                        ` : ''}
                     </div>
                     <aside>
                         <section class="panel">
@@ -138,9 +167,21 @@
                                 </div>
                             </div>
                         </section>
+                        ${!isPaid ? `
+                        <section class="panel" id="instructions-panel">
+                            <div class="panel-head"><h2>Instructions</h2></div>
+                            <div class="panel-body">
+                                <pre class="instructions-text">${escape(inv.payment_instructions || 'No payment instructions available.')}</pre>
+                            </div>
+                        </section>
+                        ` : ''}
                     </aside>
                 </div>
             `;
+            const payForm = document.getElementById('pay-form');
+            if (payForm) {
+                initPaymentForm();
+            }
         } catch (err) {
             if (err && err.status === 401) { window.location.replace('../login.html'); return; }
             root.innerHTML = `<div class="alert error"><strong>Could not load this invoice.</strong>${escape(err.message || '')}</div>`;
@@ -154,6 +195,64 @@
         } else {
             await loadList();
         }
+    }
+
+    async function initPaymentForm() {
+        const form = document.getElementById('pay-form');
+        const methodSelect = document.getElementById('pay-method');
+        const receiptInput = document.getElementById('pay-receipt');
+        const statusEl = document.getElementById('pay-status');
+        if (!form || !methodSelect) return;
+        try {
+            const res = await API.getPaymentDestinations();
+            const dests = (res && res.data) || [];
+            if (dests.length === 0) {
+                methodSelect.innerHTML = '<option value="">No payment methods configured</option>';
+            } else {
+                methodSelect.innerHTML = dests.map((d) => `<option value="${escape(d.method)}|${escape(d.id)}">${escape(d.method)} — ${escape((d.label || d.bank_name || d.lipa_number || '').toString())}</option>`).join('');
+            }
+        } catch (err) {
+            methodSelect.innerHTML = '<option value="">Could not load payment methods</option>';
+        }
+        form.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const file = receiptInput.files[0];
+            if (!file) {
+                statusEl.className = 'form-status error';
+                statusEl.innerHTML = '<strong>Please upload a receipt image.</strong>';
+                return;
+            }
+            const [method, destId] = methodSelect.value.split('|');
+            statusEl.className = 'form-status';
+            statusEl.textContent = 'Submitting payment…';
+            const reader = new FileReader();
+            reader.onload = async function () {
+                const dataUrl = reader.result;
+                try {
+                    const payload = {
+                        invoice_id: new URLSearchParams(location.search).get('id'),
+                        method: method,
+                        destination_id: destId,
+                        reference_number: (document.getElementById('pay-reference').value || '').trim() || undefined,
+                        message: '',
+                        receipt: dataUrl
+                    };
+                    const res = await API.submitPayment(payload);
+                    statusEl.className = 'form-status success';
+                    statusEl.innerHTML = '<strong>Payment submitted.</strong> Your proof is under review. The firm will verify and notify you once confirmed.';
+                    form.reset();
+                    receiptInput.value = '';
+                } catch (err) {
+                    statusEl.className = 'form-status error';
+                    statusEl.innerHTML = '<strong>Failed to submit payment.</strong>' + escape(err.message || '');
+                }
+            };
+            reader.onerror = function () {
+                statusEl.className = 'form-status error';
+                statusEl.innerHTML = '<strong>Could not read receipt file.</strong>';
+            };
+            reader.readAsDataURL(file);
+        });
     }
 
     load();

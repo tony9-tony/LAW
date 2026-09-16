@@ -3,11 +3,11 @@
     'use strict';
 
     const FIRM = {
-        name: 'Machibya Legal',
+        name: 'ET CETRA ADVOCATES COMPANY LIMITED',
         tagline: 'Advocates & Legal Counsel',
-        role: 'Emmanuel Richard Machibya — Advocate & Legal Counsel',
+        role: 'Advocates & Legal Counsel',
         location: 'Posta, Kisutu, Tanzania',
-        experience: '10+ years of experience',
+        experience: 'Delivering legal excellence since 2014',
         year: new Date().getFullYear()
     };
 
@@ -208,7 +208,11 @@
         listDocuments() { return this.request('/documents', { auth: true }); },
         listInvoices() { return this.request('/invoices', { auth: true }); },
         getInvoice(id) { return this.request(`/invoices/${encodeURIComponent(id)}`, { auth: true }); },
-        getInvoiceItems(id) { return this.request(`/invoices/${encodeURIComponent(id)}/items`, { auth: true }); }
+        getInvoiceItems(id) { return this.request(`/invoices/${encodeURIComponent(id)}/items`, { auth: true }); },
+        getPaymentDestinations() { return this.request('/payments/destinations', { auth: true }); },
+        submitPayment(payload) { return this.request('/payments', { method: 'POST', body: payload, auth: true }); },
+        listPayments() { return this.request('/payments', { auth: true }); },
+        getInvoicePayments(invoiceId) { return this.request(`/payments/invoice/${encodeURIComponent(invoiceId)}`, { auth: true }); }
     };
 
     function logout() { API.clear(); }
