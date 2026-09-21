@@ -77,6 +77,13 @@ export async function getPaymentDestination(id) {
 
 export async function createPaymentDestination({ method, label, lipa_number, bank_name, bank_account_name, bank_account_number, instructions, is_active = true }) {
     const result = await withTransaction(async (client) => {
+        if (is_active) {
+            await client.query(
+                `UPDATE payment_destinations SET is_active = FALSE, updated_at = NOW()
+                 WHERE method = $1 AND is_active = TRUE`,
+                [method]
+            );
+        }
         const inserted = await client.query(
             `INSERT INTO payment_destinations (method, label, lipa_number, bank_name, bank_account_name, bank_account_number, instructions, is_active)
              VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
@@ -84,15 +91,7 @@ export async function createPaymentDestination({ method, label, lipa_number, ban
                        bank_account_number, qr_storage_key, qr_content_type, instructions, is_active, created_at, updated_at`,
             [method, label, lipa_number || null, bank_name || null, bank_account_name || null, bank_account_number || null, instructions || null, is_active]
         );
-        const dest = inserted.rows[0];
-        if (dest.is_active) {
-            await client.query(
-                `UPDATE payment_destinations SET is_active = FALSE, updated_at = NOW()
-                 WHERE method = $1 AND id <> $2 AND is_active = TRUE`,
-                [method, dest.id]
-            );
-        }
-        return dest;
+        return inserted.rows[0];
     });
     return result;
 }
@@ -128,6 +127,82 @@ export async function updatePaymentDestination(id, { label, lipa_number, bank_na
             [id]
         );
     }
+    return getPaymentDestination(id);
+}
+
+const QR_TYPES = new Map([
+    ['image/png', '.png'],
+    ['image/jpeg', '.jpg'],
+    ['image/webp', '.webp'],
+    ['image/gif', '.gif']
+]);
+const MAX_QR_BYTES = 2 * 1024 * 1024;
+
+export async function uploadPaymentDestinationQR(id, qrDataUrl) {
+    if (!qrDataUrl) {
+        const error = new Error('QR image is required');
+        error.statusCode = 400;
+        error.code = 'VALIDATION_ERROR';
+        throw error;
+    }
+    const parsed = parseBase64DataUrl(qrDataUrl);
+    if (!parsed) {
+        const error = new Error('Invalid QR image data');
+        error.statusCode = 400;
+        error.code = 'VALIDATION_ERROR';
+        throw error;
+    }
+    if (!QR_TYPES.has(parsed.mime)) {
+        const error = new Error('Unsupported QR image type');
+        error.statusCode = 400;
+        error.code = 'VALIDATION_ERROR';
+        throw error;
+    }
+    let buffer;
+    try {
+        buffer = Buffer.from(parsed.base64, 'base64');
+    } catch {
+        const error = new Error('Invalid base64 data');
+        error.statusCode = 400;
+        error.code = 'VALIDATION_ERROR';
+        throw error;
+    }
+    if (buffer.length > MAX_QR_BYTES) {
+        const error = new Error('QR image exceeds 2 MB');
+        error.statusCode = 400;
+        error.code = 'VALIDATION_ERROR';
+        throw error;
+    }
+
+    const destResult = await query(
+        `SELECT id FROM payment_destinations WHERE id = $1 LIMIT 1`,
+        [id]
+    );
+    if (destResult.rowCount === 0) return null;
+
+    const ext = QR_TYPES.get(parsed.mime);
+    const storageKey = `payment-qr/${crypto.randomUUID().slice(0, 2)}/${crypto.randomUUID()}${ext}`;
+    const filePath = receiptPath(storageKey);
+    fs.writeFileSync(filePath, buffer);
+
+    await query(
+        `UPDATE payment_destinations
+         SET qr_storage_key = $1, qr_content_type = $2, qr_original_name = $3, updated_at = NOW()
+         WHERE id = $4`,
+        [storageKey, parsed.mime, `qr${ext}`, id]
+    );
+    return getPaymentDestination(id);
+}
+
+export async function removePaymentDestinationQR(id) {
+    const result = await query(
+        `UPDATE payment_destinations
+         SET qr_storage_key = NULL, qr_content_type = NULL, qr_original_name = NULL, updated_at = NOW()
+         WHERE id = $1
+         RETURNING id`,
+        [id]
+    );
+    if (result.rowCount === 0) return null;
     return getPaymentDestination(id);
 }
 

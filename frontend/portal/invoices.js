@@ -88,8 +88,20 @@
             const items = (itemsRes && itemsRes.data) || [];
             if (meta) meta.textContent = 'Invoice #' + String(inv.id).padStart(5, '0');
             const matterHref = inv.matter_id ? `matter.html?id=${inv.matter_id}` : '#';
-            const isPaid = (inv.payment_status || 'unpaid') === 'paid';
+            const isPaid = (inv.payment_status || '').toUpperCase() === 'PAID';
             const paymentStatusLabel = isPaid ? 'Paid' : (inv.payment_status || 'unpaid');
+            // Use snapshotted payment destination from invoice if available, otherwise fall back to dynamic
+            const hasSnapshot = !!(inv.payment_lipa_number || inv.payment_bank_name || inv.payment_qr_storage_key);
+            const paymentMethod = inv.payment_destination_method || '';
+            const paymentLabel = inv.payment_destination_label || '';
+            const lipaNumber = inv.payment_lipa_number || '';
+            const bankName = inv.payment_bank_name || '';
+            const bankAccountName = inv.payment_bank_account_name || '';
+            const bankAccountNumber = inv.payment_bank_account_number || '';
+            const qrStorageKey = inv.payment_qr_storage_key || '';
+            const qrContentType = inv.payment_qr_content_type || '';
+            const paymentInstructions = inv.payment_instructions || 'No payment instructions available.';
+            
             root.innerHTML = `
                 <div class="detail-grid">
                     <div>
@@ -169,9 +181,19 @@
                         </section>
                         ${!isPaid ? `
                         <section class="panel" id="instructions-panel">
-                            <div class="panel-head"><h2>Instructions</h2></div>
+                            <div class="panel-head"><h2>Payment Instructions</h2></div>
                             <div class="panel-body">
-                                <pre class="instructions-text">${escape(inv.payment_instructions || 'No payment instructions available.')}</pre>
+                                ${hasSnapshot ? `
+                                    <div class="payment-details">
+                                        ${paymentMethod ? `<div class="payment-method"><strong>Method:</strong> ${escape(paymentLabel || paymentMethod)}</div>` : ''}
+                                        ${lipaNumber ? `<div class="payment-detail"><strong>Lipa Number:</strong> <code>${escape(lipaNumber)}</code></div>` : ''}
+                                        ${bankName ? `<div class="payment-detail"><strong>Bank:</strong> ${escape(bankName)}</div>` : ''}
+                                        ${bankAccountName ? `<div class="payment-detail"><strong>Account Name:</strong> ${escape(bankAccountName)}</div>` : ''}
+                                        ${bankAccountNumber ? `<div class="payment-detail"><strong>Account Number:</strong> <code>${escape(bankAccountNumber)}</code></div>` : ''}
+                                        ${qrStorageKey ? `<div class="payment-detail"><strong>QR Code:</strong><br><img src="${API.base()}/uploads/${escape(qrStorageKey)}?token=${API.token()}" alt="Payment QR Code" style="max-width:200px;max-height:200px;border:1px solid var(--line);border-radius:8px;"></div>` : ''}
+                                        <div class="payment-detail"><strong>Instructions:</strong><pre class="instructions-text">${escape(paymentInstructions)}</pre></div>
+                                    </div>
+                                ` : `<pre class="instructions-text">${escape(paymentInstructions)}</pre>`}
                             </div>
                         </section>
                         ` : ''}
@@ -180,7 +202,16 @@
             `;
             const payForm = document.getElementById('pay-form');
             if (payForm) {
-                initPaymentForm();
+                initPaymentForm({
+                    method: inv.payment_destination_method,
+                    label: inv.payment_destination_label,
+                    lipa_number: inv.payment_lipa_number,
+                    bank_name: inv.payment_bank_name,
+                    bank_account_name: inv.payment_bank_account_name,
+                    bank_account_number: inv.payment_bank_account_number,
+                    qr_storage_key: inv.payment_qr_storage_key,
+                    id: inv.payment_destination_id
+                });
             }
         } catch (err) {
             if (err && err.status === 401) { window.location.replace('../login.html'); return; }
@@ -197,22 +228,30 @@
         }
     }
 
-    async function initPaymentForm() {
+    async function initPaymentForm(snapshot) {
         const form = document.getElementById('pay-form');
         const methodSelect = document.getElementById('pay-method');
         const receiptInput = document.getElementById('pay-receipt');
         const statusEl = document.getElementById('pay-status');
         if (!form || !methodSelect) return;
-        try {
-            const res = await API.getPaymentDestinations();
-            const dests = (res && res.data) || [];
-            if (dests.length === 0) {
-                methodSelect.innerHTML = '<option value="">No payment methods configured</option>';
-            } else {
-                methodSelect.innerHTML = dests.map((d) => `<option value="${escape(d.method)}|${escape(d.id)}">${escape(d.method)} — ${escape((d.label || d.bank_name || d.lipa_number || '').toString())}</option>`).join('');
+        
+        // Use snapshotted payment destination from invoice
+        if (snapshot && snapshot.method) {
+            const displayLabel = snapshot.label || snapshot.bank_name || snapshot.lipa_number || snapshot.method;
+            methodSelect.innerHTML = `<option value="${escape(snapshot.method)}|${escape(snapshot.id || '')}">${escape(snapshot.method)} — ${escape(displayLabel)}</option>`;
+        } else {
+            // Fallback to dynamic destinations
+            try {
+                const res = await API.getPaymentDestinations();
+                const dests = (res && res.data) || [];
+                if (dests.length === 0) {
+                    methodSelect.innerHTML = '<option value="">No payment methods configured</option>';
+                } else {
+                    methodSelect.innerHTML = dests.map((d) => `<option value="${escape(d.method)}|${escape(d.id)}">${escape(d.method)} — ${escape((d.label || d.bank_name || d.lipa_number || '').toString())}</option>`).join('');
+                }
+            } catch (err) {
+                methodSelect.innerHTML = '<option value="">Could not load payment methods</option>';
             }
-        } catch (err) {
-            methodSelect.innerHTML = '<option value="">Could not load payment methods</option>';
         }
         form.addEventListener('submit', async (e) => {
             e.preventDefault();

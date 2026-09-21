@@ -30,30 +30,117 @@ export async function recordMatterEvent(matterId, actorId, eventType, title, not
 }
 
 export async function acceptRequest({ requestId, actorId, matterType, title, description, invoiceItems = null }) {
-    /* Idempotent: refuse to create a second matter for a single request. */
-    const existing = await query(
-        `SELECT id FROM matters WHERE originating_request_id = $1`,
+    /* Check the request exists and is not in a terminal state. */
+    const requestCheck = await query(
+        `SELECT id, client_id, status FROM requests WHERE id = $1 LIMIT 1`,
         [requestId]
     );
-    if (existing.rowCount > 0) {
-        const error = new Error('Matter already exists for this request');
+    if (requestCheck.rowCount === 0) {
+        const error = new Error('Request not found');
+        error.statusCode = 404;
+        error.code = 'NOT_FOUND';
+        throw error;
+    }
+    const request = requestCheck.rows[0];
+    if (request.status === 'ACCEPTED') {
+        const error = new Error('Request already accepted');
         error.statusCode = 409;
-        error.code = 'MATTER_EXISTS';
+        error.code = 'ALREADY_ACCEPTED';
+        throw error;
+    }
+    if (request.status === 'DECLINED') {
+        const error = new Error('Cannot accept a declined request');
+        error.statusCode = 409;
+        error.code = 'INVALID_STATUS';
         throw error;
     }
 
-    /* Check for a pre-existing invoice on this request. If one exists and is
-       not yet paid, allow the matter to open but keep the payment gate active.
-       The client must submit and have their payment verified before full
-       matter services proceed. */
+    /* Check for a pre-existing invoice on this request. A new invoice will
+       be created if none exists or the existing one is fully paid. */
     const existingInvoice = await query(
         `SELECT id, payment_status FROM invoices WHERE request_id = $1 LIMIT 1`,
         [requestId]
     );
 
-    /* Try a few times for the unique reference. The matter INSERT + the
-       follow-up updates run inside a single transaction so we never end up
-       with a half-created matter. */
+    /* Set request to ACCEPTED and record the event. The Matter is NOT
+       created here — it is created only after payment is approved, so that
+       an ACCEPTED request alone does not incorrectly create a Matter. */
+    await withTransaction(async (client) => {
+        await client.query(
+            `UPDATE requests SET status = 'ACCEPTED', updated_at = NOW() WHERE id = $1`,
+            [requestId]
+        );
+        await client.query(
+            `INSERT INTO request_events (request_id, actor_id, event_type, title, note)
+             VALUES ($1, $2, 'ACCEPTED', 'Request accepted', 'The firm has accepted your request and will issue an invoice shortly.')`,
+            [requestId, actorId]
+        );
+    });
+
+    /* Payment gate: create an invoice if none exists yet or the existing
+       one was fully paid (new scope for continued representation). */
+    let invoiceId = existingInvoice.rowCount > 0 ? existingInvoice.rows[0].id : null;
+    if (!existingInvoice.rowCount || existingInvoice.rows[0].payment_status === PAYMENT_STATUS.PAID) {
+        const services = await getServiceCatalog({ activeOnly: true });
+        const defaultService = services.find((s) => s.code === 'CONSULTATION');
+        let items = invoiceItems;
+        if (!items && defaultService) {
+            items = [{
+                description: defaultService.name,
+                quantity: 1,
+                unit_price: Number(defaultService.fixed_price) || 0,
+                amount: Number(defaultService.fixed_price) || 0
+            }];
+        }
+        if (items && items.length > 0) {
+            const invoice = await createInvoiceForRequest({
+                requestId,
+                matterId: null,
+                clientId: request.client_id,
+                items: items,
+                paymentStatus: PAYMENT_STATUS.PAYMENT_REQUIRED
+            });
+            invoiceId = invoice.id;
+        }
+    }
+
+    /* Notify the client that the request was accepted. */
+    await notify(request.client_id, {
+        kind: 'REQUEST_ACCEPTED',
+        title: 'Your request has been accepted',
+        body: 'The firm has accepted your request. An invoice will be issued shortly.',
+        entityType: 'request',
+        entityId: requestId
+    });
+    await notifyRequestAccepted(requestId, request.client_id, null, null);
+
+    return { id: requestId, status: 'ACCEPTED', invoiceId: invoiceId || null };
+}
+
+export async function createMatterForRequest({ requestId, actorId, title, matterType, description }) {
+    /* Idempotent: if a Matter already exists for this request, return it. */
+    const existing = await query(
+        `SELECT id, client_id, reference, status, created_at FROM matters WHERE originating_request_id = $1`,
+        [requestId]
+    );
+    if (existing.rowCount > 0) {
+        return existing.rows[0];
+    }
+
+    /* Get the client_id from the request. */
+    const requestResult = await query(
+        `SELECT client_id FROM requests WHERE id = $1 LIMIT 1`,
+        [requestId]
+    );
+    if (requestResult.rowCount === 0) {
+        const error = new Error('Request not found');
+        error.statusCode = 404;
+        error.code = 'NOT_FOUND';
+        throw error;
+    }
+    const clientId = requestResult.rows[0].client_id;
+
+    /* Try a few times for the unique reference. */
     let lastError;
     for (let attempt = 0; attempt < 5; attempt += 1) {
         const reference = referenceForMatter();
@@ -63,10 +150,9 @@ export async function acceptRequest({ requestId, actorId, matterType, title, des
                     `INSERT INTO matters
                         (client_id, originating_request_id, reference, status,
                          title, matter_type, description, assigned_to)
-                     SELECT client_id, id, $2, 'OPEN', $3, $4, $5, $6
-                     FROM requests WHERE id = $1
+                     SELECT $1, $2, $3, 'OPEN', $4, $5, $6, $7
                      RETURNING id, client_id, reference, status, created_at`,
-                    [requestId, reference, title, matterType || null, description || null, actorId]
+                    [clientId, requestId, reference, title, matterType || null, description || null, actorId]
                 );
                 if (inserted.rowCount === 0) {
                     const error = new Error('Request not found');
@@ -76,73 +162,44 @@ export async function acceptRequest({ requestId, actorId, matterType, title, des
                 }
                 const matter = inserted.rows[0];
 
-                /* If a pre-existing invoice has no matter link, link it now. */
-                if (existingInvoice.rowCount > 0) {
-                    await client.query(
-                        `UPDATE invoices SET matter_id = $1, updated_at = NOW()
-                         WHERE request_id = $2 AND matter_id IS NULL`,
-                        [matter.id, requestId]
-                    );
-                }
+                /* Link the invoice (if any) to the new matter. */
+                await client.query(
+                    `UPDATE invoices SET matter_id = $1, updated_at = NOW()
+                     WHERE request_id = $2 AND matter_id IS NULL`,
+                    [matter.id, requestId]
+                );
 
+                /* Create the conversation for the matter. */
                 await client.query(
-                    `UPDATE requests SET status = 'ACCEPTED', updated_at = NOW() WHERE id = $1`,
-                    [requestId]
+                    `INSERT INTO conversations (matter_id) VALUES ($1)
+                     ON CONFLICT (matter_id) DO NOTHING
+                     RETURNING id, matter_id, created_at`,
+                    [matter.id]
                 );
-                await client.query(
-                    `INSERT INTO request_events (request_id, actor_id, event_type, title, note)
-                     VALUES ($1, $2, 'ACCEPTED', 'Request accepted', 'The firm has accepted your matter.')`,
-                    [requestId, actorId]
-                );
+
+                /* Record the matter event. */
                 await client.query(
                     `INSERT INTO matter_events (matter_id, actor_id, event_type, title, note)
-                     VALUES ($1, $2, 'OPENED', 'Matter opened', 'Initial review has begun.')`,
+                     VALUES ($1, $2, 'OPENED', 'Matter opened', 'Payment verified — matter activated.')`,
                     [matter.id, actorId]
                 );
+
                 return matter;
             });
-            /* Notification is a side-effect after the transaction commits. */
+
+            /* Side-effect notifications (after the transaction commits). */
             await notify(result.client_id, {
-                kind: 'REQUEST_ACCEPTED',
-                title: 'Your matter has been accepted',
+                kind: 'MATTER_CREATED',
+                title: 'Your matter has been opened',
                 body: `Reference ${result.reference}`,
                 entityType: 'matter',
                 entityId: result.id
             });
-            await notifyRequestAccepted(requestId, result.client_id, result.id, result.reference);
             await notifyMatterCreated(result.id, result.client_id, result.reference, title);
 
-            /* Payment gate: create an invoice if none exists yet or the existing
-               one was fully paid (new scope for continued representation). */
-            let invoiceId = existingInvoice.rowCount > 0 ? existingInvoice.rows[0].id : null;
-            if (!existingInvoice.rowCount || existingInvoice.rows[0].payment_status === PAYMENT_STATUS.PAID) {
-                const services = await getServiceCatalog({ activeOnly: true });
-                const defaultService = services.find((s) => s.code === 'CONSULTATION');
-                let items = invoiceItems;
-                if (!items && defaultService) {
-                    items = [{
-                        description: defaultService.name,
-                        quantity: 1,
-                        unit_price: Number(defaultService.fixed_price) || 0,
-                        amount: Number(defaultService.fixed_price) || 0
-                    }];
-                }
-                if (items && items.length > 0) {
-                    const invoice = await createInvoiceForRequest({
-                        requestId,
-                        matterId: result.id,
-                        clientId: result.client_id,
-                        items: items,
-                        paymentStatus: PAYMENT_STATUS.PAYMENT_REQUIRED
-                    });
-                    invoiceId = invoice.id;
-                }
-            }
-
-            /* If no invoice was created at all, skip payment notifications. */
-            return { ...result, invoiceId: invoiceId || null };
+            return result;
         } catch (err) {
-            if (err && err.code === '23505') { lastError = err; continue; } /* unique_violation */
+            if (err && err.code === '23505') { lastError = err; continue; }
             throw err;
         }
     }
@@ -457,8 +514,8 @@ export async function scheduleAppointment({ matterId, requestId, actorId, client
              VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, 'SCHEDULED', $10, NOW(), NOW())
              RETURNING id, client_id, matter_id, consultation_type, meeting_mode, duration_minutes,
                        location_details, starts_at, ends_at, status, notes, created_at, updated_at`,
-            [clientId, resolvedMatterId, requestId || null, consultationType || null, meetingMode || null,
-             durationMinutes || null, locationDetails || null, startsAt, endsAt, notes || null]
+             [clientId, resolvedMatterId, requestId || null, consultationType || null, meetingMode || null,
+              durationMinutes || 60, locationDetails || null, startsAt, endsAt, notes || null]
         );
         if (resolvedMatterId) {
             await client.query(

@@ -317,6 +317,7 @@
                     <button class="modal-close" aria-label="Close">×</button>
                 </div>
                 ${this.options.description ? `<div class="modal-description"><p>${escape(this.options.description)}</p></div>` : ''}
+                <div class="modal-message" id="modal-message" style="display:none;"></div>
                 <form class="modal-form">
                     ${this.options.fields.map(field => {
                         let inputHtml = '';
@@ -354,13 +355,20 @@
         
         this.closeBtn.addEventListener('click', () => this.close());
         this.cancelBtn.addEventListener('click', () => this.close());
-        this.overlay.addEventListener('click', () => this.close());
+        this.overlay.addEventListener('click', (event) => {
+            if (event.target === this.overlay) {
+                this.close();
+            }
+        });
         
         this.form.addEventListener('submit', async (e) => {
             e.preventDefault();
             await this.handleSubmit();
         });
         
+        this.submitBtn.addEventListener('click', async () => {
+            await this.handleSubmit();
+        });
         document.body.appendChild(this.element);
     }
 
@@ -369,6 +377,9 @@
         this.loading = false;
         this.errors = {};
         this.element.style.display = 'flex';
+        this.element.querySelectorAll('.form-control').forEach((el) => el.classList.remove('error'));
+        const msgEl = this.element.querySelector('#modal-message');
+        if (msgEl) { msgEl.style.display = 'none'; msgEl.textContent = ''; msgEl.className = 'modal-message'; }
         this.updateSubmitButtonState();
     };
 
@@ -389,6 +400,9 @@
     Modal.prototype.handleSubmit = async function() {
         this.loading = true;
         this.updateSubmitButtonState();
+        this.errors = {};
+        const msgEl = this.element.querySelector('#modal-message');
+        if (msgEl) { msgEl.style.display = 'none'; msgEl.textContent = ''; msgEl.className = 'modal-message'; }
         
         this.formData = {};
         this.options.fields.forEach(field => {
@@ -401,10 +415,20 @@
         
         try {
             await this.options.onSubmit(this.formData);
-            this.close();
+            if (msgEl) {
+                msgEl.style.display = 'block';
+                msgEl.className = 'modal-message modal-message-success';
+                msgEl.textContent = 'Saved successfully.';
+            }
+            setTimeout(() => { this.close(); }, 600);
         } catch (error) {
             console.error('Modal submit error:', error);
             this.errors = { general: error.message || 'An error occurred' };
+            if (msgEl) {
+                msgEl.style.display = 'block';
+                msgEl.className = 'modal-message modal-message-error';
+                msgEl.textContent = error.message || 'An error occurred';
+            }
             if (this.element && this.element.querySelector('.form-group')) {
                 const formGroups = this.element.querySelectorAll('.form-group');
                 formGroups.forEach(group => {
@@ -449,6 +473,7 @@
             }
             .modal-content {
                 position: relative;
+                z-index: 1001;
                 border-radius: 12px;
                 padding: 24px;
                 max-width: 500px;
@@ -523,6 +548,23 @@
                 color: #ef4444;
                 font-size: 0.75rem;
                 margin-top: 4px;
+            }
+            .modal-message {
+                padding: 10px 14px;
+                border-radius: 6px;
+                font-size: 0.85rem;
+                margin-bottom: 16px;
+                line-height: 1.5;
+            }
+            .modal-message-success {
+                background: #dcfce7;
+                color: #166534;
+                border: 1px solid #bbf7d0;
+            }
+            .modal-message-error {
+                background: #fef2f2;
+                color: #991b1b;
+                border: 1px solid #fecaca;
             }
             .modal-footer {
                 display: flex;
@@ -1156,6 +1198,7 @@
             const status = (r.status || 'NEW').toUpperCase();
             const isResolved = ['ACCEPTED', 'DECLINED', 'COMPLETED', 'CLOSED'].includes(status);
             const canRequestInfo = ['NEW', 'SUBMITTED', 'PENDING', 'OPEN', 'UNDER_REVIEW', 'IN_PROGRESS', 'ACTION_REQUIRED', 'SCHEDULED'].includes(status);
+            const canSetPayment = !['DECLINED', 'CLOSED'].includes(status);
             container.innerHTML = `
                 <div class="page-head">
                     <div>
@@ -1168,6 +1211,7 @@
                         ${!isResolved ? `<button class="btn primary" id="btn-accept">Accept &amp; open matter</button>` : ''}
                         ${!isResolved ? `<button class="btn secondary" id="btn-decline">Decline</button>` : ''}
                         ${!isResolved && canRequestInfo ? `<button class="btn" id="btn-info">Request info</button>` : ''}
+                        ${canSetPayment ? `<button class="btn" id="btn-set-payment">Set Payment</button>` : ''}
                         <button class="btn" id="message-client">Message client</button>
                         ${r.matter_id ? `<button class="btn" id="start-convo">Open matter conversation</button>` : ''}
                     </div>
@@ -1405,6 +1449,40 @@
                     }).catch((err) => {
                         setWorkflowStatus(`<strong>Failed.</strong> ${escape(err.message)}`, 'form-status error');
                     });
+                });
+            }
+
+            const setPaymentBtn = document.getElementById('btn-set-payment');
+            if (setPaymentBtn) {
+                setPaymentBtn.addEventListener('click', () => {
+                    const modal = new Modal({
+                        title: 'Set Payment',
+                        description: 'Enter the payment amount and description for this request.',
+                        fields: [
+                            { name: 'amount', label: 'Amount (TZS)', type: 'number', required: true, placeholder: 'e.g. 500000', step: '1', min: '1' },
+                            { name: 'description', label: 'Description', type: 'textarea', required: true, placeholder: 'e.g. Legal consultation and initial case assessment', value: r.subject || '' },
+                            { name: 'currency', label: 'Currency', type: 'text', required: false, value: 'TZS', placeholder: 'TZS' }
+                        ],
+                        submitText: 'Set Payment',
+                        cancelText: 'Cancel',
+                        onSubmit: async (formData) => {
+                            const amount = parseFloat(formData.amount);
+                            if (isNaN(amount) || amount <= 0) {
+                                throw new Error('Please enter a valid amount greater than 0');
+                            }
+                            if (!formData.description || !formData.description.trim()) {
+                                throw new Error('Description is required');
+                            }
+                            await api('/owner/requests/' + encodeURIComponent(r.id) + '/set-payment', {
+                                method: 'POST',
+                                body: { amount, description: formData.description.trim(), currency: formData.currency || 'TZS' },
+                                auth: true
+                            });
+                            setWorkflowStatus('<strong>Payment set.</strong> Invoice created/updated.', 'form-status success');
+                            loadRequestDetail(r.id);
+                        }
+                    });
+                    modal.show();
                 });
             }
 
@@ -2473,18 +2551,20 @@
                         { name: 'endsAt', label: 'End Date/Time', type: 'datetime-local', required: true },
                         { name: 'notes', label: 'Notes (Optional)', type: 'textarea', required: false }
                     ],
-                    onSubmit: async (formData) => {
+                     onSubmit: async (formData) => {
                         if (!formData.startsAt || !formData.endsAt) {
                             throw new Error('Start and end times are required');
                         }
+                        const startISO = new Date(formData.startsAt).toISOString();
+                        const endISO = new Date(formData.endsAt).toISOString();
                         await api('/owner/appointments', {
                             method: 'POST',
                             auth: true,
                             body: {
                                 matterId: matter.id,
                                 clientId: matter.client_id,
-                                startsAt: formData.startsAt,
-                                endsAt: formData.endsAt,
+                                startsAt: startISO,
+                                endsAt: endISO,
                                 notes: formData.notes || undefined
                             }
                         });
@@ -2501,9 +2581,13 @@
                         { name: 'message', label: 'Message to Client (Optional)', type: 'textarea', required: false },
                         { name: 'dueDate', label: 'Due Date (Optional)', type: 'date', required: false }
                     ],
-                    onSubmit: async (formData) => {
+                     onSubmit: async (formData) => {
                         if (!formData.description || !formData.description.trim()) {
                             throw new Error('Document description is required');
+                        }
+                        let dueDateISO = undefined;
+                        if (formData.dueDate) {
+                            dueDateISO = new Date(formData.dueDate).toISOString();
                         }
                         await api(`/owner/matters/${encodeURIComponent(matter.id)}/document-request`, {
                             method: 'POST',
@@ -2511,7 +2595,7 @@
                             body: {
                                 description: formData.description.trim(),
                                 message: formData.message || undefined,
-                                dueDate: formData.dueDate || undefined
+                                dueDate: dueDateISO
                             }
                         });
                         loadMatterDetail(matter.id);
@@ -2824,17 +2908,19 @@
         const container = document.getElementById('main-content');
         container.innerHTML = '<div class="empty-state"><span class="ico">·</span><strong>Loading settings…</strong></div>';
         try {
-            const res = await api('/owner/settings', { auth: true });
-            const items = (res.data) || [];
-            let html;
-            if (!items.length) {
-                html = `
-                    <div class="page-head"><div><h1>Settings</h1><p class="head-meta">System-wide configuration and preferences.</p></div></div>
-                    <div class="empty-state"><span class="ico">·</span><strong>No system settings configured.</strong></div>
-                `;
-            } else {
-            html = `
+            const [settingsRes, destinationsRes] = await Promise.all([
+                api('/owner/settings', { auth: true }),
+                api('/owner/payment-destinations', { auth: true })
+            ]);
+            const items = (settingsRes.data) || [];
+            const destinations = (destinationsRes.data) || [];
+            let html = `
                 <div class="page-head"><div><h1>Settings</h1><p class="head-meta">System-wide configuration and preferences.</p></div></div>
+            `;
+            
+            // System Settings
+            if (items.length) {
+                html += `
                 <section class="panel">
                     <div class="panel-head"><h2>System Settings</h2></div>
                     <div class="panel-body">
@@ -2842,29 +2928,175 @@
                             <thead><tr><th>Key</th><th>Value</th><th>Description</th><th>Category</th><th>Last Updated</th></tr></thead>
                             <tbody>
                 `;
-            items.forEach((s) => {
-                const val = typeof s.value === 'object' ? JSON.stringify(s.value) : String(s.value);
+                items.forEach((s) => {
+                    const val = typeof s.value === 'object' ? JSON.stringify(s.value) : String(s.value);
+                    html += `
+                        <tr>
+                            <td class="mono">${escape(s.key)}</td>
+                            <td>${escape(val)}</td>
+                            <td>${escape(s.description || '—')}</td>
+                            <td class="muted">${escape(s.category)}</td>
+                            <td class="muted">${escape(s.updated_at)}</td>
+                        </tr>
+                    `;
+                });
                 html += `
-                    <tr>
-                        <td class="mono">${escape(s.key)}</td>
-                        <td>${escape(val)}</td>
-                        <td>${escape(s.description || '—')}</td>
-                        <td class="muted">${escape(s.category)}</td>
-                        <td class="muted">${escape(s.updated_at)}</td>
-                    </tr>
-                `;
-            });
-            html += `
                             </tbody>
                         </table>
                     </div>
                 </section>
-            `;
+                `;
             }
+            
+            // Global Payment Settings
+            html += `
+            <section class="panel">
+                <div class="panel-head"><h2>Global Payment Settings</h2><span class="panel-meta">Manage payment destinations. Company name comes from system settings.</span></div>
+                <div class="panel-body">
+                    <div style="margin-bottom:1rem;">
+                        <button class="btn primary" id="btn-add-destination">Add Payment Destination</button>
+                    </div>
+                    <div id="destinations-list">
+            `;
+            if (!destinations.length) {
+                html += `<div class="empty-state"><span class="ico">·</span><strong>No payment destinations configured.</strong><p>Add a payment destination to accept payments via mobile money, bank transfer, or QR code.</p></div>`;
+            } else {
+                html += `
+                <table class="table">
+                    <thead><tr><th>Method</th><th>Label</th><th>Details</th><th>QR Code</th><th>Instructions</th><th>Status</th><th>Actions</th></tr></thead>
+                    <tbody>
+                `;
+                destinations.forEach((d) => {
+                    const details = [];
+                    if (d.method === 'mobile_money' && d.lipa_number) details.push(`Lipa: ${escape(d.lipa_number)}`);
+                    if (d.method === 'bank') {
+                        if (d.bank_name) details.push(`Bank: ${escape(d.bank_name)}`);
+                        if (d.bank_account_name) details.push(`Account: ${escape(d.bank_account_name)}`);
+                        if (d.bank_account_number) details.push(`Number: ${escape(d.bank_account_number)}`);
+                    }
+                    html += `
+                        <tr>
+                            <td><span class="pill">${escape(d.method)}</span></td>
+                            <td>${escape(d.label)}</td>
+                            <td class="muted">${details.join(' · ') || '—'}</td>
+                            <td>${d.qr_storage_key ? `<img src="/api/v1/uploads/${escape(d.qr_storage_key)}?token=${token()}" alt="QR" style="max-width:60px;max-height:60px;border:1px solid var(--line);border-radius:4px;">` : '<span class="muted">—</span>'}</td>
+                            <td class="muted" style="max-width:300px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${escape(d.instructions || '—')}</td>
+                            <td>${d.is_active ? '<span class="pill status-open">Active</span>' : '<span class="pill status-closed">Inactive</span>'}</td>
+                            <td>
+                                <button class="btn small secondary" data-dest="${d.id}" data-action="edit">Edit</button>
+                                ${d.qr_storage_key ? `<button class="btn small secondary" data-dest="${d.id}" data-action="remove-qr">Remove QR</button>` : `<button class="btn small secondary" data-dest="${d.id}" data-action="upload-qr">Upload QR</button>`}
+                            </td>
+                        </tr>
+                    `;
+                });
+                html += `
+                    </tbody>
+                </table>
+                `;
+            }
+            html += `
+                    </div>
+                </div>
+            </section>
+            `;
+            
             container.innerHTML = html;
+            
+            // Add destination button
+            document.getElementById('btn-add-destination')?.addEventListener('click', () => showDestinationModal(null));
+            
+            // Edit/Upload QR/Remove QR buttons
+            container.querySelectorAll('[data-dest]').forEach((btn) => {
+                btn.addEventListener('click', () => {
+                    const destId = btn.getAttribute('data-dest');
+                    const action = btn.getAttribute('data-action');
+                    if (action === 'edit') {
+                        showDestinationModal(destId);
+                    } else if (action === 'upload-qr') {
+                        showQRModal(destId, 'upload');
+                    } else if (action === 'remove-qr') {
+                        showQRModal(destId, 'remove');
+                    }
+                });
+            });
+            
         } catch (error) {
             container.innerHTML = `<div class="empty-state"><span class="ico">!</span><strong>Could not load settings.</strong><p>${escape(error.message)}</p></div>`;
         }
+    }
+
+    async function showDestinationModal(destId) {
+        if (destId) {
+            // Edit Payment Destination is intentionally not implemented here
+            // so it can be handled separately without changing existing behavior.
+            return;
+        }
+        const modal = new Modal({
+            title: 'Add Payment Destination',
+            description: 'Add a new payment destination for clients to pay into. The company name shown to payers comes from system settings.',
+            fields: [
+                { name: 'method', label: 'Method', type: 'select', required: true, options: [
+                    { value: 'mobile_money', label: 'Mobile Money' },
+                    { value: 'bank', label: 'Bank Transfer' },
+                    { value: 'qr', label: 'QR Code' }
+                ] },
+                { name: 'label', label: 'Label', type: 'text', required: true, placeholder: 'e.g. M-Pesa Paybill' },
+                { name: 'lipa_number', label: 'Mobile Money Number', type: 'text', required: false, placeholder: 'e.g. 12345678' },
+                { name: 'bank_name', label: 'Bank Name', type: 'text', required: false, placeholder: 'e.g. Equity Bank' },
+                { name: 'bank_account_name', label: 'Account Name', type: 'text', required: false },
+                { name: 'bank_account_number', label: 'Account Number', type: 'text', required: false },
+                { name: 'instructions', label: 'Instructions', type: 'textarea', required: false, placeholder: 'Reference number or notes for payers' }
+            ],
+            onSubmit: async (formData) => {
+                if (!formData.method) {
+                    const err = new Error('Please select a payment method');
+                    err.code = 'VALIDATION_ERROR';
+                    err.statusCode = 400;
+                    err.body = { error: { code: 'VALIDATION_ERROR', message: 'Please select a payment method' } };
+                    showModalError(modal, err);
+                    throw err;
+                }
+                if (!(formData.label && formData.label.trim())) {
+                    const err = new Error('Label is required');
+                    err.code = 'VALIDATION_ERROR';
+                    err.statusCode = 400;
+                    err.body = { error: { code: 'VALIDATION_ERROR', message: 'Label is required' } };
+                    showModalError(modal, err);
+                    throw err;
+                }
+                const payload = {
+                    method: formData.method,
+                    label: formData.label.trim(),
+                    is_active: true
+                };
+                if (formData.lipa_number && formData.lipa_number.trim()) payload.lipa_number = formData.lipa_number.trim();
+                if (formData.bank_name && formData.bank_name.trim()) payload.bank_name = formData.bank_name.trim();
+                if (formData.bank_account_name && formData.bank_account_name.trim()) payload.bank_account_name = formData.bank_account_name.trim();
+                if (formData.bank_account_number && formData.bank_account_number.trim()) payload.bank_account_number = formData.bank_account_number.trim();
+                if (formData.instructions && formData.instructions.trim()) payload.instructions = formData.instructions.trim();
+                try {
+                    await api('/owner/payment-destinations', { method: 'POST', auth: true, body: payload });
+                } catch (err) {
+                    showModalError(modal, err);
+                    throw err;
+                }
+                loadSettings();
+            }
+        });
+        modal.show();
+    }
+
+    function showModalError(modal, err) {
+        const existing = modal.element.querySelector('.modal-error-summary');
+        if (existing) existing.remove();
+        const msg = (err && err.body && err.body.error && err.body.error.message) || err.message || 'An error occurred';
+        const summary = document.createElement('div');
+        summary.className = 'modal-error-summary';
+        summary.setAttribute('role', 'alert');
+        summary.style.cssText = 'margin:0 0 1rem 0;padding:0.75rem 1rem;border:1px solid var(--danger, #e5484d);border-radius:6px;background:rgba(229,72,68,0.1);color:var(--danger, #e5484d);font-size:0.9rem;';
+        summary.textContent = msg;
+        const form = modal.element.querySelector('.modal-form');
+        if (form) form.parentNode.insertBefore(summary, form);
     }
 
     async function loadHealth() {
@@ -2941,6 +3173,16 @@
             ]);
             const inv = invoiceRes.data;
             const items = (itemsRes && itemsRes.data) || [];
+            const hasSnapshot = !!(inv.payment_lipa_number || inv.payment_bank_name || inv.payment_qr_storage_key);
+            const paymentMethod = inv.payment_destination_method || '';
+            const paymentLabel = inv.payment_destination_label || '';
+            const lipaNumber = inv.payment_lipa_number || '';
+            const bankName = inv.payment_bank_name || '';
+            const bankAccountName = inv.payment_bank_account_name || '';
+            const bankAccountNumber = inv.payment_bank_account_number || '';
+            const qrStorageKey = inv.payment_qr_storage_key || '';
+            const qrContentType = inv.payment_qr_content_type || '';
+            const paymentInstructions = inv.payment_instructions || 'No payment instructions available.';
             container.innerHTML = `
                 <div class="page-head">
                     <div>
@@ -2968,7 +3210,22 @@
                                 <tr><th>Paid</th><td class="muted">${escape(inv.paid_at || '—')}</td></tr>
                             </tbody>
                         </table>
-                        ${inv.payment_status !== 'paid' ? `<div style="margin-top:1rem;"><strong>Payment instructions:</strong><pre style="background:#f5f5f5;padding:0.75rem;border-radius:6px;font-size:0.85rem;white-space:pre-wrap;">${escape(inv.payment_instructions || 'No payment instructions available.')}</pre></div>` : ''}
+                        ${inv.payment_status !== 'paid' ? `
+                        <div style="margin-top:1rem;">
+                            <strong>Payment Instructions (Snapshot):</strong>
+                            ${hasSnapshot ? `
+                                <div class="payment-details" style="margin-top:0.75rem;">
+                                    ${paymentMethod ? `<div class="payment-method"><strong>Method:</strong> ${escape(paymentLabel || paymentMethod)}</div>` : ''}
+                                    ${lipaNumber ? `<div class="payment-detail"><strong>Lipa Number:</strong> <code>${escape(lipaNumber)}</code></div>` : ''}
+                                    ${bankName ? `<div class="payment-detail"><strong>Bank:</strong> ${escape(bankName)}</div>` : ''}
+                                    ${bankAccountName ? `<div class="payment-detail"><strong>Account Name:</strong> ${escape(bankAccountName)}</div>` : ''}
+                                    ${bankAccountNumber ? `<div class="payment-detail"><strong>Account Number:</strong> <code>${escape(bankAccountNumber)}</code></div>` : ''}
+                                    ${qrStorageKey ? `<div class="payment-detail"><strong>QR Code:</strong><br><img src="/api/v1/uploads/${escape(qrStorageKey)}?token=${token()}" alt="Payment QR Code" style="max-width:200px;max-height:200px;border:1px solid var(--line);border-radius:8px;"></div>` : ''}
+                                    <div class="payment-detail"><strong>Instructions:</strong><pre style="background:#f5f5f5;padding:0.75rem;border-radius:6px;font-size:0.85rem;white-space:pre-wrap;">${escape(paymentInstructions)}</pre></div>
+                                </div>
+                            ` : `<pre style="background:#f5f5f5;padding:0.75rem;border-radius:6px;font-size:0.85rem;white-space:pre-wrap;">${escape(paymentInstructions)}</pre>`}
+                        </div>
+                        ` : ''}
                     </div>
                 </section>
                 <section class="panel">
@@ -3076,6 +3333,11 @@
         try {
             const res = await api('/owner/payments/' + encodeURIComponent(id), { auth: true });
             const p = (res && res.data) || {};
+            const receiptUrl = p.receipt_storage_key ? ('/api/v1/owner/payments/' + encodeURIComponent(p.id) + '/receipt?token=' + token()) : null;
+            const receiptPreview = receiptUrl && p.receipt_content_type && p.receipt_content_type.startsWith('image/')
+                ? `<img src="${receiptUrl}" alt="Receipt preview" style="max-width:320px;max-height:240px;border:1px solid var(--line);border-radius:8px;">`
+                : (receiptUrl ? `<a href="${receiptUrl}" target="_blank">View receipt</a>` : '—');
+            const rejectReasonText = p.rejection_reason ? `<tr><th>Rejection Reason</th><td class="muted">${escape(p.rejection_reason)}</td></tr>` : '';
             container.innerHTML = `
                 <div class="page-head">
                     <div>
@@ -3085,8 +3347,8 @@
                     </div>
                     <div class="action-row">
                         <button class="btn ghost" id="btn-back-payments">← Back to Payments</button>
-                        ${p.status === 'pending' ? `<button class="btn primary" id="btn-verify-payment">Verify Payment</button>` : ''}
-                        ${p.status === 'pending' ? `<button class="btn secondary" id="btn-reject-payment">Reject Payment</button>` : ''}
+                        ${p.status === 'PENDING' ? `<button class="btn primary" id="btn-approve-payment">Approve Payment</button>` : ''}
+                        ${p.status === 'PENDING' ? `<button class="btn secondary" id="btn-reject-payment">Reject Payment</button>` : ''}
                     </div>
                 </div>
                 <section class="panel">
@@ -3094,44 +3356,57 @@
                     <div class="panel-body">
                         <table class="table">
                             <tbody>
-                                <tr><th>Status</th><td>${escape(p.status || 'pending')}</td></tr>
+                                <tr><th>Status</th><td>${escape(p.status || 'PENDING')}</td></tr>
                                 <tr><th>Amount</th><td>${escape(p.currency || 'TZS')} ${Number(p.amount || 0).toFixed(0)}</td></tr>
                                 <tr><th>Method</th><td>${escape(p.method || '—')}</td></tr>
-                                <tr><th>Reference</th><td>${escape(p.reference || '—')}</td></tr>
+                                <tr><th>Reference</th><td>${escape(p.reference_number || '—')}</td></tr>
                                 <tr><th>Submitted</th><td class="muted">${escape(p.created_at || '—')}</td></tr>
                                 <tr><th>Verified</th><td class="muted">${escape(p.verified_at || '—')}</td></tr>
-                                <tr><th>Receipt</th><td class="muted">${p.receipt_storage_key ? `<a href="/api/v1/owner/payments/${encodeURIComponent(p.id)}/receipt?token=${token()}" target="_blank">View receipt</a>` : '—'}</td></tr>
-                                ${p.note ? `<tr><th>Note</th><td>${escape(p.note)}</td></tr>` : ''}
+                                <tr><th>Receipt</th><td class="muted">${receiptPreview}</td></tr>
+                                <tr><th>Message</th><td class="muted">${escape(p.payment_message || '—')}</td></tr>
+                                ${rejectReasonText}
                             </tbody>
                         </table>
                     </div>
                 </section>
             `;
             document.getElementById('btn-back-payments')?.addEventListener('click', loadPayments);
-            const verifyBtn = document.getElementById('btn-verify-payment');
-            if (verifyBtn) {
-                verifyBtn.addEventListener('click', async () => {
-                    const note = prompt('Verification note (optional):') || '';
-                    setPaymentActionStatus('Verifying…', 'form-status');
-                    try {
-                        await api('/owner/payments/' + encodeURIComponent(p.id) + '/verify', { method: 'POST', body: { note: note.trim() || undefined }, auth: true });
-                        loadPaymentDetail(p.id);
-                    } catch (err) {
-                        setPaymentActionStatus('<strong>Failed.</strong> ' + escape(err.message), 'form-status error');
-                    }
+            const approveBtn = document.getElementById('btn-approve-payment');
+            if (approveBtn) {
+                approveBtn.addEventListener('click', () => {
+                    const modal = new Modal({
+                        title: 'Approve Payment',
+                        description: 'Review the payment proof (receipt image) above, then confirm approval. This marks the invoice as paid.',
+                        fields: [
+                            { name: 'note', label: 'Verification Note (Optional)', type: 'textarea', required: false, placeholder: 'e.g. Receipt confirmed, amount matches invoice total' }
+                        ],
+                        submitText: 'Approve Payment',
+                        cancelText: 'Cancel',
+                        onSubmit: async (formData) => {
+                            await api('/owner/payments/' + encodeURIComponent(p.id) + '/verify', { method: 'POST', body: {}, auth: true });
+                            loadPaymentDetail(p.id);
+                        }
+                    });
+                    modal.show();
                 });
             }
             const rejectBtn = document.getElementById('btn-reject-payment');
             if (rejectBtn) {
-                rejectBtn.addEventListener('click', async () => {
-                    const note = prompt('Reason for rejecting (optional):') || '';
-                    setPaymentActionStatus('Rejecting…', 'form-status');
-                    try {
-                        await api('/owner/payments/' + encodeURIComponent(p.id) + '/reject', { method: 'POST', body: { note: note.trim() || undefined }, auth: true });
-                        loadPaymentDetail(p.id);
-                    } catch (err) {
-                        setPaymentActionStatus('<strong>Failed.</strong> ' + escape(err.message), 'form-status error');
-                    }
+                rejectBtn.addEventListener('click', () => {
+                    const modal = new Modal({
+                        title: 'Reject Payment',
+                        description: 'Provide a reason for rejecting this payment. The invoice will return to a payable state.',
+                        fields: [
+                            { name: 'reason', label: 'Rejection Reason', type: 'textarea', required: true, placeholder: 'e.g. Amount does not match, receipt unclear, transaction not found' }
+                        ],
+                        submitText: 'Reject Payment',
+                        cancelText: 'Cancel',
+                        onSubmit: async (formData) => {
+                            await api('/owner/payments/' + encodeURIComponent(p.id) + '/reject', { method: 'POST', body: { reason: formData.reason.trim() }, auth: true });
+                            loadPaymentDetail(p.id);
+                        }
+                    });
+                    modal.show();
                 });
             }
         } catch (error) {

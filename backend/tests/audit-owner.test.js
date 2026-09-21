@@ -8,6 +8,7 @@ import { app } from '../src/app.js';
 import { config } from '../src/config.js';
 import { query } from '../src/db.js';
 import { acquireDbTestLock, releaseDbTestLock } from './db-test-lock.js';
+import { createMatterForRequest } from '../src/services/workflow.service.js';
 
 const JWT_SECRET = process.env.JWT_SECRET || 'development-only-secret';
 
@@ -96,16 +97,22 @@ test('A. Accepting a request creates REQUEST_ACCEPTED audit log', async () => {
     const res = await request(app)
         .post(`/api/v1/owner/requests/${req.id}/accept`)
         .set('Authorization', `Bearer ${token}`)
-        .send({ title: 'Test Matter', description: 'Matter description' });
+        .send({
+            title: 'Test Matter',
+            description: 'Matter description',
+            invoiceItems: [{ description: 'Consultation', quantity: 1, unit_price: 100 }]
+        });
 
     assert.equal(res.status, 201);
-    assert.ok(res.body.data.id, 'Matter should have an id');
+    assert.ok(res.body.data.id, 'Response should have an id');
+    assert.equal(res.body.data.status, 'ACCEPTED');
+    assert.ok(res.body.data.invoiceId, 'An invoice should have been created');
 
     const logs = await getAuditLogs('REQUEST_ACCEPTED');
-    const log = logs.find(l => l.actor_id === owner.id && l.metadata.matter_id === res.body.data.id);
-    assert.ok(log, 'REQUEST_ACCEPTED audit log should exist with matter_id in metadata');
+    const log = logs.find(l => l.actor_id === owner.id && l.entity_id === req.id);
+    assert.ok(log, 'REQUEST_ACCEPTED audit log should exist');
+    assert.equal(log.metadata.invoice_id, res.body.data.invoiceId);
     cleanupIds.auditLogs.push(log.id);
-    cleanupIds.matters.push(res.body.data.id);
 });
 
 test('B. Declining a request creates REQUEST_DECLINED audit log', async () => {
@@ -170,14 +177,20 @@ test('E. Creating appointment creates APPOINTMENT_CREATED audit log', async () =
     const { client, owner, req } = await insertOwnerTestData('E1');
     const ownerToken = makeToken('OWNER', owner.id);
 
-    const matterRes = await request(app)
+    const acceptRes = await request(app)
         .post(`/api/v1/owner/requests/${req.id}/accept`)
         .set('Authorization', `Bearer ${ownerToken}`)
         .send({ title: 'Test Matter', description: 'Matter description' });
 
-    assert.equal(matterRes.status, 201);
-    const matterId = matterRes.body.data.id;
-    cleanupIds.matters.push(matterId);
+    assert.equal(acceptRes.status, 201);
+
+    const matter = await createMatterForRequest({
+        requestId: req.id,
+        actorId: owner.id,
+        title: 'Test Matter',
+        description: 'Matter description'
+    });
+    cleanupIds.matters.push(matter.id);
 
     const startsAt = new Date(Date.now() + 86400000 * 2).toISOString();
     const endsAt = new Date(Date.now() + 86400000 * 2 + 3600000).toISOString();
@@ -187,7 +200,7 @@ test('E. Creating appointment creates APPOINTMENT_CREATED audit log', async () =
         .set('Authorization', `Bearer ${ownerToken}`)
         .send({
             clientId: client.id,
-            matterId: matterId,
+            matterId: matter.id,
             startsAt: startsAt,
             endsAt: endsAt,
             durationMinutes: 60,
@@ -199,7 +212,7 @@ test('E. Creating appointment creates APPOINTMENT_CREATED audit log', async () =
     const logs = await getAuditLogs('APPOINTMENT_CREATED');
     const log = logs.find(l => l.actor_id === owner.id);
     assert.ok(log, 'APPOINTMENT_CREATED audit log should exist');
-    assert.equal(log.metadata.matter_id, matterId);
+    assert.equal(log.metadata.matter_id, matter.id);
     assert.equal(log.metadata.client_id, client.id);
     cleanupIds.auditLogs.push(log.id);
     cleanupIds.appointments.push(apptRes.body.data.id);
@@ -209,14 +222,20 @@ test('F. Canceling appointment creates APPOINTMENT_CANCELLED audit log', async (
     const { client, owner, req } = await insertOwnerTestData('F1');
     const ownerToken = makeToken('OWNER', owner.id);
 
-    const matterRes = await request(app)
+    const acceptRes = await request(app)
         .post(`/api/v1/owner/requests/${req.id}/accept`)
         .set('Authorization', `Bearer ${ownerToken}`)
         .send({ title: 'Test Matter', description: 'Matter description' });
 
-    assert.equal(matterRes.status, 201);
-    const matterId = matterRes.body.data.id;
-    cleanupIds.matters.push(matterId);
+    assert.equal(acceptRes.status, 201);
+
+    const matter = await createMatterForRequest({
+        requestId: req.id,
+        actorId: owner.id,
+        title: 'Test Matter',
+        description: 'Matter description'
+    });
+    cleanupIds.matters.push(matter.id);
 
     const startsAt = new Date(Date.now() + 86400000 * 3).toISOString();
     const endsAt = new Date(Date.now() + 86400000 * 3 + 3600000).toISOString();
@@ -226,7 +245,7 @@ test('F. Canceling appointment creates APPOINTMENT_CANCELLED audit log', async (
         .set('Authorization', `Bearer ${ownerToken}`)
         .send({
             clientId: client.id,
-            matterId: matterId,
+            matterId: matter.id,
             startsAt: startsAt,
             endsAt: endsAt,
             durationMinutes: 60,

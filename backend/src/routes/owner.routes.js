@@ -7,8 +7,9 @@ import fs from 'node:fs';
 import { authenticate, requireRole } from '../middleware/auth.js';
 import { query } from '../db.js';
 import { notify } from '../services/notification.service.js';
-import { acceptRequest, declineRequest, updateRequestStatus, requestMoreInfo, processClientResponse, updateMatterStatus, addInternalNote, scheduleAppointment, rescheduleAppointment, changeAppointmentStatus, recordMatterEvent } from '../services/workflow.service.js';
-import { verifyPayment, rejectPayment, listPaymentsForOwner, getPaymentById, getPaymentDestinations, createPaymentDestination, updatePaymentDestination, getServiceCatalog, receiptPath } from '../services/payment.service.js';
+import { acceptRequest, declineRequest, updateRequestStatus, requestMoreInfo, processClientResponse, updateMatterStatus, addInternalNote, scheduleAppointment, rescheduleAppointment, changeAppointmentStatus, recordMatterEvent, createMatterForRequest } from '../services/workflow.service.js';
+import { verifyPayment, rejectPayment, listPaymentsForOwner, getPaymentById, getPaymentDestinations, createPaymentDestination, updatePaymentDestination, getServiceCatalog, receiptPath, uploadPaymentDestinationQR, removePaymentDestinationQR } from '../services/payment.service.js';
+import { setPaymentForRequest, PAYMENT_STATUS } from '../services/billing.service.js';
 import { notifyPaymentVerified, notifyPaymentRejected } from '../services/sse.js';
 import { logAudit } from '../lib/audit.js';
 
@@ -1131,6 +1132,12 @@ ownerRouter.get('/requests/:id/actions', async (request, response, next) => {
         actions.push({ key: 'review', label: 'Review request', method: 'GET', endpoint: `/api/v1/owner/requests/${req.id}`, schema: null, options: null });
         actions.push({ key: 'message_client', label: 'Message client', method: 'POST', endpoint: `/api/v1/owner/requests/${req.id}/message`, schema: { body: 'string' }, options: null });
 
+        // Set Payment action - available for requests that are not resolved
+        const blockedStatuses = new Set(['DECLINED', 'CLOSED']);
+        if (!blockedStatuses.has(status)) {
+            actions.push({ key: 'set_payment', label: 'Set Payment', method: 'POST', endpoint: `/api/v1/owner/requests/${req.id}/set-payment`, schema: { amount: 'number', description: 'string', currency: 'string?' }, options: null });
+        }
+
         if (['SUBMITTED', 'UNDER_REVIEW', 'ACTION_REQUIRED'].includes(status)) {
             actions.push({ key: 'accept', label: 'Accept matter', method: 'POST', endpoint: `/api/v1/owner/requests/${req.id}/accept`, schema: { title: 'string', matterType: 'string', description: 'string' }, options: null });
             actions.push({ key: 'request_info', label: 'Request more information', method: 'POST', endpoint: `/api/v1/owner/requests/${req.id}/request-info`, schema: { items: 'array', message: 'string', deadline: 'datetime' }, options: null });
@@ -1163,7 +1170,7 @@ ownerRouter.post('/requests/:id/accept', async (request, response, next) => {
                 unit_price: z.number().nonnegative()
             })).optional()
         }).parse(request.body);
-        const matter = await acceptRequest({
+        const result = await acceptRequest({
             requestId: request.params.id,
             actorId: request.user.sub,
             matterType: input.matterType,
@@ -1171,8 +1178,8 @@ ownerRouter.post('/requests/:id/accept', async (request, response, next) => {
             description: input.description,
             invoiceItems: input.invoiceItems
         });
-        await logAudit({ actorId: request.user.sub, action: 'REQUEST_ACCEPTED', entityType: 'request', entityId: request.params.id, metadata: { matter_id: matter.id } });
-        response.status(201).json({ data: matter });
+        await logAudit({ actorId: request.user.sub, action: 'REQUEST_ACCEPTED', entityType: 'request', entityId: request.params.id, metadata: { invoice_id: result.invoiceId || null } });
+        response.status(201).json({ data: result });
     } catch (error) { next(error); }
 });
 
@@ -1219,6 +1226,48 @@ ownerRouter.post('/requests/:id/internal-note', async (request, response, next) 
         });
         await logAudit({ actorId: request.user.sub, action: 'INTERNAL_NOTE_ADDED', entityType: 'request', entityId: request.params.id, metadata: { note_id: result.id } });
         response.status(201).json({ data: result });
+    } catch (error) { next(error); }
+});
+
+/* POST /api/v1/owner/requests/:id/set-payment — set payment amount and description for a request */
+const setPaymentSchema = z.object({
+    amount: z.number().positive(),
+    description: z.string().trim().min(1).max(2000),
+    currency: z.string().trim().max(3).default('TZS').optional()
+});
+
+ownerRouter.post('/requests/:id/set-payment', async (request, response, next) => {
+    try {
+        const input = setPaymentSchema.parse(request.body);
+        const invoice = await setPaymentForRequest({
+            requestId: request.params.id,
+            actorId: request.user.sub,
+            amount: input.amount,
+            description: input.description,
+            currency: input.currency || 'TZS'
+        });
+        await logAudit({ actorId: request.user.sub, action: 'PAYMENT_SET', entityType: 'request', entityId: request.params.id, metadata: { invoice_id: invoice.id, amount: input.amount, currency: input.currency || 'TZS' } });
+        response.json({ data: invoice });
+    } catch (error) { next(error); }
+});
+
+/* GET /api/v1/owner/requests/:id/invoice — get the invoice for a request (if any) */
+ownerRouter.get('/requests/:id/invoice', async (request, response, next) => {
+    try {
+        const result = await query(
+            `SELECT i.id, i.matter_id, i.client_id, i.request_id, i.status, i.currency, i.subtotal, i.tax, i.total,
+                    i.issued_at, i.due_at, i.paid_at, i.payment_status, i.payment_instructions,
+                    i.payment_lipa_number, i.payment_bank_name, i.payment_bank_account_name, i.payment_bank_account_number,
+                    i.payment_qr_storage_key, i.payment_qr_content_type, i.payment_destination_method, i.payment_destination_label,
+                    i.payment_destination_id, i.created_at, i.updated_at
+             FROM invoices i
+             WHERE i.request_id = $1 LIMIT 1`,
+            [request.params.id]
+        );
+        if (result.rowCount === 0) {
+            return response.status(404).json({ error: { code: 'NOT_FOUND', message: 'No invoice found for this request' } });
+        }
+        response.json({ data: result.rows[0] });
     } catch (error) { next(error); }
 });
 
@@ -1803,12 +1852,30 @@ ownerRouter.post('/payments/:id/verify', async (request, response, next) => {
             paymentId: request.params.id,
             actorId: request.user.sub
         });
+        /* Create Matter for the request after payment is approved.
+           createMatterForRequest is idempotent — if a Matter already exists
+           for this request it returns the existing one. */
+        let matter = null;
+        if (result.invoiceRequestId) {
+            const reqInfo = await query(
+                `SELECT subject FROM requests WHERE id = $1 LIMIT 1`,
+                [result.invoiceRequestId]
+            );
+            const title = reqInfo.rows[0]?.subject || 'Payment approved — matter opened';
+            matter = await createMatterForRequest({
+                requestId: result.invoiceRequestId,
+                actorId: request.user.sub,
+                title: title,
+                matterType: null,
+                description: null
+            });
+        }
         await logAudit({
             actorId: request.user.sub,
             action: 'PAYMENT_VERIFIED',
             entityType: 'payment',
             entityId: request.params.id,
-            metadata: { invoice_id: result.invoiceId, amount: Number(result.payment.amount) }
+            metadata: { invoice_id: result.invoiceId, amount: Number(result.payment.amount), matter_id: matter?.id || null }
         });
         await notify(result.clientId, {
             kind: 'PAYMENT_VERIFIED',
@@ -1821,7 +1888,16 @@ ownerRouter.post('/payments/:id/verify', async (request, response, next) => {
             result.payment.id, result.invoiceId, result.clientId,
             Number(result.payment.amount), result.payment.currency
         );
-        response.json({ data: result.payment });
+        if (matter) {
+            await notify(result.clientId, {
+                kind: 'MATTER_CREATED',
+                title: 'Your matter has been opened',
+                body: `Reference ${matter.reference}`,
+                entityType: 'matter',
+                entityId: matter.id
+            });
+        }
+        response.json({ data: { ...result.payment, matter: matter ? { id: matter.id, reference: matter.reference, status: matter.status } : null } });
     } catch (error) { next(error); }
 });
 
@@ -1909,6 +1985,35 @@ ownerRouter.patch('/payment-destinations/:id', async (request, response, next) =
             return response.status(404).json({ error: { code: 'NOT_FOUND', message: 'Payment destination not found' } });
         }
         await logAudit({ actorId: request.user.sub, action: 'PAYMENT_DESTINATION_UPDATED', entityType: 'payment_destination', entityId: request.params.id, metadata: { updates: Object.keys(input) } });
+        response.json({ data: dest });
+    } catch (error) { next(error); }
+});
+
+/* POST /api/v1/owner/payment-destinations/:id/qr — upload QR code for payment destination */
+const uploadQRSchema = z.object({
+    qr: z.string().min(1)
+});
+
+ownerRouter.post('/payment-destinations/:id/qr', async (request, response, next) => {
+    try {
+        const input = uploadQRSchema.parse(request.body);
+        const dest = await uploadPaymentDestinationQR(request.params.id, input.qr);
+        if (!dest) {
+            return response.status(404).json({ error: { code: 'NOT_FOUND', message: 'Payment destination not found' } });
+        }
+        await logAudit({ actorId: request.user.sub, action: 'PAYMENT_DESTINATION_QR_UPLOADED', entityType: 'payment_destination', entityId: request.params.id });
+        response.json({ data: dest });
+    } catch (error) { next(error); }
+});
+
+/* DELETE /api/v1/owner/payment-destinations/:id/qr — remove QR code from payment destination */
+ownerRouter.delete('/payment-destinations/:id/qr', async (request, response, next) => {
+    try {
+        const dest = await removePaymentDestinationQR(request.params.id);
+        if (!dest) {
+            return response.status(404).json({ error: { code: 'NOT_FOUND', message: 'Payment destination not found' } });
+        }
+        await logAudit({ actorId: request.user.sub, action: 'PAYMENT_DESTINATION_QR_REMOVED', entityType: 'payment_destination', entityId: request.params.id });
         response.json({ data: dest });
     } catch (error) { next(error); }
 });

@@ -31,14 +31,14 @@ const acceptInput = z.object({
 staffRouter.post('/requests/:id/accept', async (request, response, next) => {
     try {
         const input = acceptInput.parse(request.body);
-        const matter = await acceptRequest({
+        const result = await acceptRequest({
             requestId: request.params.id,
             actorId: request.user.sub,
             matterType: input.matterType,
             title: input.title,
             description: input.description
         });
-        response.status(201).json({ data: matter });
+        response.status(201).json({ data: result });
     } catch (error) { next(error); }
 });
 

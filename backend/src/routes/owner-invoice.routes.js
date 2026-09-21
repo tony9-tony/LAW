@@ -10,6 +10,9 @@ ownerInvoiceRouter.get('/', async (request, response, next) => {
         const result = await query(
             `SELECT i.id, i.matter_id, i.client_id, i.request_id, i.status, i.currency, i.subtotal, i.tax, i.total,
                      i.issued_at, i.due_at, i.paid_at, i.payment_status, i.payment_instructions,
+                     i.payment_lipa_number, i.payment_bank_name, i.payment_bank_account_name, i.payment_bank_account_number,
+                     i.payment_qr_storage_key, i.payment_qr_content_type, i.payment_destination_method, i.payment_destination_label,
+                     i.payment_destination_id,
                      i.created_at, i.updated_at,
                      m.reference AS matter_reference, m.title AS matter_title,
                      u.full_name AS client_name
@@ -28,6 +31,9 @@ ownerInvoiceRouter.get('/:id', async (request, response, next) => {
         const result = await query(
             `SELECT i.id, i.matter_id, i.client_id, i.request_id, i.status, i.currency, i.subtotal, i.tax, i.total,
                      i.issued_at, i.due_at, i.paid_at, i.payment_status, i.payment_instructions,
+                     i.payment_lipa_number, i.payment_bank_name, i.payment_bank_account_name, i.payment_bank_account_number,
+                     i.payment_qr_storage_key, i.payment_qr_content_type, i.payment_destination_method, i.payment_destination_label,
+                     i.payment_destination_id,
                      i.created_at, i.updated_at,
                      m.reference AS matter_reference, m.title AS matter_title,
                      u.full_name AS client_name

@@ -4,6 +4,7 @@
    Changing service_catalog.fixed_price later must NOT affect existing
    invoices — invoice_items stores the historical snapshot. */
 import { query, withTransaction } from '../db.js';
+import { listActiveDestinations } from './payment.service.js';
 
 export const INVOICE_STATUS = {
     DRAFT: 'DRAFT',
@@ -133,4 +134,187 @@ export function snapshotServiceItem(service, customAmount = null) {
         unit_price: amount,
         amount
     };
+}
+
+/* Get the active payment destination for a given method (or the first active one). */
+export async function getActivePaymentDestinationSnapshot(method = null) {
+    const destinations = await listActiveDestinations(method);
+    if (!destinations.length) return null;
+    const d = destinations[0];
+    return {
+        payment_destination_id: d.id,
+        payment_destination_method: d.method,
+        payment_destination_label: d.label,
+        payment_lipa_number: d.lipa_number,
+        payment_bank_name: d.bank_name,
+        payment_bank_account_name: d.bank_account_name,
+        payment_bank_account_number: d.bank_account_number,
+        payment_qr_storage_key: d.qr_storage_key,
+        payment_qr_content_type: d.qr_content_type,
+        payment_instructions: d.instructions
+    };
+}
+
+/* Set payment for a request — create or update invoice with amount, description, and payment destination snapshot.
+   Returns the invoice. */
+export async function setPaymentForRequest({ requestId, actorId, amount, description, currency = 'TZS' }) {
+    const requestResult = await query(
+        `SELECT r.id, r.client_id, r.status, r.subject,
+                m.id AS matter_id
+         FROM requests r
+         LEFT JOIN matters m ON m.originating_request_id = r.id
+         WHERE r.id = $1 LIMIT 1`,
+        [requestId]
+    );
+    if (requestResult.rowCount === 0) {
+        const error = new Error('Request not found');
+        error.statusCode = 404;
+        error.code = 'NOT_FOUND';
+        throw error;
+    }
+    const request = requestResult.rows[0];
+    
+    // Check if request is in a state where payment can be set
+    const blocked = new Set(['DECLINED', 'CLOSED']);
+    if (blocked.has(request.status)) {
+        const error = new Error('Cannot set payment for a resolved request');
+        error.statusCode = 409;
+        error.code = 'INVALID_STATUS';
+        throw error;
+    }
+
+    const clientId = request.client_id;
+    const matterId = request.matter_id || null;
+
+    // Check for existing invoice for this request
+    const existingInvoice = await query(
+        `SELECT id, payment_status FROM invoices WHERE request_id = $1 LIMIT 1`,
+        [requestId]
+    );
+
+    // Get active payment destination snapshot
+    const destSnapshot = await getActivePaymentDestinationSnapshot();
+
+    const items = [{
+        description: description || request.subject || 'Legal services',
+        quantity: 1,
+        unit_price: Number(amount) || 0,
+        amount: Number(amount) || 0
+    }];
+
+    if (existingInvoice.rowCount > 0) {
+        // Update existing invoice if it's not paid
+        const inv = existingInvoice.rows[0];
+        if (inv.payment_status === PAYMENT_STATUS.PAID) {
+            const error = new Error('Invoice is already paid; cannot modify');
+            error.statusCode = 409;
+            error.code = 'ALREADY_PAID';
+            throw error;
+        }
+
+        const result = await withTransaction(async (client) => {
+            // Update invoice with new amount, description, and payment destination snapshot
+            const updated = await client.query(
+                `UPDATE invoices
+                 SET status = 'DRAFT',
+                     currency = $2,
+                     subtotal = $3,
+                     tax = 0,
+                     total = $3,
+                     payment_status = $4,
+                     payment_instructions = $5,
+                     payment_lipa_number = $6,
+                     payment_bank_name = $7,
+                     payment_bank_account_name = $8,
+                     payment_bank_account_number = $9,
+                     payment_qr_storage_key = $10,
+                     payment_qr_content_type = $11,
+                     payment_destination_method = $12,
+                     payment_destination_label = $13,
+                     payment_destination_id = $14,
+                     updated_at = NOW()
+                 WHERE id = $1
+                 RETURNING id, matter_id, client_id, request_id, status, currency, subtotal, tax, total, payment_status, payment_instructions,
+                           payment_lipa_number, payment_bank_name, payment_bank_account_name, payment_bank_account_number,
+                           payment_qr_storage_key, payment_qr_content_type, payment_destination_method, payment_destination_label, payment_destination_id,
+                           created_at, updated_at`,
+                [inv.id, currency, Number(amount) || 0, PAYMENT_STATUS.PAYMENT_REQUIRED,
+                 destSnapshot?.payment_instructions || null,
+                 destSnapshot?.payment_lipa_number || null,
+                 destSnapshot?.payment_bank_name || null,
+                 destSnapshot?.payment_bank_account_name || null,
+                 destSnapshot?.payment_bank_account_number || null,
+                 destSnapshot?.payment_qr_storage_key || null,
+                 destSnapshot?.payment_qr_content_type || null,
+                 destSnapshot?.payment_destination_method || null,
+                 destSnapshot?.payment_destination_label || null,
+                 destSnapshot?.payment_destination_id || null]
+            );
+            const invoice = updated.rows[0];
+
+            // Replace invoice items
+            await client.query(`DELETE FROM invoice_items WHERE invoice_id = $1`, [inv.id]);
+            for (const it of items) {
+                await client.query(
+                    `INSERT INTO invoice_items (invoice_id, description, quantity, unit_price, amount)
+                     VALUES ($1, $2, $3, $4, $5)`,
+                    [inv.id, it.description, Number(it.quantity) || 1, Number(it.unit_price) || 0, Number(it.amount) || 0]
+                );
+            }
+
+            // Record event
+            await client.query(
+                `INSERT INTO request_events (request_id, actor_id, event_type, title, note)
+                 VALUES ($1, $2, 'PAYMENT_SET', 'Payment amount set by admin', $3)`,
+                [requestId, actorId, `Amount: ${currency} ${Number(amount).toLocaleString()}, Description: ${description}`]
+            );
+
+            return invoice;
+        });
+        return result;
+    } else {
+        // Create new invoice
+        const result = await withTransaction(async (client) => {
+            const inserted = await client.query(
+                `INSERT INTO invoices (matter_id, client_id, request_id, status, currency, subtotal, tax, total, payment_status, payment_instructions,
+                                      payment_lipa_number, payment_bank_name, payment_bank_account_name, payment_bank_account_number,
+                                      payment_qr_storage_key, payment_qr_content_type, payment_destination_method, payment_destination_label, payment_destination_id)
+                 VALUES ($1, $2, $3, 'DRAFT', $4, $5, 0, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16)
+                 RETURNING id, matter_id, client_id, request_id, status, currency, subtotal, tax, total, payment_status, payment_instructions,
+                           payment_lipa_number, payment_bank_name, payment_bank_account_name, payment_bank_account_number,
+                           payment_qr_storage_key, payment_qr_content_type, payment_destination_method, payment_destination_label, payment_destination_id,
+                           created_at, updated_at`,
+                [matterId, clientId, requestId, currency, Number(amount) || 0, PAYMENT_STATUS.PAYMENT_REQUIRED,
+                 destSnapshot?.payment_instructions || null,
+                 destSnapshot?.payment_lipa_number || null,
+                 destSnapshot?.payment_bank_name || null,
+                 destSnapshot?.payment_bank_account_name || null,
+                 destSnapshot?.payment_bank_account_number || null,
+                 destSnapshot?.payment_qr_storage_key || null,
+                 destSnapshot?.payment_qr_content_type || null,
+                 destSnapshot?.payment_destination_method || null,
+                 destSnapshot?.payment_destination_label || null,
+                 destSnapshot?.payment_destination_id || null]
+            );
+            const invoice = inserted.rows[0];
+
+            for (const it of items) {
+                await client.query(
+                    `INSERT INTO invoice_items (invoice_id, description, quantity, unit_price, amount)
+                     VALUES ($1, $2, $3, $4, $5)`,
+                    [invoice.id, it.description, Number(it.quantity) || 1, Number(it.unit_price) || 0, Number(it.amount) || 0]
+                );
+            }
+
+            // Record event
+            await client.query(
+                `INSERT INTO request_events (request_id, actor_id, event_type, title, note)
+                 VALUES ($1, $2, 'PAYMENT_SET', 'Payment amount set by admin', $3)`,
+                [requestId, actorId, `Amount: ${currency} ${Number(amount).toLocaleString()}, Description: ${description}`]
+            );
+
+            return invoice;
+        });
+        return result;
+    }
 }

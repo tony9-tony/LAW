@@ -98,11 +98,11 @@
                                     <dt>Status</dt><dd>${P.statusPill(p.status || 'pending')}</dd>
                                     <dt>Amount</dt><dd>${fmtCurrency(p.amount, p.currency)}</dd>
                                     <dt>Method</dt><dd>${escape(p.method || '—')}</dd>
-                                    <dt>Reference</dt><dd>${escape(p.reference || '—')}</dd>
+                                    <dt>Reference</dt><dd>${escape(p.reference_number || '—')}</dd>
                                     <dt>Submitted</dt><dd>${fmtDate(p.created_at)}</dd>
                                     <dt>Verified</dt><dd>${fmtDate(p.verified_at || '—')}</dd>
                                     <dt>Receipt</dt><dd>${p.receipt_storage_key ? `<a href="${API.base()}/payments/${encodeURIComponent(p.id)}/receipt?token=${API.token()}" target="_blank">View receipt</a>` : '—'}</dd>
-                                    ${p.note ? `<dt>Note</dt><dd>${escape(p.note)}</dd>` : ''}
+                                    ${p.payment_message ? `<dt>Note</dt><dd>${escape(p.payment_message)}</dd>` : ''}
                                 </dl>
                             </div>
                         </section>
