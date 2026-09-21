@@ -7,3 +7,22 @@ test-results/
 playwright-report/
 *.log
 .DS_Store
+storage/
+# Local/debug artifacts
+.kilo/
+uploads/
+*.dump
+*.before-*
+check-db.*
+debug_find.py
+fix_button*.py
+add_handler*.py
+add_setpayment_handler.py
+test-*.mjs
+e2e/quick-actions-verify.spec.ts
+powershell
+findstr
+cd
+(SELECT
+backend/{
+{

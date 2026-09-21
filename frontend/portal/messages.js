@@ -62,8 +62,8 @@
         if (convo) {
             convo.last_message_body = msg.body;
             convo.last_message_at = msg.created_at;
-            if (convo.unread_count > 0) {
-                convo.unread_count = convo.unread_count + 1;
+            if ((Number(convo.unread_count) || 0) > 0) {
+                convo.unread_count = (Number(convo.unread_count) || 0) + 1;
             } else {
                 convo.unread_count = 1;
             }
@@ -351,7 +351,7 @@
             const tb = b.last_message_at || b.created_at;
             return new Date(tb) - new Date(ta);
         });
-        const totalUnread = items.reduce((sum, c) => sum + (c.unread_count || 0), 0);
+        const totalUnread = items.reduce((sum, c) => sum + (Number(c.unread_count) || 0), 0);
         inboxMeta.textContent = `${items.length} total · ${totalUnread} unread`;
 
         if (window.Portal && window.Portal.refreshUnreadIndicators) {
@@ -359,7 +359,7 @@
         }
 
         inboxList.innerHTML = `<table class="requests-table"><thead><tr><th>Request / Matter</th><th>Last Message</th><th>Date</th><th>Status</th></tr></thead><tbody>${items.map((c) => {
-            const isUnread = (c.unread_count || 0) > 0;
+            const isUnread = (Number(c.unread_count) || 0) > 0;
             const label = c.request_subject
                 ? `Request: ${escape(c.request_subject)}`
                 : (c.reference ? `${escape(c.reference)}${c.title ? ' — ' + escape(c.title) : ''}` : 'Conversation');
@@ -369,7 +369,7 @@
                     <td class="subj">${dot}${label}</td>
                     <td class="last-msg-preview">${escape(c.last_message_body || '—')}</td>
                     <td class="muted">${escape(c.last_message_at || c.created_at)}</td>
-                    <td class="status-cell">${isUnread ? `<span class="pill status-new">${c.unread_count} unread</span>` : '<span class="pill status-closed">Read</span>'}</td>
+                    <td class="status-cell">${isUnread ? `<span class="pill status-new">${Number(c.unread_count) || 0} unread</span>` : '<span class="pill status-closed">Read</span>'}</td>
                 </tr>
             `;
         }).join('')}</tbody></table>`;

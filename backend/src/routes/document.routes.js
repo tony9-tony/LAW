@@ -3,6 +3,11 @@ import { authenticate } from '../middleware/auth.js';
 import { query } from '../db.js';
 import { ensureOwned } from '../lib/authorization.js';
 import { logAudit } from '../lib/audit.js';
+import multer from 'multer';
+import { saveUploadedFile, storageFilePath, deleteStoredFile } from '../services/upload.service.js';
+import fs from 'node:fs/promises';
+
+const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 20 * 1024 * 1024 } });
 
 export const documentRouter = Router();
 documentRouter.use(authenticate);
@@ -24,6 +29,54 @@ documentRouter.get('/', async (request, response, next) => {
     } catch (error) { next(error); }
 });
 
+/* POST /api/v1/documents — upload a document to one of the client's matters. */
+documentRouter.post('/', upload.single('file'), async (request, response, next) => {
+    try {
+        if (!request.file) {
+            return response.status(400).json({ error: { code: 'VALIDATION_ERROR', message: 'File is required. Attach it as "file" in a multipart/form-data request.' } });
+        }
+        const { matter_id } = request.body;
+        if (!matter_id) {
+            return response.status(400).json({ error: { code: 'VALIDATION_ERROR', message: 'matter_id is required.' } });
+        }
+
+        const matterCheck = await query(
+            `SELECT id, client_id FROM matters WHERE id = $1 LIMIT 1`,
+            [matter_id]
+        );
+        if (matterCheck.rowCount === 0) {
+            return response.status(404).json({ error: { code: 'NOT_FOUND', message: 'Matter not found.' } });
+        }
+        if (matterCheck.rows[0].client_id !== request.user.sub) {
+            return response.status(403).json({ error: { code: 'FORBIDDEN', message: 'You do not have access to this matter.' } });
+        }
+
+        const fileInfo = await saveUploadedFile(
+            request.file.buffer,
+            request.file.originalname,
+            request.file.mimetype
+        );
+
+        const inserted = await query(
+            `INSERT INTO documents
+                (matter_id, uploaded_by, storage_key, original_name, content_type, size_bytes, status, created_at, updated_at)
+             VALUES ($1, $2, $3, $4, $5, $6, 'AVAILABLE', NOW(), NOW())
+             RETURNING id, matter_id, uploaded_by, storage_key, original_name, content_type, size_bytes, status, created_at, updated_at`,
+            [matter_id, request.user.sub, fileInfo.storageKey, fileInfo.originalName, fileInfo.contentType, fileInfo.sizeBytes]
+        );
+
+        await logAudit({
+            actorId: request.user.sub,
+            action: 'DOCUMENT_UPLOADED',
+            entityType: 'document',
+            entityId: inserted.rows[0].id,
+            metadata: { matter_id, original_name: fileInfo.originalName, size_bytes: fileInfo.sizeBytes }
+        });
+
+        response.status(201).json({ data: inserted.rows[0] });
+    } catch (error) { next(error); }
+});
+
 documentRouter.get('/:id/download', async (request, response, next) => {
     try {
         const doc = await query(
@@ -37,15 +90,19 @@ documentRouter.get('/:id/download', async (request, response, next) => {
             await logAudit({ actorId: request.user.sub, action: 'DOCUMENT_ACCESS_DENIED', entityType: 'document', entityId: null, metadata: { document_id: request.params.id } });
             return response.status(404).json({ error: { code: 'NOT_FOUND', message: 'Document not found' } });
         }
-        /* Storage backend is not yet wired. Return a controlled 501 so the
-           portal can show an honest "not yet available" state instead of
-           pretending to serve bytes. The metadata + ownership check happens
-           here so the security boundary is enforced. */
-        return response.status(501).json({
-            error: {
-                code: 'STORAGE_NOT_CONFIGURED',
-                message: 'Document storage is not yet configured. The metadata is recorded but bytes cannot be served yet.'
-            }
-        });
+        const d = doc.rows[0];
+        const filePath = storageFilePath(d.storage_key);
+        if (!filePath) {
+            return response.status(404).json({ error: { code: 'NOT_FOUND', message: 'File not found on server.' } });
+        }
+        try {
+            await fs.access(filePath);
+        } catch {
+            return response.status(404).json({ error: { code: 'NOT_FOUND', message: 'File has been removed from storage.' } });
+        }
+        response.setHeader('Content-Type', d.content_type || 'application/octet-stream');
+        response.setHeader('Content-Disposition', `attachment; filename="${encodeURIComponent(d.original_name || 'download')}"`);
+        response.setHeader('Cache-Control', 'private, max-age=3600');
+        response.sendFile(filePath);
     } catch (error) { next(error); }
 });

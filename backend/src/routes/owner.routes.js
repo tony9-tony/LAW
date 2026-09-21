@@ -3,10 +3,12 @@
 
 import { Router } from 'express';
 import { z } from 'zod';
-import fs from 'node:fs';
+import fs from 'node:fs/promises';
 import { authenticate, requireRole } from '../middleware/auth.js';
 import { query } from '../db.js';
 import { notify } from '../services/notification.service.js';
+import multer from 'multer';
+import { saveUploadedFile, storageFilePath, deleteStoredFile } from '../services/upload.service.js';
 import { acceptRequest, declineRequest, updateRequestStatus, requestMoreInfo, processClientResponse, updateMatterStatus, addInternalNote, scheduleAppointment, rescheduleAppointment, changeAppointmentStatus, recordMatterEvent, createMatterForRequest } from '../services/workflow.service.js';
 import { verifyPayment, rejectPayment, listPaymentsForOwner, getPaymentById, getPaymentDestinations, createPaymentDestination, updatePaymentDestination, getServiceCatalog, receiptPath, uploadPaymentDestinationQR, removePaymentDestinationQR } from '../services/payment.service.js';
 import { setPaymentForRequest, PAYMENT_STATUS } from '../services/billing.service.js';
@@ -593,6 +595,60 @@ ownerRouter.get('/documents', async (request, response, next) => {
     }
 });
 
+/* POST /api/v1/owner/documents — upload a document to a matter (admin). */
+const ownerUpload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 20 * 1024 * 1024 } });
+ownerRouter.post('/documents', ownerUpload.single('file'), async (request, response, next) => {
+    try {
+        if (!request.file) {
+            return response.status(400).json({ error: { code: 'VALIDATION_ERROR', message: 'File is required. Attach it as "file" in a multipart/form-data request.' } });
+        }
+        const { matter_id, original_name } = request.body;
+        if (!matter_id) {
+            return response.status(400).json({ error: { code: 'VALIDATION_ERROR', message: 'matter_id is required.' } });
+        }
+        const matterCheck = await query(`SELECT id, client_id FROM matters WHERE id = $1 LIMIT 1`, [matter_id]);
+        if (matterCheck.rowCount === 0) {
+            return response.status(404).json({ error: { code: 'NOT_FOUND', message: 'Matter not found.' } });
+        }
+        const fileInfo = await saveUploadedFile(request.file.buffer, original_name || request.file.originalname, request.file.mimetype);
+        const inserted = await query(
+            `INSERT INTO documents (matter_id, uploaded_by, storage_key, original_name, content_type, size_bytes, status, created_at, updated_at)
+             VALUES ($1, $2, $3, $4, $5, $6, 'AVAILABLE', NOW(), NOW())
+             RETURNING id, matter_id, uploaded_by, storage_key, original_name, content_type, size_bytes, status, created_at, updated_at`,
+            [matter_id, request.user.sub, fileInfo.storageKey, fileInfo.originalName, fileInfo.contentType, fileInfo.sizeBytes]
+        );
+        await logAudit({ actorId: request.user.sub, action: 'DOCUMENT_UPLOADED', entityType: 'document', entityId: inserted.rows[0].id, metadata: { matter_id, original_name: fileInfo.originalName, size_bytes: fileInfo.sizeBytes } });
+        response.status(201).json({ data: inserted.rows[0] });
+    } catch (error) { next(error); }
+});
+
+/* GET /api/v1/owner/documents/:id/download — stream document bytes (admin). */
+ownerRouter.get('/documents/:id/download', async (request, response, next) => {
+    try {
+        const doc = await query(
+            `SELECT d.id, d.original_name, d.content_type, d.storage_key, d.status
+             FROM documents d
+             WHERE d.id = $1 LIMIT 1`,
+            [request.params.id]
+        );
+        if (doc.rowCount === 0) {
+            return response.status(404).json({ error: { code: 'NOT_FOUND', message: 'Document not found' } });
+        }
+        const d = doc.rows[0];
+        const filePath = storageFilePath(d.storage_key);
+        if (!filePath) {
+            return response.status(404).json({ error: { code: 'NOT_FOUND', message: 'File not found on server.' } });
+        }
+        try { await fs.access(filePath); } catch {
+            return response.status(404).json({ error: { code: 'NOT_FOUND', message: 'File has been removed from storage.' } });
+        }
+        response.setHeader('Content-Type', d.content_type || 'application/octet-stream');
+        response.setHeader('Content-Disposition', `attachment; filename="${encodeURIComponent(d.original_name || 'download')}"`);
+        response.setHeader('Cache-Control', 'private, max-age=3600');
+        response.sendFile(filePath);
+    } catch (error) { next(error); }
+});
+
 /* --- Conversations (management view) --- */
 const ownerMessageSchema = z.object({ body: z.string().trim().min(1).max(4000) });
 const ownerConversationListSchema = z.object({
@@ -611,7 +667,7 @@ ownerRouter.get('/conversations', async (request, response, next) => {
         const result = await query(
             `SELECT c.id, c.matter_id, m.reference, m.title, m.status AS matter_status,
                     c.created_at,
-                    (SELECT COUNT(*) FROM messages WHERE conversation_id = c.id AND read_at IS NULL) AS unread_count,
+                    (SELECT COUNT(*)::int FROM messages WHERE conversation_id = c.id AND read_at IS NULL) AS unread_count,
                     (SELECT body FROM messages WHERE conversation_id = c.id ORDER BY created_at DESC LIMIT 1) AS last_message_body,
                     (SELECT created_at FROM messages WHERE conversation_id = c.id ORDER BY created_at DESC LIMIT 1) AS last_message_at,
                     u.email AS client_email, u.full_name AS client_name
@@ -744,7 +800,7 @@ ownerRouter.get('/messages', async (request, response, next) => {
                     s.email AS sender_email, s.full_name AS sender_name,
                     u.email AS client_email, u.full_name AS client_name,
                     m2.read_at AS last_message_read,
-                    (SELECT COUNT(*) FROM messages WHERE conversation_id = c.id AND read_at IS NULL) AS unread_count
+                    (SELECT COUNT(*)::int FROM messages WHERE conversation_id = c.id AND read_at IS NULL) AS unread_count
              FROM conversations c
              LEFT JOIN matters m ON m.id = c.matter_id
              LEFT JOIN requests r ON r.id = c.request_id
@@ -947,7 +1003,7 @@ ownerRouter.get('/clients/:id', async (request, response, next) => {
             query(
                 `SELECT c.id, c.matter_id, m.reference, m.title AS matter_title,
                         c.created_at,
-                        (SELECT COUNT(*) FROM messages WHERE conversation_id = c.id AND read_at IS NULL) AS unread_count,
+                        (SELECT COUNT(*)::int FROM messages WHERE conversation_id = c.id AND read_at IS NULL) AS unread_count,
                         (SELECT body FROM messages WHERE conversation_id = c.id ORDER BY created_at DESC LIMIT 1) AS last_message_body,
                         (SELECT created_at FROM messages WHERE conversation_id = c.id ORDER BY created_at DESC LIMIT 1) AS last_message_at
                  FROM conversations c

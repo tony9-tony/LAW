@@ -136,7 +136,7 @@ const QR_TYPES = new Map([
     ['image/webp', '.webp'],
     ['image/gif', '.gif']
 ]);
-const MAX_QR_BYTES = 2 * 1024 * 1024;
+const MAX_QR_BYTES = 5 * 1024 * 1024;
 
 export async function uploadPaymentDestinationQR(id, qrDataUrl) {
     if (!qrDataUrl) {

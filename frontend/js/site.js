@@ -140,13 +140,15 @@
             return !!(this.token() && user && user.role === 'CLIENT');
         },
         clear() { this.setToken(''); this.setUser(null); },
-        async request(path, { method = 'GET', body, auth = false } = {}) {
-            const headers = { 'Content-Type': 'application/json' };
+        async request(path, { method = 'GET', body, auth = false, formData } = {}) {
+            const headers = {};
+if (!formData) headers['Content-Type'] = 'application/json';
             if (auth && this.token()) headers['Authorization'] = `Bearer ${this.token()}`;
+            const isForm = !!formData;
             const res = await fetch(this.base() + path, {
                 method,
                 headers,
-                body: body ? JSON.stringify(body) : undefined
+                body: isForm ? formData : (body ? JSON.stringify(body) : undefined)
             });
             const text = await res.text();
             let data = null;
@@ -163,6 +165,9 @@
                 throw err;
             }
             return data;
+        },
+        uploadDocument(payload) {
+            return this.request('/documents', { method: 'POST', auth: true, formData: payload });
         },
         register(payload) { return this.request('/auth/register', { method: 'POST', body: payload }); },
         login(payload) { return this.request('/auth/login', { method: 'POST', body: payload }); },

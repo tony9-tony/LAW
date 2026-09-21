@@ -28,12 +28,14 @@
 
     function api(path, opts) {
         opts = opts || {};
-        const headers = { 'Content-Type': 'application/json' };
+        const headers = {};
+	const isForm = !!opts.formData;
+	if (!isForm) headers['Content-Type'] = 'application/json';
         if (opts.auth && token()) headers['Authorization'] = 'Bearer ' + token();
         return fetch((window.__API_BASE__ || '/api/v1') + path, {
             method: opts.method || 'GET',
             headers,
-            body: opts.body ? JSON.stringify(opts.body) : undefined
+            body: isForm ? opts.formData : (opts.body ? JSON.stringify(opts.body) : undefined)
         }).then(async (r) => {
             const t = await r.text();
             const j = t ? JSON.parse(t) : null;
@@ -255,7 +257,7 @@
                 <div style="padding:0.6rem 1.25rem;border-bottom:1px solid var(--line);cursor:pointer;" data-nav="messages">
                     <div style="display:flex;justify-content:space-between;align-items:center;">
                         <strong style="color:var(--ink);">${escape(c.client_name || 'Client')}</strong>
-                        ${c.unread_count > 0 ? `<span class="pill status-new" style="font-size:0.65rem;">${c.unread_count} unread</span>` : ''}
+                        ${(Number(c.unread_count) || 0) > 0 ? `<span class="pill status-new" style="font-size:0.65rem;">${Number(c.unread_count) || 0} unread</span>` : ''}
                     </div>
                     <div style="color:var(--ink-mute);font-size:0.85rem;white-space:pre-wrap;overflow:hidden;text-overflow:ellipsis;">${escape((c.last_message_body || '').slice(0, 80))}</div>
                 </div>
@@ -618,6 +620,77 @@
                     width: 100%;
                 }
             }
+            .modal-card {
+                position: relative;
+                z-index: 1001;
+                border-radius: 12px;
+                padding: 24px;
+                max-width: 460px;
+                width: 92%;
+                max-height: 92vh;
+                overflow-y: auto;
+                box-shadow: 0 20px 60px rgba(0, 0, 0, 0.25);
+                background: var(--bg-soft);
+                border: 1px solid var(--line);
+            }
+            .modal-card-head {
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+                margin-bottom: 12px;
+            }
+            .modal-card-head h3 {
+                margin: 0;
+                font-size: 1.1rem;
+                font-weight: 600;
+                color: var(--ink);
+            }
+            .modal-close-btn {
+                background: none;
+                border: none;
+                font-size: 1.35rem;
+                cursor: pointer;
+                color: var(--ink-mute);
+                padding: 6px;
+                border-radius: 6px;
+                line-height: 1;
+            }
+            .modal-close-btn:hover {
+                background: var(--bg-hover);
+                color: var(--ink);
+            }
+            .modal-card-body {
+                display: flex;
+                flex-direction: column;
+                gap: 14px;
+            }
+            .modal-card-desc {
+                margin: 0;
+                color: var(--ink-mute);
+                font-size: 0.88rem;
+                line-height: 1.5;
+            }
+            .qr-preview-wrap {
+                display: none;
+                justify-content: center;
+                align-items: center;
+                padding: 12px;
+                background: var(--bg);
+                border: 1px dashed var(--line);
+                border-radius: 10px;
+            }
+            .qr-preview-wrap.qr-preview-visible {
+                display: flex;
+            }
+            .qr-preview-img {
+                max-width: min(260px, 72vw);
+                max-height: min(300px, 55vh);
+                width: auto;
+                height: auto;
+                object-fit: contain;
+                border-radius: 8px;
+                display: block;
+            }
         `;
         document.head.appendChild(style);
     })();
@@ -760,7 +833,7 @@
                 <div style="padding:0.6rem 1.25rem;border-bottom:1px solid var(--line);cursor:pointer;" data-nav="messages">
                     <div style="display:flex;justify-content:space-between;align-items:center;">
                         <strong style="color:var(--ink);">${escape(c.client_name || 'Client')}</strong>
-                        ${c.unread_count > 0 ? `<span class="pill status-new" style="font-size:0.65rem;">${c.unread_count} unread</span>` : ''}
+                        ${(Number(c.unread_count) || 0) > 0 ? `<span class="pill status-new" style="font-size:0.65rem;">${Number(c.unread_count) || 0} unread</span>` : ''}
                     </div>
                     <div style="color:var(--ink-mute);font-size:0.85rem;white-space:pre-wrap;overflow:hidden;text-overflow:ellipsis;">${escape((c.last_message_body || '').slice(0, 80))}</div>
                 </div>
@@ -1726,41 +1799,147 @@
         const container = document.getElementById('main-content');
         container.innerHTML = '<div class="empty-state"><span class="ico">·</span><strong>Loading documents…</strong></div>';
         try {
-            const res = await api('/owner/documents', { auth: true });
-            const items = (res && res.data) || [];
+            const [docsRes, mattersRes] = await Promise.all([
+                api('/owner/documents', { auth: true }),
+                api('/owner/matters', { auth: true })
+            ]);
+            const items = (docsRes && docsRes.data) || [];
+            const matters = (mattersRes && mattersRes.data) || [];
             container.innerHTML = `
                 <div class="page-head">
                     <div><h1>Documents</h1><p class="head-meta">Manage all uploaded documents and files.</p></div>
+                    <div class="action-row">
+                        <button class="btn primary" id="btn-upload-doc-toggle">Upload Document</button>
+                    </div>
                 </div>
                 <section class="panel">
                     <div class="panel-head"><h2>All Documents</h2><span class="panel-meta">${items.length} total</span></div>
-                    <div class="panel-body tight">
+                    <div class="panel-body">
                         ${items.length === 0
                             ? '<div class="empty-state"><span class="ico">·</span><strong>No documents uploaded yet.</strong></div>'
-                            : `<table class="table">
-                            <thead><tr><th>Matter</th><th>Original Name</th><th>Client</th><th>Size</th><th>Status</th><th>Created</th><th>Actions</th></tr></thead>
-                            <tbody>${items.map((d) => `
-                                <tr>
-                                    <td class="muted">${escape(d.matter_reference || '—')}</td>
-                                    <td>${escape(d.original_name)}</td>
-                                    <td>${escape(d.client_name)}</td>
-                                    <td class="muted">${escape(d.size_bytes ? (d.size_bytes / 1024).toFixed(1) + ' KB' : '—')}</td>
-                                    <td>${escape(d.status)}</td>
-                                    <td class="muted">${escape(d.created_at)}</td>
-                                    <td><button class="btn small secondary" data-doc="${d.id}">View</button></td>
-                                </tr>
-                            `).join('')}</tbody>
-                        </table>`
+                            : `<div class="admin-docs-list">${items.map((d) => `
+                                <div class="admin-doc-card">
+                                    <div class="admin-doc-main">
+                                        <strong class="admin-doc-name">${escape(d.original_name)}</strong>
+                                        <span class="admin-doc-meta">${escape(d.matter_reference || '—')} · ${escape(d.client_name || '—')} · ${escape(d.size_bytes ? (d.size_bytes / 1024).toFixed(1) + ' KB' : '—')} · ${escape(d.created_at)}</span>
+                                        <span class="pill status-${(d.status || 'available').toLowerCase().replace(/\s+/g, '_')}">${escape(d.status || 'AVAILABLE')}</span>
+                                    </div>
+                                    <div class="admin-doc-actions">
+                                        <button class="btn small secondary" data-doc="${d.id}">View</button>
+                                        ${d.storage_key ? `<button class="btn small" data-download="${d.id}" data-name="${escape(d.original_name)}">Download</button>` : ''}
+                                    </div>
+                                </div>
+                            `).join('')}</div>`
                         }
                     </div>
                 </section>
             `;
+            document.getElementById('btn-upload-doc-toggle')?.addEventListener('click', () => showAdminUploadModal(matters));
             container.querySelectorAll('button[data-doc]').forEach((btn) => {
                 btn.addEventListener('click', () => loadDocumentDetail(btn.getAttribute('data-doc')));
             });
+            bindAdminDownloads(container);
         } catch (error) {
             container.innerHTML = `<div class="empty-state"><span class="ico">!</span><strong>Could not load documents.</strong><p>${escape(error.message)}</p></div>`;
         }
+    }
+
+    function showAdminUploadModal(matters) {
+        const overlay = document.createElement('div');
+        overlay.className = 'modal-overlay';
+        overlay.innerHTML = `
+            <div class="modal-card">
+                <div class="modal-card-head">
+                    <h3>Upload Document</h3>
+                    <button class="modal-close-btn" aria-label="Close">&times;</button>
+                </div>
+                <form class="modal-form" id="admin-upload-form">
+                    <label>Matter
+                        <select name="matter_id" required>
+                            <option value="">Select matter…</option>
+                            ${matters.map(m => `<option value="${escape(m.id)}">${escape(m.reference || m.id)} — ${escape(m.title || 'Untitled')}</option>`).join('')}
+                        </select>
+                    </label>
+                    <label>File
+                        <input type="file" name="file" accept="*/*" required />
+                    </label>
+                    <label>Original name (optional)
+                        <input type="text" name="original_name" placeholder="Defaults to uploaded file name" />
+                    </label>
+                    <div class="modal-form-actions">
+                        <button type="submit" class="btn primary">Upload</button>
+                        <button type="button" class="btn ghost modal-cancel">Cancel</button>
+                    </div>
+                </form>
+            </div>
+        `;
+        document.body.appendChild(overlay);
+
+        const close = () => document.body.removeChild(overlay);
+        overlay.querySelector('.modal-close-btn').addEventListener('click', close);
+        overlay.querySelector('.modal-cancel').addEventListener('click', close);
+        overlay.addEventListener('click', (e) => { if (e.target === overlay) close(); });
+
+        overlay.querySelector('#admin-upload-form').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const form = e.target;
+            const matterId = form.matter_id.value.trim();
+            const fileInput = form.file;
+            const originalName = form.original_name.value.trim();
+            if (!matterId) { alert('Please select a matter.'); return; }
+            if (!fileInput.files || !fileInput.files[0]) { alert('Please choose a file.'); return; }
+            const fd = new FormData();
+            fd.append('file', fileInput.files[0]);
+            fd.append('matter_id', matterId);
+            if (originalName) fd.append('original_name', originalName);
+            const submitBtn = form.querySelector('button[type="submit"]');
+            submitBtn.disabled = true;
+            submitBtn.textContent = 'Uploading…';
+            try {
+                await api('/owner/documents', { method: 'POST', auth: true, formData: fd });
+                close();
+                await loadDocuments();
+            } catch (err) {
+                alert('Upload failed: ' + (err.message || 'Unknown error'));
+            } finally {
+                submitBtn.disabled = false;
+                submitBtn.textContent = 'Upload';
+            }
+        });
+
+        overlay.style.display = 'flex';
+    }
+
+
+    function bindAdminDownloads(container) {
+        container.querySelectorAll('button[data-download]').forEach((btn) => {
+            btn.addEventListener('click', async () => {
+                const docId = btn.getAttribute('data-download');
+                const fileName = btn.getAttribute('data-name') || 'download';
+                try {
+                    const tokenVal = token();
+                    const base = (window.__API_BASE__ || '/api/v1');
+                    const res = await fetch(`${base}/owner/documents/${encodeURIComponent(docId)}/download`, {
+                        headers: { 'Authorization': `Bearer ${tokenVal}` }
+                    });
+                    if (!res.ok) {
+                        const data = await res.json().catch(() => ({}));
+                        throw new Error((data && data.error && data.error.message) || `Download failed (${res.status})`);
+                    }
+                    const blob = await res.blob();
+                    const url = URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.href = url;
+                    a.download = fileName;
+                    document.body.appendChild(a);
+                    a.click();
+                    document.body.removeChild(a);
+                    URL.revokeObjectURL(url);
+                } catch (err) {
+                    alert('Could not download document: ' + (err.message || 'Unknown error'));
+                }
+            });
+        });
     }
 
     let currentOwnerConversationId = null;
@@ -1862,7 +2041,7 @@
         try {
             const res = await api('/owner/conversations', { auth: true });
             const items = (res && res.data) || [];
-            const total = items.reduce((sum, c) => sum + (c.unread_count || 0), 0);
+            const total = items.reduce((sum, c) => sum + (Number(c.unread_count) || 0), 0);
             badge.textContent = total > 0 ? String(total) : '';
             badge.classList.toggle('has-unread', total > 0);
         } catch (err) {
@@ -2000,7 +2179,7 @@
         try {
             const res = await api('/owner/conversations', { auth: true });
             const items = (res && res.data) || [];
-            const totalUnread = items.reduce((sum, c) => sum + (c.unread_count || 0), 0);
+            const totalUnread = items.reduce((sum, c) => sum + (Number(c.unread_count) || 0), 0);
             container.innerHTML = `
                 <div class="page-head">
                     <div>
@@ -2017,14 +2196,14 @@
                             : `<table class="table">
                             <thead><tr><th>Matter</th><th>Client</th><th>Last Message</th><th>Date</th><th>Status</th><th>Actions</th></tr></thead>
                             <tbody>${items.map((c) => {
-                                const isUnread = (c.unread_count || 0) > 0;
+                                const isUnread = (Number(c.unread_count) || 0) > 0;
                                 return `
                                 <tr data-conversation-id="${c.id}">
                                     <td class="mono">${escape(c.reference || '—')}${c.title ? ' — ' + escape(c.title) : ''}${isUnread ? '<span class="unread-dot" aria-hidden="true" title="Unread"></span>' : ''}</td>
                                     <td>${escape(c.client_name || '—')}<br><span class="muted">${escape(c.client_email || '')}</span></td>
                                     <td>${escape(c.last_message_body || '—')}</td>
                                     <td class="muted">${escape(c.last_message_at || c.created_at)}</td>
-                                    <td>${isUnread ? `<span class="pill status-new">${c.unread_count} unread</span>` : '<span class="pill status-closed">Read</span>'}</td>
+                                    <td>${isUnread ? `<span class="pill status-new">${Number(c.unread_count) || 0} unread</span>` : '<span class="pill status-closed">Read</span>'}</td>
                                     <td><button class="btn small secondary" data-conversation-id="${c.id}">Open</button></td>
                                 </tr>
                                 `;
@@ -2286,7 +2465,7 @@
                                     <td>${escape(convo.client_name || '—')}</td>
                                     <td>${escape((convo.last_message_body || '').slice(0, 60))}</td>
                                     <td class="muted">${escape(convo.last_message_at || '—')}</td>
-                                    <td>${convo.unread_count > 0 ? `<span class="pill status-new">${convo.unread_count}</span>` : '<span class="muted">0</span>'}</td>
+                                    <td>${(Number(convo.unread_count) || 0) > 0 ? `<span class="pill status-new">${Number(convo.unread_count) || 0}</span>` : '<span class="muted">0</span>'}</td>
                                     <td><button class="btn small secondary" data-convo="${convo.id}">Open</button></td>
                                 </tr>
                             `).join('')}</tbody></table>`
@@ -2413,15 +2592,18 @@
                     <div class="panel-body tight">
                         ${documents.length === 0
                             ? '<div class="empty-state tight"><span class="ico">·</span><strong>No documents in this matter.</strong></div>'
-                            : `<table class="table"><thead><tr><th>Name</th><th>Size</th><th>Status</th><th>Created</th><th>Actions</th></tr></thead><tbody>${documents.map((d) => `
-                            <tr>
-                                <td>${escape(d.original_name)}</td>
-                                <td class="muted">${escape(d.size_bytes ? d.size_bytes + ' bytes' : '—')}</td>
-                                <td>${escape(d.status)}</td>
-                                <td class="muted">${escape(d.created_at)}</td>
-                                <td><button class="btn small secondary" data-doc="${d.id}">View</button></td>
-                            </tr>
-                        `).join('')}</tbody></table>`
+                            : `<div class="admin-docs-list">${documents.map((d) => `
+                                <div class="admin-doc-card">
+                                    <div class="admin-doc-main">
+                                        <strong class="admin-doc-name">${escape(d.original_name)}</strong>
+                                        <span class="admin-doc-meta">${escape(d.size_bytes ? d.size_bytes + ' bytes' : '—')} · ${escape(d.status)} · ${escape(d.created_at)}</span>
+                                    </div>
+                                    <div class="admin-doc-actions">
+                                        <button class="btn small secondary" data-doc="${d.id}">View</button>
+                                        ${d.storage_key ? `<button class="btn small" data-download="${d.id}" data-name="${escape(d.original_name)}">Download</button>` : ''}
+                                    </div>
+                                </div>
+                            `).join('')}</div>`
                         }
                     </div>
                 </section>
@@ -2470,6 +2652,34 @@
             });
             container.querySelectorAll('button[data-doc]').forEach((btn) => {
                 btn.addEventListener('click', () => loadDocumentDetail(btn.getAttribute('data-doc')));
+            });
+            container.querySelectorAll('button[data-download]').forEach((btn) => {
+                btn.addEventListener('click', async () => {
+                    const docId = btn.getAttribute('data-download');
+                    const fileName = btn.getAttribute('data-name') || 'download';
+                    try {
+                        const tokenVal = token();
+                        const base = (window.__API_BASE__ || '/api/v1');
+                        const res = await fetch(`${base}/owner/documents/${encodeURIComponent(docId)}/download`, {
+                            headers: { 'Authorization': `Bearer ${tokenVal}` }
+                        });
+                        if (!res.ok) {
+                            const data = await res.json().catch(() => ({}));
+                            throw new Error((data && data.error && data.error.message) || `Download failed (${res.status})`);
+                        }
+                        const blob = await res.blob();
+                        const url = URL.createObjectURL(blob);
+                        const a = document.createElement('a');
+                        a.href = url;
+                        a.download = fileName;
+                        document.body.appendChild(a);
+                        a.click();
+                        document.body.removeChild(a);
+                        URL.revokeObjectURL(url);
+                    } catch (err) {
+                        alert('Could not download document: ' + (err.message || 'Unknown error'));
+                    }
+                });
             });
             container.querySelectorAll('button[data-appt]').forEach((btn) => {
                 btn.addEventListener('click', () => loadAppointmentDetail(btn.getAttribute('data-appt')));
@@ -2749,10 +2959,34 @@
             `;
             document.getElementById('btn-back-documents')?.addEventListener('click', loadDocuments);
             const downloadBtn = document.getElementById('btn-download-document');
-            if (downloadBtn) {
-                downloadBtn.addEventListener('click', () => {
-                    alert('Document storage is not yet configured.');
+            if (downloadBtn && d.storage_key) {
+                downloadBtn.addEventListener('click', async (e) => {
+                    e.preventDefault();
+                    try {
+                        const tokenVal = token();
+                        const base = (window.__API_BASE__ || '/api/v1');
+                        const res = await fetch(`${base}/owner/documents/${encodeURIComponent(id)}/download`, {
+                            headers: { 'Authorization': `Bearer ${tokenVal}` }
+                        });
+                        if (!res.ok) {
+                            const data = await res.json().catch(() => ({}));
+                            throw new Error((data && data.error && data.error.message) || `Download failed (${res.status})`);
+                        }
+                        const blob = await res.blob();
+                        const url = URL.createObjectURL(blob);
+                        const a = document.createElement('a');
+                        a.href = url;
+                        a.download = d.original_name || 'download';
+                        document.body.appendChild(a);
+                        a.click();
+                        document.body.removeChild(a);
+                        URL.revokeObjectURL(url);
+                    } catch (err) {
+                        alert('Could not download document: ' + (err.message || 'Unknown error'));
+                    }
                 });
+            } else if (downloadBtn) {
+                downloadBtn.style.display = 'none';
             }
         } catch (error) {
             container.innerHTML = `<div class="empty-state"><span class="ico">!</span><strong>Could not load document.</strong><p>${escape(error.message)}</p></div>`;
@@ -2979,7 +3213,7 @@
                             <td><span class="pill">${escape(d.method)}</span></td>
                             <td>${escape(d.label)}</td>
                             <td class="muted">${details.join(' · ') || '—'}</td>
-                            <td>${d.qr_storage_key ? `<img src="/api/v1/uploads/${escape(d.qr_storage_key)}?token=${token()}" alt="QR" style="max-width:60px;max-height:60px;border:1px solid var(--line);border-radius:4px;">` : '<span class="muted">—</span>'}</td>
+                            <td>${d.qr_storage_key ? `<img src="/api/v1/uploads/${escape(d.qr_storage_key)}?token=${token()}" alt="QR" class="payment-qr">` : '<span class="muted">—</span>'}</td>
                             <td class="muted" style="max-width:300px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${escape(d.instructions || '—')}</td>
                             <td>${d.is_active ? '<span class="pill status-open">Active</span>' : '<span class="pill status-closed">Inactive</span>'}</td>
                             <td>
@@ -3023,6 +3257,112 @@
         } catch (error) {
             container.innerHTML = `<div class="empty-state"><span class="ico">!</span><strong>Could not load settings.</strong><p>${escape(error.message)}</p></div>`;
         }
+    }
+
+    async function showQRModal(destId, mode) {
+        if (mode === 'remove') {
+            const modal = new Modal({
+                title: 'Remove QR Code',
+                description: 'This will permanently remove the QR code for this payment destination. Are you sure?',
+                submitText: 'Remove QR',
+                cancelText: 'Cancel',
+                onSubmit: async () => {
+                    await api('/owner/payment-destinations/' + encodeURIComponent(destId) + '/qr', { method: 'DELETE', auth: true });
+                    loadSettings();
+                }
+            });
+            modal.show();
+            return;
+        }
+
+        const overlay = document.createElement('div');
+        overlay.className = 'modal-overlay';
+        overlay.innerHTML = `
+            <div class="modal-card">
+                <div class="modal-card-head">
+                    <h3>Upload QR Code</h3>
+                    <button class="modal-close-btn" aria-label="Close">&times;</button>
+                </div>
+                <div class="modal-card-body">
+                    <p class="modal-card-desc">Upload a QR code image for this payment destination. Supported formats: PNG, JPEG, WebP, GIF.</p>
+                    <form class="modal-form" id="qr-upload-form">
+                        <div class="form-group">
+                            <label class="form-label" for="qr-file">QR Image</label>
+                            <input id="qr-file" type="file" name="qr" accept="image/png,image/jpeg,image/webp,image/gif" required />
+                        </div>
+                        <div class="qr-preview-wrap">
+                            <img id="qr-preview" alt="QR preview" class="qr-preview-img" />
+                        </div>
+                        <div class="modal-footer">
+                            <button type="button" class="btn btn-secondary modal-cancel">Cancel</button>
+                            <button type="submit" class="btn btn-primary">Upload QR</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        `;
+        document.body.appendChild(overlay);
+
+        const close = () => document.body.removeChild(overlay);
+        overlay.querySelector('.modal-close-btn').addEventListener('click', close);
+        overlay.querySelector('.modal-cancel').addEventListener('click', close);
+        overlay.addEventListener('click', (e) => { if (e.target === overlay) close(); });
+
+        const fileInput = overlay.querySelector('#qr-file');
+        const preview = overlay.querySelector('#qr-preview');
+        const previewWrap = overlay.querySelector('.qr-preview-wrap');
+        fileInput?.addEventListener('change', () => {
+            const file = fileInput.files && fileInput.files[0];
+            if (!file) {
+                preview.src = '';
+                previewWrap.classList.remove('qr-preview-visible');
+                return;
+            }
+            const reader = new FileReader();
+            reader.onload = (ev) => {
+                preview.src = ev.target.result;
+                previewWrap.classList.add('qr-preview-visible');
+            };
+            reader.readAsDataURL(file);
+        });
+
+        overlay.querySelector('#qr-upload-form').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const form = e.target;
+            const fileInput = form.querySelector('#qr-file');
+            const file = fileInput.files && fileInput.files[0];
+            if (!file) { alert('Please choose a QR image.'); return; }
+
+            const dataUrl = await new Promise((resolve, reject) => {
+                const reader = new FileReader();
+                reader.onload = (ev) => resolve(ev.target.result);
+                reader.onerror = () => reject(new Error('Failed to read file'));
+                reader.readAsDataURL(file);
+            });
+
+            const submitBtn = form.querySelector('button[type="submit"]');
+            const cancelBtn = form.querySelector('.modal-cancel');
+            submitBtn.disabled = true;
+            submitBtn.textContent = 'Uploading…';
+            cancelBtn.disabled = true;
+            try {
+                await api('/owner/payment-destinations/' + encodeURIComponent(destId) + '/qr', {
+                    method: 'POST',
+                    auth: true,
+                    body: { qr: dataUrl }
+                });
+                close();
+                loadSettings();
+            } catch (err) {
+                alert('Upload failed: ' + (err.message || 'Unknown error'));
+            } finally {
+                submitBtn.disabled = false;
+                submitBtn.textContent = 'Upload QR';
+                cancelBtn.disabled = false;
+            }
+        });
+
+        overlay.style.display = 'flex';
     }
 
     async function showDestinationModal(destId) {
@@ -3220,7 +3560,7 @@
                                     ${bankName ? `<div class="payment-detail"><strong>Bank:</strong> ${escape(bankName)}</div>` : ''}
                                     ${bankAccountName ? `<div class="payment-detail"><strong>Account Name:</strong> ${escape(bankAccountName)}</div>` : ''}
                                     ${bankAccountNumber ? `<div class="payment-detail"><strong>Account Number:</strong> <code>${escape(bankAccountNumber)}</code></div>` : ''}
-                                    ${qrStorageKey ? `<div class="payment-detail"><strong>QR Code:</strong><br><img src="/api/v1/uploads/${escape(qrStorageKey)}?token=${token()}" alt="Payment QR Code" style="max-width:200px;max-height:200px;border:1px solid var(--line);border-radius:8px;"></div>` : ''}
+                                    ${qrStorageKey ? `<div class="payment-detail"><strong>QR Code:</strong><br><img src="/api/v1/uploads/${escape(qrStorageKey)}?token=${token()}" alt="Payment QR Code" class="payment-qr"></div>` : ''}
                                     <div class="payment-detail"><strong>Instructions:</strong><pre style="background:#f5f5f5;padding:0.75rem;border-radius:6px;font-size:0.85rem;white-space:pre-wrap;">${escape(paymentInstructions)}</pre></div>
                                 </div>
                             ` : `<pre style="background:#f5f5f5;padding:0.75rem;border-radius:6px;font-size:0.85rem;white-space:pre-wrap;">${escape(paymentInstructions)}</pre>`}

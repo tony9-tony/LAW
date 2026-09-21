@@ -128,7 +128,7 @@
         window.Site.API.listConversations({ limit: 100, offset: 0 })
             .then((res) => {
                 const items = (res && res.data) || [];
-                const total = items.reduce((sum, c) => sum + (c.unread_count || 0), 0);
+                const total = items.reduce((sum, c) => sum + (Number(c.unread_count) || 0), 0);
                 badge.textContent = total > 0 ? String(total) : '';
                 badge.style.display = total > 0 ? 'inline-flex' : 'none';
             })

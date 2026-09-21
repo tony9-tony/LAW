@@ -80,12 +80,14 @@
         root.innerHTML = '<div class="empty-state"><span class="ico">·</span><strong>Loading invoice…</strong></div>';
         if (meta) meta.textContent = 'Loading…';
         try {
-            const [invRes, itemsRes] = await Promise.all([
+            const [invRes, itemsRes, destRes] = await Promise.all([
                 API.getInvoice(id),
-                API.getInvoiceItems(id).catch(() => ({ data: [] }))
+                API.getInvoiceItems(id).catch(() => ({ data: [] })),
+                API.getPaymentDestinations().catch(() => ({ data: [] }))
             ]);
             const inv = invRes.data || {};
             const items = (itemsRes && itemsRes.data) || [];
+            const destinations = (destRes && destRes.data) || [];
             if (meta) meta.textContent = 'Invoice #' + String(inv.id).padStart(5, '0');
             const matterHref = inv.matter_id ? `matter.html?id=${inv.matter_id}` : '#';
             const isPaid = (inv.payment_status || '').toUpperCase() === 'PAID';
@@ -101,6 +103,24 @@
             const qrStorageKey = inv.payment_qr_storage_key || '';
             const qrContentType = inv.payment_qr_content_type || '';
             const paymentInstructions = inv.payment_instructions || 'No payment instructions available.';
+
+            function renderPaymentDestinations(dests) {
+                if (!dests.length) return '<div class="empty-state tight"><span class="ico">·</span><strong>No payment methods configured.</strong></div>';
+                return dests.map((d) => `
+                    <div class="payment-destination-card" style="border:1px solid var(--line);border-radius:8px;padding:1rem;margin-bottom:0.75rem;background:var(--bg);">
+                        <div style="display:flex;align-items:center;gap:0.75rem;margin-bottom:0.5rem;">
+                            <span class="pill" style="text-transform:capitalize;">${escape(d.method)}</span>
+                            <strong>${escape(d.label || d.bank_name || d.lipa_number || 'Payment Method')}</strong>
+                        </div>
+                        ${d.lipa_number ? `<div class="payment-detail"><strong>Lipa Number:</strong> <code>${escape(d.lipa_number)}</code></div>` : ''}
+                        ${d.bank_name ? `<div class="payment-detail"><strong>Bank:</strong> ${escape(d.bank_name)}</div>` : ''}
+                        ${d.bank_account_name ? `<div class="payment-detail"><strong>Account Name:</strong> ${escape(d.bank_account_name)}</div>` : ''}
+                        ${d.bank_account_number ? `<div class="payment-detail"><strong>Account Number:</strong> <code>${escape(d.bank_account_number)}</code></div>` : ''}
+                        ${d.qr_storage_key ? `<div class="payment-detail"><strong>QR Code:</strong><br><img src="${API.base()}/uploads/${escape(d.qr_storage_key)}?token=${API.token()}" alt="Payment QR Code" class="payment-qr"></div>` : ''}
+                        ${d.instructions ? `<div class="payment-detail"><strong>Instructions:</strong><pre class="instructions-text">${escape(d.instructions)}</pre></div>` : ''}
+                    </div>
+                `).join('');
+            }
             
             root.innerHTML = `
                 <div class="detail-grid">
@@ -179,6 +199,12 @@
                                 </div>
                             </div>
                         </section>
+                        <section class="panel" id="payment-methods-panel">
+                            <div class="panel-head"><h2>Payment Methods</h2><span class="panel-meta">Available payment methods configured by the firm</span></div>
+                            <div class="panel-body">
+                                ${renderPaymentDestinations(destinations)}
+                            </div>
+                        </section>
                         ${!isPaid ? `
                         <section class="panel" id="instructions-panel">
                             <div class="panel-head"><h2>Payment Instructions</h2></div>
@@ -190,7 +216,7 @@
                                         ${bankName ? `<div class="payment-detail"><strong>Bank:</strong> ${escape(bankName)}</div>` : ''}
                                         ${bankAccountName ? `<div class="payment-detail"><strong>Account Name:</strong> ${escape(bankAccountName)}</div>` : ''}
                                         ${bankAccountNumber ? `<div class="payment-detail"><strong>Account Number:</strong> <code>${escape(bankAccountNumber)}</code></div>` : ''}
-                                        ${qrStorageKey ? `<div class="payment-detail"><strong>QR Code:</strong><br><img src="${API.base()}/uploads/${escape(qrStorageKey)}?token=${API.token()}" alt="Payment QR Code" style="max-width:200px;max-height:200px;border:1px solid var(--line);border-radius:8px;"></div>` : ''}
+                                        ${qrStorageKey ? `<div class="payment-detail"><strong>QR Code:</strong><br><img src="${API.base()}/uploads/${escape(qrStorageKey)}?token=${API.token()}" alt="Payment QR Code" class="payment-qr"></div>` : ''}
                                         <div class="payment-detail"><strong>Instructions:</strong><pre class="instructions-text">${escape(paymentInstructions)}</pre></div>
                                     </div>
                                 ` : `<pre class="instructions-text">${escape(paymentInstructions)}</pre>`}

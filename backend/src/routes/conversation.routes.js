@@ -28,7 +28,7 @@ conversationRouter.get('/', async (request, response, next) => {
                     m.reference, m.title, m.status AS matter_status, m.client_id AS matter_client_id,
                     r.subject AS request_subject,
                     c.created_at,
-                    (SELECT COUNT(*) FROM messages WHERE conversation_id = c.id AND sender_id <> $2 AND read_at IS NULL) AS unread_count,
+                    (SELECT COUNT(*)::int FROM messages WHERE conversation_id = c.id AND sender_id <> $2 AND read_at IS NULL) AS unread_count,
                     (SELECT body FROM messages WHERE conversation_id = c.id ORDER BY created_at DESC LIMIT 1) AS last_message_body,
                     (SELECT created_at FROM messages WHERE conversation_id = c.id ORDER BY created_at DESC LIMIT 1) AS last_message_at
              FROM conversations c
