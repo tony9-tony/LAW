@@ -305,15 +305,12 @@
     // Apply theme to document
     function applyTheme(theme) {
         const root = document.documentElement;
-        
-        // Remove existing theme classes
-        root.classList.remove('theme-light', 'theme-dark', 'theme-system');
-        
-        // Add new theme class
-        root.classList.add(`theme-${theme}`);
-        
-        // Store theme preference
-        localStorage.setItem('theme-preference', theme);
+        const resolved = theme === 'system'
+            ? (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light')
+            : (theme === 'dark' ? 'dark' : 'light');
+
+        root.setAttribute('data-theme', resolved);
+        localStorage.setItem('theme', theme);
     }
 
     // Handle settings updates from realtime events

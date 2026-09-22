@@ -13,6 +13,10 @@ function referenceForMatter() {
     return 'M-' + Math.random().toString(16).slice(2, 8).toUpperCase();
 }
 
+export function isConsultationRequest(subject = '') {
+    return /\bconsultation\b|\bappointment\b|\bbooking\b/i.test(String(subject || ''));
+}
+
 export async function recordRequestEvent(requestId, actorId, eventType, title, note = null) {
     await query(
         `INSERT INTO request_events (request_id, actor_id, event_type, title, note)

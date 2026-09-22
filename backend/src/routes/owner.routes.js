@@ -9,7 +9,7 @@ import { query } from '../db.js';
 import { notify } from '../services/notification.service.js';
 import multer from 'multer';
 import { saveUploadedFile, storageFilePath, deleteStoredFile } from '../services/upload.service.js';
-import { acceptRequest, declineRequest, updateRequestStatus, requestMoreInfo, processClientResponse, updateMatterStatus, addInternalNote, scheduleAppointment, rescheduleAppointment, changeAppointmentStatus, recordMatterEvent, createMatterForRequest } from '../services/workflow.service.js';
+import { acceptRequest, declineRequest, updateRequestStatus, requestMoreInfo, processClientResponse, updateMatterStatus, addInternalNote, scheduleAppointment, rescheduleAppointment, changeAppointmentStatus, recordMatterEvent, createMatterForRequest, isConsultationRequest } from '../services/workflow.service.js';
 import { verifyPayment, rejectPayment, listPaymentsForOwner, getPaymentById, getPaymentDestinations, createPaymentDestination, updatePaymentDestination, getServiceCatalog, receiptPath, uploadPaymentDestinationQR, removePaymentDestinationQR } from '../services/payment.service.js';
 import { setPaymentForRequest, PAYMENT_STATUS } from '../services/billing.service.js';
 import { notifyPaymentVerified, notifyPaymentRejected } from '../services/sse.js';
@@ -1912,26 +1912,38 @@ ownerRouter.post('/payments/:id/verify', async (request, response, next) => {
            createMatterForRequest is idempotent — if a Matter already exists
            for this request it returns the existing one. */
         let matter = null;
+        let consultationReviewRequired = false;
         if (result.invoiceRequestId) {
             const reqInfo = await query(
-                `SELECT subject FROM requests WHERE id = $1 LIMIT 1`,
+                `SELECT id, subject, status FROM requests WHERE id = $1 LIMIT 1`,
                 [result.invoiceRequestId]
             );
-            const title = reqInfo.rows[0]?.subject || 'Payment approved — matter opened';
-            matter = await createMatterForRequest({
-                requestId: result.invoiceRequestId,
-                actorId: request.user.sub,
-                title: title,
-                matterType: null,
-                description: null
-            });
+            const requestRecord = reqInfo.rows[0];
+            consultationReviewRequired = Boolean(requestRecord && isConsultationRequest(requestRecord.subject));
+
+            if (consultationReviewRequired) {
+                await query(
+                    `UPDATE requests SET status = 'UNDER_REVIEW', updated_at = NOW()
+                     WHERE id = $1 AND status NOT IN ('ACCEPTED', 'DECLINED', 'COMPLETED', 'CLOSED')`,
+                    [result.invoiceRequestId]
+                );
+            } else {
+                const title = requestRecord?.subject || 'Payment approved — matter opened';
+                matter = await createMatterForRequest({
+                    requestId: result.invoiceRequestId,
+                    actorId: request.user.sub,
+                    title: title,
+                    matterType: null,
+                    description: null
+                });
+            }
         }
         await logAudit({
             actorId: request.user.sub,
             action: 'PAYMENT_VERIFIED',
             entityType: 'payment',
             entityId: request.params.id,
-            metadata: { invoice_id: result.invoiceId, amount: Number(result.payment.amount), matter_id: matter?.id || null }
+            metadata: { invoice_id: result.invoiceId, amount: Number(result.payment.amount), matter_id: matter?.id || null, consultation_review_required: consultationReviewRequired }
         });
         await notify(result.clientId, {
             kind: 'PAYMENT_VERIFIED',

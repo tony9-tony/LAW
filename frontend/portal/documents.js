@@ -17,6 +17,62 @@
         return (n / 1024 / 1024).toFixed(1) + ' MB';
     }
 
+    function showToast(message, type) {
+        const container = getToastContainer();
+        const toast = document.createElement('div');
+        toast.className = 'portal-toast portal-toast-' + (type || 'info');
+        toast.setAttribute('role', 'alert');
+        toast.setAttribute('aria-live', 'polite');
+        const icon = type === 'success' ? '✓' : type === 'error' ? '!' : type === 'warning' ? '⚠' : 'ℹ';
+        toast.innerHTML = '<span class="portal-toast-icon">' + icon + '</span><span class="portal-toast-message">' + escape(message) + '</span>';
+        container.appendChild(toast);
+        requestAnimationFrame(() => toast.classList.add('portal-toast-show'));
+        setTimeout(() => {
+            toast.classList.remove('portal-toast-show');
+            toast.addEventListener('transitionend', () => toast.remove(), { once: true });
+        }, 4500);
+    }
+
+    function getToastContainer() {
+        let c = document.getElementById('portal-toast-container');
+        if (!c) {
+            c = document.createElement('div');
+            c.id = 'portal-toast-container';
+            c.className = 'portal-toast-container';
+            document.body.appendChild(c);
+            const style = document.createElement('style');
+            style.textContent = `
+                .portal-toast-container {
+                    position: fixed; bottom: 24px; right: 24px; z-index: 1001;
+                    display: flex; flex-direction: column; gap: 10px; pointer-events: none;
+                }
+                .portal-toast {
+                    pointer-events: auto; display: flex; align-items: center; gap: 10px;
+                    padding: 12px 16px; border-radius: 6px; font-size: 0.875rem; line-height: 1.4;
+                    background: rgba(33, 33, 33, 0.9); color: #fff; border: 1px solid #4a4a4a;
+                    box-shadow: 0 4px 16px rgba(0,0,0,0.4);
+                    transform: translateX(120%) translateY(10px); opacity: 0;
+                    transition: transform 0.3s cubic-bezier(0.16,1,0.3,1), opacity 0.3s;
+                }
+                [data-theme="light"] .portal-toast { background: #fff; border-color: #d6d0c4; color: #1a1714; }
+                .portal-toast-show { transform: translateX(0) translateY(0); opacity: 1; }
+                .portal-toast-icon { flex-shrink: 0; width: 20px; height: 20px; display: flex;
+                    align-items: center; justify-content: center; font-size: 0.9rem; font-weight: 700;
+                    border-radius: 50%; background: rgba(255,255,255,0.2); }
+                .portal-toast-error .portal-toast-icon { background: rgba(168,74,58,0.25); }
+                .portal-toast-warning .portal-toast-icon { background: rgba(184,134,46,0.25); }
+                .portal-toast-success .portal-toast-icon { background: rgba(45,106,79,0.25); }
+                .portal-toast-message { flex: 1; }
+                @media (max-width: 480px) {
+                    .portal-toast-container { left: 12px; right: 12px; bottom: 12px; }
+                    .portal-toast { min-width: 0; max-width: none; }
+                }
+            `;
+            document.head.appendChild(style);
+        }
+        return c;
+    }
+
     async function load() {
         const root = document.getElementById('docs-root');
         const meta = document.getElementById('docs-meta');
@@ -125,6 +181,7 @@
                     <label>Original name (optional)
                         <input type="text" name="original_name" placeholder="Defaults to uploaded file name" />
                     </label>
+                    <div class="form-status" id="upload-status" role="status" aria-live="polite" style="margin-top:0.75rem;"></div>
                     <div class="modal-form-actions">
                         <button type="submit" class="btn primary">Upload</button>
                         <button type="button" class="btn ghost modal-cancel">Cancel</button>
@@ -138,7 +195,11 @@
         API.listMatters().then((res) => {
             const matters = (res && res.data) || [];
             if (!matters.length) {
-                alert('You do not have any matters yet. Please wait for a matter to be created before uploading documents.');
+                const statusEl = overlay.querySelector('#upload-status');
+                if (statusEl) {
+                    statusEl.className = 'form-status error';
+                    statusEl.innerHTML = '<strong>No matters available.</strong>You do not have any matters yet. Please wait for a matter to be created before uploading documents.';
+                }
                 return;
             }
             matters.forEach((m) => {
@@ -147,7 +208,7 @@
                 opt.textContent = `${m.reference || m.id} — ${m.title || 'Untitled'}`;
                 matterSelect.appendChild(opt);
             });
-        }).catch(() => alert('Could not load matters. Please try again.'));
+        }).catch(() => { const statusEl = overlay.querySelector('#upload-status'); if (statusEl) { statusEl.className = 'form-status error'; statusEl.textContent = 'Could not load matters. Please try again.'; } });
 
         const close = () => document.body.removeChild(overlay);
         overlay.querySelector('.modal-close-btn').addEventListener('click', close);
@@ -160,8 +221,8 @@
             const matterId = form.matter_id.value.trim();
             const fileInput = form.file;
             const originalName = form.original_name.value.trim();
-            if (!matterId) { alert('Please select a matter.'); return; }
-            if (!fileInput.files || !fileInput.files[0]) { alert('Please choose a file.'); return; }
+            if (!matterId) { showToast('Please select a matter.', 'warning'); return; }
+            if (!fileInput.files || !fileInput.files[0]) { showToast('Please choose a file.', 'warning'); return; }
             const fd = new FormData();
             fd.append('file', fileInput.files[0]);
             fd.append('matter_id', matterId);
@@ -174,7 +235,11 @@
                 close();
                 await load();
             } catch (err) {
-                alert('Upload failed: ' + (err.message || 'Unknown error'));
+                const statusEl = overlay.querySelector('#upload-status');
+                if (statusEl) {
+                    statusEl.className = 'form-status error';
+                    statusEl.innerHTML = '<strong>Upload failed.</strong>' + escape(err.message || 'Unknown error');
+                }
             } finally {
                 submitBtn.disabled = false;
                 submitBtn.textContent = 'Upload';
@@ -216,7 +281,7 @@
                     document.body.removeChild(a);
                     URL.revokeObjectURL(url);
                 } catch (err) {
-                    alert('Could not download document: ' + (err.message || 'Unknown error'));
+                    showToast('Could not download document: ' + (err.message || 'Unknown error'), 'error');
                 }
             });
         });

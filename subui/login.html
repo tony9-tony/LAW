@@ -7,48 +7,326 @@
     <title>Admin Portal</title>
     <link rel="stylesheet" href="styles.css">
     <style>
+        :root {
+            --auth-bg-1: #0d1f2a;
+            --auth-bg-2: #123746;
+            --auth-bg-3: #194939;
+            --auth-ivory: #f3efe7;
+            --auth-card: #fdfbf8;
+            --auth-ink: #16242e;
+            --auth-muted: #53616c;
+            --auth-gold: #c6a76a;
+            --auth-line: rgba(15, 28, 36, 0.12);
+            --auth-shadow: 0 28px 60px rgba(8, 17, 23, 0.28);
+        }
+
+        body {
+            margin: 0;
+            min-height: 100vh;
+            background: linear-gradient(135deg, var(--auth-bg-1) 0%, var(--auth-bg-2) 38%, var(--auth-bg-3) 100%);
+            font-family: "Segoe UI", Inter, sans-serif;
+        }
+
         .login-shell {
             display: flex;
             align-items: center;
             justify-content: center;
             min-height: 100vh;
-            padding: clamp(1.25rem, 4vw, 3rem);
+            padding: clamp(1.25rem, 3vw, 2.5rem);
             grid-column: 1 / -1;
+            background: transparent;
         }
-        .login-card {
-            width: 100%;
-            max-width: clamp(320px, 90vw, 420px);
+
+        .auth-layout {
+            display: grid;
+            grid-template-columns: 1.08fr 0.92fr;
+            width: min(1180px, 94vw);
+            min-height: 760px;
+            background: rgba(255, 255, 255, 0.06);
+            border: 1px solid rgba(255, 255, 255, 0.12);
+            border-radius: 24px;
+            overflow: hidden;
+            box-shadow: var(--auth-shadow);
         }
-        .login-header {
-            text-align: center;
-            margin-bottom: clamp(1.5rem, 4vw, 2.5rem);
+
+        .auth-visual {
+            position: relative;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            padding: clamp(2rem, 4vw, 3.25rem);
+            background: linear-gradient(180deg, rgba(11, 28, 35, 0.92) 0%, rgba(14, 42, 37, 0.96) 100%);
+            color: #edf1ee;
+            border-right: 1px solid rgba(255,255,255,0.08);
         }
-        .login-brand {
-            font-family: var(--serif);
-            font-size: clamp(1.5rem, 4vw, 1.8rem);
-            color: var(--ink);
+
+        .auth-visual::before {
+            content: "";
+            position: absolute;
+            inset: 0;
+            background: radial-gradient(circle at top left, rgba(198, 167, 106, 0.18), transparent 38%);
+            pointer-events: none;
+        }
+
+        .brand-lockup,
+        .visual-bottom {
+            position: relative;
+            z-index: 1;
+        }
+
+        .brand-lockup {
+            display: flex;
+            flex-direction: column;
+            gap: 0.35rem;
+        }
+
+        .brand-lockup .eyebrow {
+            font-size: 0.68rem;
+            letter-spacing: 0.32em;
+            text-transform: uppercase;
+            color: rgba(237, 241, 238, 0.72);
+        }
+
+        .brand-lockup h1 {
+            margin: 0;
+            font-family: Georgia, "Times New Roman", serif;
+            font-size: clamp(2.25rem, 4vw, 4rem);
+            line-height: 0.96;
+            letter-spacing: -0.05em;
+            font-weight: 500;
+        }
+
+        .brand-lockup .subhead {
+            margin: 0;
+            max-width: 24rem;
+            color: rgba(237, 241, 238, 0.8);
+            font-size: 0.96rem;
+            line-height: 1.7;
+        }
+
+        .visual-bottom {
+            display: grid;
+            gap: 1rem;
+        }
+
+        .mini-grid {
+            display: grid;
+            grid-template-columns: repeat(2, minmax(120px, 1fr));
+            gap: 0.8rem;
+            max-width: 28rem;
+        }
+
+        .mini-stat {
+            background: rgba(255, 255, 255, 0.04);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            border-radius: 14px;
+            padding: 0.85rem 1rem;
+            backdrop-filter: blur(6px);
+        }
+
+        .mini-stat .label {
             display: block;
-            letter-spacing: -0.01em;
-        }
-        .login-tagline {
-            font-size: clamp(0.6rem, 1.5vw, 0.72rem);
+            font-size: 0.62rem;
             letter-spacing: 0.2em;
             text-transform: uppercase;
-            color: var(--ink-mute);
-            display: block;
-            margin-top: 0.35rem;
+            color: rgba(237, 241, 238, 0.7);
+            margin-bottom: 0.4rem;
         }
+
+        .mini-stat strong {
+            font-family: Georgia, "Times New Roman", serif;
+            font-size: 1.5rem;
+            font-weight: 500;
+            letter-spacing: -0.04em;
+        }
+
+        .auth-panel {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: var(--auth-ivory);
+            padding: clamp(1.5rem, 3vw, 2.5rem);
+        }
+
+        .login-card {
+            width: min(100%, 470px);
+            background: rgba(255,255,255,0.42);
+            border: 1px solid var(--auth-line);
+            border-radius: 22px;
+            box-shadow: 0 16px 40px rgba(13, 20, 24, 0.08);
+            padding: clamp(1.25rem, 2vw, 1.8rem);
+        }
+
+        .login-header {
+            text-align: left;
+            margin-bottom: 1.5rem;
+        }
+
+        .login-brand {
+            font-family: Georgia, "Times New Roman", serif;
+            font-size: clamp(1.8rem, 3vw, 2.5rem);
+            color: var(--auth-ink);
+            display: block;
+            letter-spacing: -0.05em;
+            line-height: 1;
+        }
+
+        .login-tagline {
+            font-size: 0.7rem;
+            letter-spacing: 0.2em;
+            text-transform: uppercase;
+            color: var(--auth-muted);
+            display: block;
+            margin-top: 0.6rem;
+        }
+
+        .panel {
+            background: transparent;
+            border: 1px solid var(--auth-line);
+            border-radius: 16px;
+            overflow: hidden;
+        }
+
+        .panel-head {
+            padding: 0.9rem 1rem;
+            background: rgba(255,255,255,0.5);
+            border-bottom: 1px solid var(--auth-line);
+        }
+
+        .panel-head h2 {
+            margin: 0;
+            font-size: 0.75rem;
+            letter-spacing: 0.2em;
+            text-transform: uppercase;
+            color: var(--auth-muted);
+            font-weight: 600;
+        }
+
+        .panel-body {
+            padding: 1.1rem 1rem 1.2rem;
+        }
+
+        .field {
+            margin-bottom: 1rem;
+        }
+
+        .field label {
+            font-size: 0.68rem;
+            letter-spacing: 0.14em;
+            text-transform: uppercase;
+            color: var(--auth-muted);
+            margin-bottom: 0.4rem;
+        }
+
+        .field input,
+        .field textarea,
+        .field select {
+            width: 100%;
+            border: 1px solid rgba(18, 34, 42, 0.14);
+            background: rgba(255,255,255,0.72);
+            border-radius: 10px;
+            min-height: 46px;
+            padding: 0.72rem 0.9rem;
+            color: var(--auth-ink);
+            font-size: 0.96rem;
+        }
+
+        .field input:focus,
+        .field textarea:focus,
+        .field select:focus {
+            border-color: rgba(26, 90, 72, 0.65);
+            outline: 2px solid rgba(26, 90, 72, 0.12);
+            box-shadow: 0 0 0 3px rgba(26, 90, 72, 0.08);
+        }
+
+        .field .help,
+        .field .error {
+            font-size: 0.72rem;
+            color: var(--auth-muted);
+        }
+
+        .field.invalid input,
+        .field.invalid textarea,
+        .field.invalid select {
+            border-color: rgba(166, 77, 59, 0.7);
+            background: rgba(166, 77, 59, 0.03);
+        }
+
+        .btn {
+            border-radius: 12px;
+            min-height: 46px;
+            letter-spacing: 0.12em;
+            font-size: 0.72rem;
+            text-transform: uppercase;
+        }
+
+        .btn.primary {
+            background: linear-gradient(180deg, #1c5e4a 0%, #174a3d 100%);
+            border-color: #174a3d;
+            color: #edf2ee;
+        }
+
+        .btn.ghost {
+            background: rgba(255,255,255,0.46);
+            border-color: rgba(18, 34, 42, 0.12);
+            color: var(--auth-ink);
+        }
+
         .login-actions {
             display: flex;
             flex-direction: column;
-            gap: 0.75rem;
+            gap: 0.8rem;
         }
+
         .login-actions .btn {
             width: 100%;
             justify-content: center;
         }
+
+        .form-status {
+            margin-bottom: 1rem;
+            border-radius: 12px;
+            border: 1px solid rgba(18, 34, 42, 0.1);
+            background: rgba(255,255,255,0.5);
+            color: var(--auth-ink);
+            padding: 0.75rem 0.9rem;
+        }
+
+        .form-status.success {
+            background: rgba(31, 96, 71, 0.08);
+            border-color: rgba(31, 96, 71, 0.3);
+        }
+
+        .form-status.error {
+            background: rgba(166, 77, 59, 0.06);
+            border-color: rgba(166, 77, 59, 0.3);
+            color: #6b2d24;
+        }
+
+        @media (max-width: 960px) {
+            .auth-layout {
+                width: min(760px, 94vw);
+                grid-template-columns: 1fr;
+                min-height: 0;
+            }
+
+            .auth-visual {
+                min-height: 260px;
+                border-right: 0;
+                border-bottom: 1px solid rgba(255,255,255,0.08);
+            }
+        }
+
         @media (max-width: 390px) {
             .login-shell {
+                padding: 0.9rem;
+            }
+
+            .auth-panel {
+                padding: 1rem;
+            }
+
+            .login-card {
                 padding: 1rem;
             }
         }
@@ -57,82 +335,115 @@
 <body>
     <div class="app">
         <div class="app-content login-shell">
-            <div class="login-card">
-                <div class="login-header">
-                    <span class="sidebar-brand login-brand">SUBUI</span>
-                    <span class="sidebar-tag login-tagline">Admin Portal — Owner Command Center</span>
-                </div>
-
-                <div id="setup-panel" class="panel" style="display:none;">
-                    <div class="panel-head"><h2>Initial Owner Setup</h2></div>
-                    <div class="panel-body">
-                        <p style="color:var(--ink-mute);font-size:0.88rem;margin:0 0 1rem;">No owner accounts exist yet. Create the first OWNER account to access the Admin Portal.</p>
-                        <form id="setupForm" novalidate>
-                            <div class="field">
-                                <label for="su-name">Full name</label>
-                                <input id="su-name" name="fullName" type="text" autocomplete="name" minlength="2" maxlength="160" required>
-                                <span class="error">Please provide your full name.</span>
-                            </div>
-                            <div class="field">
-                                <label for="su-email">Email address</label>
-                                <input id="su-email" name="email" type="email" autocomplete="email" required>
-                                <span class="error">Please provide a valid email.</span>
-                            </div>
-                            <div class="field">
-                                <label for="su-password">Password</label>
-                                <input id="su-password" name="password" type="password" autocomplete="new-password" minlength="12" required>
-                                <span class="help">At least 12 characters.</span>
-                                <span class="error">Password is required.</span>
-                            </div>
-                            <div class="field">
-                                <label for="su-confirm">Confirm password</label>
-                                <input id="su-confirm" name="confirmPassword" type="password" autocomplete="new-password" minlength="12" required>
-                                <span class="error">Passwords do not match.</span>
-                            </div>
-                            <div class="form-status" id="su-status" role="status" aria-live="polite" style="margin-bottom:1rem;"></div>
-                            <button type="submit" class="btn primary" style="width:100%;justify-content:center;">Create Owner Account</button>
-                        </form>
+            <div class="auth-layout">
+                <aside class="auth-visual" aria-label="Law firm branding panel">
+                    <div class="brand-lockup">
+                        <span class="eyebrow">LAW</span>
+                        <h1>Et Cetra<br>Advocates</h1>
+                        <p class="subhead">Owner workspace for client intake, legal operations, document flow, and chambers oversight.</p>
                     </div>
-                </div>
 
-                <div id="login-panel" class="panel" style="display:none;">
-                    <div class="panel-head"><h2>Owner Sign In</h2></div>
-                    <div class="panel-body">
-                        <form id="loginForm" novalidate>
-                            <div class="field">
-                                <label for="li-email">Email address</label>
-                                <input id="li-email" name="email" type="email" autocomplete="email" required>
-                                <span class="error">Please provide a valid email.</span>
+                    <div class="visual-bottom">
+                        <div class="mini-grid">
+                            <div class="mini-stat">
+                                <span class="label">Matters</span>
+                                <strong>24</strong>
                             </div>
-                            <div class="field">
-                                <label for="li-password">Password</label>
-                                <input id="li-password" name="password" type="password" autocomplete="current-password" minlength="12" required>
-                                <span class="help">At least 12 characters.</span>
-                                <span class="error">Password is required.</span>
+                            <div class="mini-stat">
+                                <span class="label">Clients</span>
+                                <strong>142</strong>
                             </div>
-                            <div class="form-status" id="li-status" role="status" aria-live="polite" style="margin-bottom:1rem;"></div>
-                            <div class="login-actions">
-                                <button type="submit" class="btn primary">Sign in to Admin Portal</button>
-                                <button type="button" class="btn ghost" id="back-to-website">Back to Website</button>
-                                <button type="button" class="btn ghost" id="show-create-account">Create account</button>
+                            <div class="mini-stat">
+                                <span class="label">Invoices</span>
+                                <strong>08</strong>
                             </div>
-                        </form>
+                            <div class="mini-stat">
+                                <span class="label">Alerts</span>
+                                <strong>04</strong>
+                            </div>
+                        </div>
                     </div>
-                </div>
+                </aside>
 
-                <div id="loading-panel" class="panel">
-                    <div class="panel-body" style="text-align:center;padding:2rem;">
-                        <span class="ico" style="font-size:1.5rem;color:var(--ink-mute);">·</span>
-                        <p style="color:var(--ink-mute);margin-top:0.75rem;">Loading…</p>
-                    </div>
-                </div>
+                <div class="auth-panel">
+                    <div class="login-card">
+                        <div class="login-header">
+                            <span class="login-brand">Owner Access</span>
+                            <span class="login-tagline">Admin Portal — Chambers Command Center</span>
+                        </div>
 
-                <div id="error-panel" class="panel" style="display:none;">
-                    <div class="panel-body" style="text-align:center;padding:2rem;">
-                        <span class="ico" style="font-size:1.5rem;color:var(--danger);">!</span>
-                        <p style="color:var(--ink-soft);margin-top:0.75rem;"><strong>Could not reach the server.</strong></p>
-                        <p style="color:var(--ink-mute);font-size:0.88rem;margin:0.5rem 0 1.25rem;">Check your connection and try again.</p>
-                        <button type="button" class="btn primary" id="retry-btn" style="width:100%;justify-content:center;">Retry</button>
+                        <div id="setup-panel" class="panel" style="display:none;">
+                            <div class="panel-head"><h2>Initial Owner Setup</h2></div>
+                            <div class="panel-body">
+                                <p style="color:var(--auth-muted);font-size:0.88rem;margin:0 0 1rem;">No owner accounts exist yet. Create the first OWNER account to access the admin portal.</p>
+                                <form id="setupForm" novalidate>
+                                    <div class="field">
+                                        <label for="su-name">Full name</label>
+                                        <input id="su-name" name="fullName" type="text" autocomplete="name" minlength="2" maxlength="160" required>
+                                        <span class="error">Please provide your full name.</span>
+                                    </div>
+                                    <div class="field">
+                                        <label for="su-email">Email address</label>
+                                        <input id="su-email" name="email" type="email" autocomplete="email" required>
+                                        <span class="error">Please provide a valid email.</span>
+                                    </div>
+                                    <div class="field">
+                                        <label for="su-password">Password</label>
+                                        <input id="su-password" name="password" type="password" autocomplete="new-password" minlength="12" required>
+                                        <span class="help">At least 12 characters.</span>
+                                        <span class="error">Password is required.</span>
+                                    </div>
+                                    <div class="field">
+                                        <label for="su-confirm">Confirm password</label>
+                                        <input id="su-confirm" name="confirmPassword" type="password" autocomplete="new-password" minlength="12" required>
+                                        <span class="error">Passwords do not match.</span>
+                                    </div>
+                                    <div class="form-status" id="su-status" role="status" aria-live="polite"></div>
+                                    <button type="submit" class="btn primary" style="width:100%;justify-content:center;">Create Owner Account</button>
+                                </form>
+                            </div>
+                        </div>
+
+                        <div id="login-panel" class="panel" style="display:none;">
+                            <div class="panel-head"><h2>Owner Sign In</h2></div>
+                            <div class="panel-body">
+                                <form id="loginForm" novalidate>
+                                    <div class="field">
+                                        <label for="li-email">Email address</label>
+                                        <input id="li-email" name="email" type="email" autocomplete="email" required>
+                                        <span class="error">Please provide a valid email.</span>
+                                    </div>
+                                    <div class="field">
+                                        <label for="li-password">Password</label>
+                                        <input id="li-password" name="password" type="password" autocomplete="current-password" minlength="12" required>
+                                        <span class="help">At least 12 characters.</span>
+                                        <span class="error">Password is required.</span>
+                                    </div>
+                                    <div class="form-status" id="li-status" role="status" aria-live="polite"></div>
+                                    <div class="login-actions">
+                                        <button type="submit" class="btn primary">Sign in to Admin Portal</button>
+                                        <button type="button" class="btn ghost" id="back-to-website">Back to Website</button>
+                                        <button type="button" class="btn ghost" id="show-create-account">Create account</button>
+                                    </div>
+                                </form>
+                            </div>
+                        </div>
+
+                        <div id="loading-panel" class="panel">
+                            <div class="panel-body" style="text-align:center;padding:2rem;">
+                                <span class="ico" style="font-size:1.5rem;color:var(--auth-muted);">·</span>
+                                <p style="color:var(--auth-muted);margin-top:0.75rem;">Loading…</p>
+                            </div>
+                        </div>
+
+                        <div id="error-panel" class="panel" style="display:none;">
+                            <div class="panel-body" style="text-align:center;padding:2rem;">
+                                <span class="ico" style="font-size:1.5rem;color:#a64d3b;">!</span>
+                                <p style="color:var(--auth-ink);margin-top:0.75rem;"><strong>Could not reach the server.</strong></p>
+                                <p style="color:var(--auth-muted);font-size:0.88rem;margin:0.5rem 0 1.25rem;">Check your connection and try again.</p>
+                                <button type="button" class="btn primary" id="retry-btn" style="width:100%;justify-content:center;">Retry</button>
+                            </div>
+                        </div>
                     </div>
                 </div>
             </div>

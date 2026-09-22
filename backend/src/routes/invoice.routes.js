@@ -18,7 +18,6 @@ invoiceRouter.get('/', async (request, response, next) => {
                LEFT JOIN matters m ON m.id = i.matter_id
                JOIN users u ON u.id = i.client_id
                WHERE i.client_id = $1
-               AND i.payment_status != 'PAID'
                ORDER BY i.created_at DESC`,
             [request.user.sub]
         );

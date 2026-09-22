@@ -7,62 +7,47 @@
     <title>Dashboard | Client Portal</title>
     <link rel="stylesheet" href="portal.css">
 </head>
-<body>
+<body class="dashboard-page">
     <div class="portal">
         <div data-portal-topbar></div>
         <main class="portal-main">
             <div data-portal-sidebar></div>
             <div class="portal-content">
 
-                <div class="page-head">
+                <div class="page-head dashboard-head">
                     <div>
-                        <span class="kicker">Overview</span>
+                        <span class="kicker" id="dashboard-date">Client workspace</span>
                         <h1 id="welcome-title">Welcome back.</h1>
-                        <p class="head-meta">Your requests, matters, and upcoming consultations at a glance.</p>
+                        <p class="head-meta">Your matters, requests, and next steps in one considered view.</p>
                     </div>
                     <div class="page-actions">
-                        <a class="btn primary" href="custom-matter.html">New request <span class="arrow" aria-hidden="true">→</span></a>
-                        <a class="btn secondary" href="consultation.html">Book consultation</a>
+                        <a class="btn primary" href="custom-matter.html">+ New request</a>
+                        <a class="dashboard-search" href="matters.html" aria-label="Search matters and documents">Search matters, documents <span aria-hidden="true">⌕</span></a>
                     </div>
                 </div>
 
                 <div id="notif-banner" class="alert info hidden" role="status"></div>
 
-                <section class="welcome-band" aria-labelledby="welcome-h2">
+                <section class="dashboard-focus" aria-labelledby="welcome-h2">
                     <div>
-                        <span class="kicker">Your matters</span>
+                        <span class="kicker">Your workspace</span>
                         <h2 id="welcome-h2">Where things stand.</h2>
-                        <p class="meta">Track the progress of your requests and matters. The firm will reach out here as work advances.</p>
+                        <p class="meta">The latest movement across your requests and active matters.</p>
                     </div>
                     <div class="next-action" id="next-action">
                         <strong>Loading…</strong>
                     </div>
                 </section>
 
-                <section class="kpi-grid" aria-label="Summary">
-                    <div class="kpi">
-                        <div class="kpi-label">Open requests</div>
-                        <div class="kpi-value" id="kpi-open">—</div>
-                        <div class="kpi-meta" id="kpi-open-meta">Loading…</div>
-                    </div>
-                    <div class="kpi">
-                        <div class="kpi-label">Awaiting review</div>
-                        <div class="kpi-value" id="kpi-review">—</div>
-                        <div class="kpi-meta">Firm response pending</div>
-                    </div>
-                    <div class="kpi">
-                        <div class="kpi-label">Upcoming consultations</div>
-                        <div class="kpi-value" id="kpi-appts">—</div>
-                        <div class="kpi-meta" id="kpi-appts-meta">Loading…</div>
-                    </div>
-                    <div class="kpi">
-                        <div class="kpi-label">Unread notifications</div>
-                        <div class="kpi-value" id="kpi-notif">—</div>
-                        <div class="kpi-meta" id="kpi-notif-meta">Loading…</div>
-                    </div>
+                <section class="dashboard-stats" aria-label="Workspace summary">
+                    <div class="dashboard-stat"><span>Open requests</span><strong id="kpi-open">—</strong><small id="kpi-open-meta">Loading…</small></div>
+                    <div class="dashboard-stat"><span>Awaiting review</span><strong id="kpi-review">—</strong><small>Firm response pending</small></div>
+                    <div class="dashboard-stat"><span>Active matters</span><strong id="kpi-matters">—</strong><small id="kpi-matters-meta">Loading…</small></div>
+                    <div class="dashboard-stat"><span>Unread notices</span><strong id="kpi-notif">—</strong><small id="kpi-notif-meta">Loading…</small></div>
                 </section>
 
-                <section class="panel" aria-labelledby="req-head">
+                <section class="dashboard-grid" aria-label="Workspace activity">
+                <section class="panel dashboard-panel dashboard-panel--wide" aria-labelledby="req-head">
                     <div class="panel-head">
                         <h2 id="req-head">Recent requests</h2>
                         <a class="btn small secondary" href="requests.html">View all</a>
@@ -85,7 +70,7 @@
                     </div>
                 </section>
 
-                <section class="panel" aria-labelledby="matters-head">
+                <section class="panel dashboard-panel" aria-labelledby="matters-head">
                     <div class="panel-head">
                         <h2 id="matters-head">Active matters</h2>
                         <span class="panel-meta">Accepted by the firm</span>
@@ -95,7 +80,7 @@
                     </div>
                 </section>
 
-                <section class="panel" aria-labelledby="activity-head">
+                <section class="panel dashboard-panel" aria-labelledby="activity-head">
                     <div class="panel-head">
                         <h2 id="activity-head">Recent activity</h2>
                         <span class="panel-meta">Latest updates from the firm</span>
@@ -103,6 +88,7 @@
                     <div class="panel-body" id="activity-body">
                         <p class="text-mute-block">Activity will appear here once the firm updates your request or matter.</p>
                     </div>
+                </section>
                 </section>
 
             </div>

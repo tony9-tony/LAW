@@ -103,23 +103,36 @@
             const qrStorageKey = inv.payment_qr_storage_key || '';
             const qrContentType = inv.payment_qr_content_type || '';
             const paymentInstructions = inv.payment_instructions || 'No payment instructions available.';
+            const snapshotDestination = paymentMethod ? {
+                id: inv.payment_destination_id,
+                method: paymentMethod,
+                label: paymentLabel,
+                lipa_number: lipaNumber,
+                bank_name: bankName,
+                bank_account_name: bankAccountName,
+                bank_account_number: bankAccountNumber,
+                qr_storage_key: qrStorageKey,
+                qr_content_type: qrContentType,
+                instructions: paymentInstructions
+            } : null;
+            const availableDestinations = destinations.length ? destinations : (snapshotDestination ? [snapshotDestination] : []);
 
-            function renderPaymentDestinations(dests) {
-                if (!dests.length) return '<div class="empty-state tight"><span class="ico">·</span><strong>No payment methods configured.</strong></div>';
-                return dests.map((d) => `
-                    <div class="payment-destination-card" style="border:1px solid var(--line);border-radius:8px;padding:1rem;margin-bottom:0.75rem;background:var(--bg);">
-                        <div style="display:flex;align-items:center;gap:0.75rem;margin-bottom:0.5rem;">
-                            <span class="pill" style="text-transform:capitalize;">${escape(d.method)}</span>
-                            <strong>${escape(d.label || d.bank_name || d.lipa_number || 'Payment Method')}</strong>
-                        </div>
-                        ${d.lipa_number ? `<div class="payment-detail"><strong>Lipa Number:</strong> <code>${escape(d.lipa_number)}</code></div>` : ''}
-                        ${d.bank_name ? `<div class="payment-detail"><strong>Bank:</strong> ${escape(d.bank_name)}</div>` : ''}
-                        ${d.bank_account_name ? `<div class="payment-detail"><strong>Account Name:</strong> ${escape(d.bank_account_name)}</div>` : ''}
-                        ${d.bank_account_number ? `<div class="payment-detail"><strong>Account Number:</strong> <code>${escape(d.bank_account_number)}</code></div>` : ''}
-                        ${d.qr_storage_key ? `<div class="payment-detail"><strong>QR Code:</strong><br><img src="${API.base()}/uploads/${escape(d.qr_storage_key)}?token=${API.token()}" alt="Payment QR Code" class="payment-qr"></div>` : ''}
-                        ${d.instructions ? `<div class="payment-detail"><strong>Instructions:</strong><pre class="instructions-text">${escape(d.instructions)}</pre></div>` : ''}
-                    </div>
-                `).join('');
+            function methodLabel(method) {
+                return method === 'mobile_money' ? 'LIPA NUMBER' : method === 'qr' ? 'QR CODE' : 'BANK ACCOUNT';
+            }
+
+            function destinationDetails(destination) {
+                if (!destination) return '<p class="text-mute-block">No payment method selected.</p>';
+                const method = destination.method;
+                const instructions = destination.instructions ? `<p class="payment-instruction">${escape(destination.instructions)}</p>` : '';
+                if (method === 'mobile_money') {
+                    return `<div class="selected-payment selected-payment--lipa"><span class="kicker">LIPA NUMBER</span><div class="payment-value-row"><code>${escape(destination.lipa_number || '—')}</code><button type="button" class="btn small secondary" data-copy-payment="${escape(destination.lipa_number || '')}">Copy</button></div>${instructions}</div>`;
+                }
+                if (method === 'qr') {
+                    const qrSrc = destination.qr_storage_key ? `${location.origin}/uploads/${encodeURIComponent(destination.qr_storage_key)}` : '';
+                    return `<div class="selected-payment selected-payment--qr"><span class="kicker">QR CODE</span>${qrSrc ? `<img src="${qrSrc}" alt="Payment QR code" class="payment-qr">` : '<p class="text-mute-block">QR code is not configured.</p>'}<p class="payment-instruction">Scan the code with your banking app.</p></div>`;
+                }
+                return `<div class="selected-payment selected-payment--bank"><span class="kicker">BANK ACCOUNT</span><dl class="payment-bank-details"><dt>Bank name</dt><dd>${escape(destination.bank_name || '—')}</dd><dt>Account name</dt><dd>${escape(destination.bank_account_name || '—')}</dd><dt>Account number</dt><dd><code>${escape(destination.bank_account_number || '—')}</code> ${destination.bank_account_number ? `<button type="button" class="btn small secondary" data-copy-payment="${escape(destination.bank_account_number)}">Copy</button>` : ''}</dd></dl>${instructions}</div>`;
             }
             
             root.innerHTML = `
@@ -160,27 +173,23 @@
                         </section>
                         ${!isPaid ? `
                         <section class="panel" id="payment-section">
-                            <div class="panel-head"><h2>Pay This Invoice</h2><span class="panel-meta">Submit a payment using one of the firm's accepted methods</span></div>
+                            <div class="panel-head"><h2>Payment</h2><span class="panel-meta">Amount due ${fmtCurrency(inv.total, inv.currency)}</span></div>
                             <div class="panel-body">
-                                <form id="pay-form" novalidate>
-                                    <div class="field">
-                                        <label for="pay-method">Payment method</label>
-                                        <select id="pay-method" name="method" required></select>
+                                ${availableDestinations.length ? `<button type="button" class="btn primary" id="pay-now">Pay Now</button>
+                                <div id="payment-checkout" hidden>
+                                    <div class="payment-method-choices" id="payment-method-choices" aria-label="Choose payment method">
+                                        ${availableDestinations.map((d) => `<button type="button" class="payment-method-choice" data-method="${escape(d.method)}" data-destination-id="${escape(d.id || '')}"><span>${methodLabel(d.method)}</span><small>${escape(d.label || '')}</small></button>`).join('')}
                                     </div>
-                                    <div class="field">
-                                        <label for="pay-reference">Reference / Note (optional)</label>
-                                        <input id="pay-reference" name="reference" type="text" placeholder="e.g. M-Pesa transaction ID" maxlength="200">
-                                    </div>
-                                    <div class="field">
-                                        <label for="pay-receipt"><img src="../assets/paperclip.svg" alt="" class="input-icon">Receipt image</label>
-                                        <input id="pay-receipt" name="receipt" type="file" accept="image/*" required>
-                                        <span class="help">Upload a screenshot or photo of your payment confirmation.</span>
-                                    </div>
-                                    <div class="form-status" id="pay-status" role="status" aria-live="polite"></div>
-                                    <div class="actions" style="display:flex;gap:0.75rem;justify-content:flex-end;">
-                                        <button type="submit" class="btn primary">Submit payment</button>
-                                    </div>
-                                </form>
+                                    <div id="selected-payment-details"></div>
+                                    <form id="pay-form" novalidate hidden>
+                                        <input type="hidden" id="pay-method" name="method">
+                                        <input type="hidden" id="pay-destination-id" name="destination_id">
+                                        <div class="field"><label for="pay-reference">Payment reference (optional)</label><input id="pay-reference" name="reference" type="text" maxlength="200" placeholder="Transaction reference"></div>
+                                        <div class="field"><label for="pay-receipt">Payment proof</label><input id="pay-receipt" name="receipt" type="file" accept="image/*,application/pdf" required></div>
+                                        <div class="form-status" id="pay-status" role="status" aria-live="polite"></div>
+                                        <div class="actions"><button type="submit" class="btn primary">Submit payment proof</button></div>
+                                    </form>
+                                </div>` : '<div class="empty-state tight"><span class="ico">·</span><strong>Payment is not available yet.</strong><p>The firm has not configured a payment destination for this invoice.</p></div>'}
                             </div>
                         </section>
                         ` : ''}
@@ -199,46 +208,11 @@
                                 </div>
                             </div>
                         </section>
-                        <section class="panel" id="payment-methods-panel">
-                            <div class="panel-head"><h2>Payment Methods</h2><span class="panel-meta">Available payment methods configured by the firm</span></div>
-                            <div class="panel-body">
-                                ${renderPaymentDestinations(destinations)}
-                            </div>
-                        </section>
-                        ${!isPaid ? `
-                        <section class="panel" id="instructions-panel">
-                            <div class="panel-head"><h2>Payment Instructions</h2></div>
-                            <div class="panel-body">
-                                ${hasSnapshot ? `
-                                    <div class="payment-details">
-                                        ${paymentMethod ? `<div class="payment-method"><strong>Method:</strong> ${escape(paymentLabel || paymentMethod)}</div>` : ''}
-                                        ${lipaNumber ? `<div class="payment-detail"><strong>Lipa Number:</strong> <code>${escape(lipaNumber)}</code></div>` : ''}
-                                        ${bankName ? `<div class="payment-detail"><strong>Bank:</strong> ${escape(bankName)}</div>` : ''}
-                                        ${bankAccountName ? `<div class="payment-detail"><strong>Account Name:</strong> ${escape(bankAccountName)}</div>` : ''}
-                                        ${bankAccountNumber ? `<div class="payment-detail"><strong>Account Number:</strong> <code>${escape(bankAccountNumber)}</code></div>` : ''}
-                                        ${qrStorageKey ? `<div class="payment-detail"><strong>QR Code:</strong><br><img src="${API.base()}/uploads/${escape(qrStorageKey)}?token=${API.token()}" alt="Payment QR Code" class="payment-qr"></div>` : ''}
-                                        <div class="payment-detail"><strong>Instructions:</strong><pre class="instructions-text">${escape(paymentInstructions)}</pre></div>
-                                    </div>
-                                ` : `<pre class="instructions-text">${escape(paymentInstructions)}</pre>`}
-                            </div>
-                        </section>
-                        ` : ''}
                     </aside>
                 </div>
             `;
             const payForm = document.getElementById('pay-form');
-            if (payForm) {
-                initPaymentForm({
-                    method: inv.payment_destination_method,
-                    label: inv.payment_destination_label,
-                    lipa_number: inv.payment_lipa_number,
-                    bank_name: inv.payment_bank_name,
-                    bank_account_name: inv.payment_bank_account_name,
-                    bank_account_number: inv.payment_bank_account_number,
-                    qr_storage_key: inv.payment_qr_storage_key,
-                    id: inv.payment_destination_id
-                });
-            }
+            if (payForm || document.getElementById('pay-now')) initPaymentForm({ destinations: availableDestinations, renderDetails: destinationDetails });
         } catch (err) {
             if (err && err.status === 401) { window.location.replace('../login.html'); return; }
             root.innerHTML = `<div class="alert error"><strong>Could not load this invoice.</strong>${escape(err.message || '')}</div>`;
@@ -254,31 +228,40 @@
         }
     }
 
-    async function initPaymentForm(snapshot) {
+    async function initPaymentForm({ destinations = [], renderDetails } = {}) {
+        const payNow = document.getElementById('pay-now');
+        const checkout = document.getElementById('payment-checkout');
+        const choices = document.getElementById('payment-method-choices');
+        const selectedDetails = document.getElementById('selected-payment-details');
         const form = document.getElementById('pay-form');
         const methodSelect = document.getElementById('pay-method');
+        const destinationInput = document.getElementById('pay-destination-id');
         const receiptInput = document.getElementById('pay-receipt');
         const statusEl = document.getElementById('pay-status');
-        if (!form || !methodSelect) return;
-        
-        // Use snapshotted payment destination from invoice
-        if (snapshot && snapshot.method) {
-            const displayLabel = snapshot.label || snapshot.bank_name || snapshot.lipa_number || snapshot.method;
-            methodSelect.innerHTML = `<option value="${escape(snapshot.method)}|${escape(snapshot.id || '')}">${escape(snapshot.method)} — ${escape(displayLabel)}</option>`;
-        } else {
-            // Fallback to dynamic destinations
-            try {
-                const res = await API.getPaymentDestinations();
-                const dests = (res && res.data) || [];
-                if (dests.length === 0) {
-                    methodSelect.innerHTML = '<option value="">No payment methods configured</option>';
-                } else {
-                    methodSelect.innerHTML = dests.map((d) => `<option value="${escape(d.method)}|${escape(d.id)}">${escape(d.method)} — ${escape((d.label || d.bank_name || d.lipa_number || '').toString())}</option>`).join('');
-                }
-            } catch (err) {
-                methodSelect.innerHTML = '<option value="">Could not load payment methods</option>';
-            }
-        }
+        if (!checkout || !choices || !selectedDetails) return;
+
+        const findDestination = (method, id) => destinations.find((d) => d.method === method && (!id || d.id === id));
+        const selectDestination = (destination, button) => {
+            if (!destination) return;
+            choices.querySelectorAll('.payment-method-choice').forEach((choice) => choice.classList.toggle('selected', choice === button));
+            selectedDetails.innerHTML = renderDetails(destination);
+            selectedDetails.querySelectorAll('[data-copy-payment]').forEach((copyButton) => {
+                copyButton.addEventListener('click', async () => {
+                    try { await navigator.clipboard.writeText(copyButton.dataset.copyPayment || ''); copyButton.textContent = 'Copied'; } catch { copyButton.textContent = 'Copy unavailable'; }
+                });
+            });
+            methodSelect.value = destination.method;
+            destinationInput.value = destination.id || '';
+            form.hidden = false;
+        };
+        payNow?.addEventListener('click', () => {
+            checkout.hidden = false;
+            payNow.hidden = true;
+            choices.querySelector('.payment-method-choice')?.focus();
+        });
+        choices.querySelectorAll('.payment-method-choice').forEach((button) => {
+            button.addEventListener('click', () => selectDestination(findDestination(button.dataset.method, button.dataset.destinationId), button));
+        });
         form.addEventListener('submit', async (e) => {
             e.preventDefault();
             const file = receiptInput.files[0];
@@ -287,7 +270,8 @@
                 statusEl.innerHTML = '<strong>Please upload a receipt image.</strong>';
                 return;
             }
-            const [method, destId] = methodSelect.value.split('|');
+            const method = methodSelect.value;
+            const destId = destinationInput.value;
             statusEl.className = 'form-status';
             statusEl.textContent = 'Submitting payment…';
             const reader = new FileReader();

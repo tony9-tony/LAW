@@ -131,171 +131,6 @@
         }
     }
 
-    async function loadDashboard() {
-        // Auth guard: if token is missing or invalid, redirect to login
-        if (!token()) {
-            window.location.href = 'login.html';
-            return;
-        }
-        try {
-            const check = await api('/profile', { auth: true });
-            if (!check.data || check.data.role !== 'OWNER') {
-                localStorage.removeItem(tokenKey);
-                localStorage.removeItem('auth_user');
-                window.location.href = 'login.html';
-                return;
-            }
-        } catch {
-            localStorage.removeItem(tokenKey);
-            localStorage.removeItem('auth_user');
-            window.location.href = 'login.html';
-            return;
-        }
-
-        const container = document.getElementById('main-content');
-        container.innerHTML = `
-            <div class="page-head">
-                <div>
-                    <span class="kicker">Overview</span>
-                    <h1 id="page-title">Dashboard.</h1>
-                    <p class="head-meta">A consolidated view of recent activity, open work, and incoming requests. Detailed modules are accessible from the sidebar.</p>
-                </div>
-            </div>
-
-            <section class="kpi-grid" aria-label="Key indicators">
-                <div class="kpi"><div class="kpi-label">Open requests</div><div class="kpi-value" id="kpi-open">—</div><div class="kpi-trend" id="kpi-open-meta">Loading…</div></div>
-                <div class="kpi"><div class="kpi-label">Pending intake</div><div class="kpi-value" id="kpi-intake">—</div><div class="kpi-trend">Custom matter submissions</div></div>
-                <div class="kpi"><div class="kpi-label">Appointments</div><div class="kpi-value" id="kpi-appts">—</div><div class="kpi-trend">Upcoming this week</div></div>
-                <div class="kpi"><div class="kpi-label">Active matters</div><div class="kpi-value" id="kpi-matters">—</div><div class="kpi-trend">In progress</div></div>
-            </section>
-
-            <section class="panel" aria-labelledby="req-head">
-                <div class="panel-head">
-                    <h2 id="req-head">Recent requests</h2>
-                    <a class="btn ghost" href="#">View all</a>
-                </div>
-                <div class="panel-body tight">
-                    <table class="table">
-                        <thead>
-                            <tr>
-                                <th class="col-id">ID</th>
-                                <th>Subject</th>
-                                <th class="col-status">Status</th>
-                                <th class="col-date">Submitted</th>
-                            </tr>
-                        </thead>
-                        <tbody id="requests-body">
-                            <tr><td colspan="4" class="empty-state"><strong>Loading requests…</strong></td></tr>
-                        </tbody>
-                    </table>
-                </div>
-            </section>
-
-            <section class="panel" aria-labelledby="local-head">
-                <div class="panel-head">
-                    <h2 id="local-head">Analytics</h2>
-                    <span class="panel-meta">Real-time platform metrics</span>
-                </div>
-                <div class="panel-body tight" id="analytics-data">
-                    <div class="empty-state"><span class="ico">·</span><strong>Loading analytics…</strong></div>
-                </div>
-            </section>
-        `;
-        loadAnalytics();
-        loadRecentRequests();
-        loadRecentMessages();
-        loadRecentMatters();
-    }
-
-    async function loadAnalytics() {
-        try {
-            const res = await api('/owner/analytics', { auth: true });
-            const d = res.data;
-            const setKPI = (id, val) => { const el = document.getElementById(id); if (el) el.textContent = val; };
-            setKPI('kpi-open', d.requests.open);
-            setKPI('kpi-matters', d.matters.active);
-            setKPI('kpi-appts', d.appointments.upcoming);
-        } catch (error) {
-            const setErr = (id) => { const el = document.getElementById(id); if (el) el.textContent = '!'; };
-            ['kpi-open','kpi-matters','kpi-appts'].forEach(setErr);
-        }
-    }
-
-    async function loadRecentRequests() {
-        const el = document.getElementById('requests-body');
-        try {
-            const res = await api('/owner/requests', { auth: true });
-            const items = (res && res.data) || [];
-            if (!items.length) {
-                el.innerHTML = '<tr><td colspan="4" class="empty-state"><strong>No requests yet.</strong><p>New requests will appear here as clients submit them.</p></td></tr>';
-            } else {
-                el.innerHTML = items.map((r) => `
-                    <tr>
-                        <td class="mono">#${r.id.split('-')[0]}</td>
-                        <td>${escape(r.subject)}</td>
-                        <td>${escape(r.status)}</td>
-                        <td class="muted">${escape(r.created_at)}</td>
-                    </tr>
-                `).join('');
-            }
-        } catch (error) {
-            el.innerHTML = `<tr><td colspan="4" class="empty-state"><span class="ico">!</span><strong>Could not load requests.</strong><p>${escape(error.message)}</p></td></tr>`;
-        }
-    }
-
-    async function loadRecentMessages() {
-        const el = document.getElementById('dash-recent-messages');
-        if (!el) return;
-        try {
-            const res = await api('/owner/conversations?limit=5', { auth: true });
-            const items = (res && res.data) || [];
-            if (!items.length) {
-                el.innerHTML = '<div class="empty-state"><span class="ico">·</span><strong>No messages yet.</strong></div>';
-                return;
-            }
-            el.innerHTML = items.slice(0, 5).map(c => `
-                <div style="padding:0.6rem 1.25rem;border-bottom:1px solid var(--line);cursor:pointer;" data-nav="messages">
-                    <div style="display:flex;justify-content:space-between;align-items:center;">
-                        <strong style="color:var(--ink);">${escape(c.client_name || 'Client')}</strong>
-                        ${(Number(c.unread_count) || 0) > 0 ? `<span class="pill status-new" style="font-size:0.65rem;">${Number(c.unread_count) || 0} unread</span>` : ''}
-                    </div>
-                    <div style="color:var(--ink-mute);font-size:0.85rem;white-space:pre-wrap;overflow:hidden;text-overflow:ellipsis;">${escape((c.last_message_body || '').slice(0, 80))}</div>
-                </div>
-            `).join('');
-        } catch (e) {
-            el.innerHTML = '<div class="empty-state"><span class="ico">!</span><strong>Could not load messages.</strong></div>';
-        }
-    }
-
-    async function loadRecentMatters() {
-        const el = document.getElementById('dash-recent-matters');
-        if (!el) return;
-        try {
-            const res = await api('/owner/matters', { auth: true });
-            const items = (res && res.data) || [];
-            if (!items.length) {
-                el.innerHTML = '<div class="empty-state"><span class="ico">·</span><strong>No open matters.</strong></div>';
-                return;
-            }
-            el.innerHTML = `<table class="table"><thead><tr><th>ID</th><th>Reference</th><th>Title</th><th>Client</th><th>Status</th><th>Updated</th><th>Actions</th></tr></thead><tbody>${items.map((m) => `
-                <tr>
-                    <td class="mono">#${m.id.split('-')[0]}</td>
-                    <td class="mono">${escape(m.reference)}</td>
-                    <td>${escape(m.title || '—')}</td>
-                    <td class="muted">${escape(m.client_name)}</td>
-                    <td>${escape(m.status)}</td>
-                    <td class="muted">${escape(m.updated_at)}</td>
-                    <td><button class="btn small secondary" data-matter="${m.id}">View</button></td>
-                </tr>
-            `).join('')}</tbody></table>`;
-            el.querySelectorAll('button[data-matter]').forEach((btn) => {
-                btn.addEventListener('click', () => loadMatterDetail(btn.getAttribute('data-matter')));
-            });
-        } catch (e) {
-            el.innerHTML = '<div class="empty-state"><span class="ico">!</span><strong>Could not load matters.</strong></div>';
-        }
-    }
-
     // Professional modal system
     function Modal(options) {
         this.options = { title: 'Modal', description: '', onSubmit: null, onCancel: null, submitText: 'Submit', cancelText: 'Cancel', fields: [], ...options };
@@ -448,6 +283,80 @@
 
     function showModal(options) {
         return new Modal(options);
+    }
+
+    function showToast(message, type = 'info') {
+        const toast = document.createElement('div');
+        toast.className = 'owner-toast owner-toast-' + (type || 'info');
+        toast.textContent = message || 'Action completed.';
+        toast.setAttribute('role', 'status');
+        toast.setAttribute('aria-live', 'polite');
+        document.body.appendChild(toast);
+        setTimeout(() => {
+            toast.classList.add('visible');
+        }, 20);
+        setTimeout(() => {
+            toast.classList.remove('visible');
+            setTimeout(() => toast.remove(), 220);
+        }, 2600);
+    }
+
+    function showConfirm({ title = 'Confirm', message = 'Are you sure?', confirmText = 'Confirm', cancelText = 'Cancel' } = {}) {
+        return new Promise((resolve) => {
+            const modal = new Modal({
+                title,
+                description: message,
+                submitText: confirmText,
+                cancelText,
+                fields: [],
+                onSubmit: () => resolve(true),
+                onCancel: () => resolve(false)
+            });
+            modal.show();
+            modal.cancelBtn?.addEventListener('click', () => resolve(false), { once: true });
+            modal.closeBtn?.addEventListener('click', () => resolve(false), { once: true });
+            modal.overlay?.addEventListener('click', () => resolve(false), { once: true });
+            modal.options.onCancel = () => resolve(false);
+        });
+    }
+
+    function showPrompt({
+        title = 'Input',
+        message = '',
+        label = 'Value',
+        required = false,
+        multiline = false,
+        defaultValue = ''
+    } = {}) {
+        return new Promise((resolve) => {
+            const modal = new Modal({
+                title,
+                description: message,
+                submitText: 'Save',
+                cancelText: 'Cancel',
+                fields: [{
+                    name: 'value',
+                    label,
+                    type: multiline ? 'textarea' : 'text',
+                    required,
+                    value: defaultValue,
+                    placeholder: multiline ? 'Write here…' : 'Type here…'
+                }],
+                onSubmit: (formData) => {
+                    const value = (formData.value || '').trim();
+                    if (required && !value) {
+                        throw new Error(label + ' is required.');
+                    }
+                    resolve(value);
+                },
+                onCancel: () => resolve(null)
+            });
+            modal.show();
+            modal.cancelBtn?.addEventListener('click', () => resolve(null), { once: true });
+            modal.closeBtn?.addEventListener('click', () => resolve(null), { once: true });
+            modal.overlay?.addEventListener('click', () => resolve(null), { once: true });
+            modal.options.onCancel = () => resolve(null);
+        });
     }
 
     // Modal CSS styles
@@ -607,6 +516,42 @@
             .btn-secondary:hover {
                 background: var(--bg-hover);
                 color: var(--ink);
+            }
+            .owner-toast {
+                position: fixed;
+                right: 24px;
+                bottom: 24px;
+                z-index: 12000;
+                max-width: min(360px, calc(100vw - 32px));
+                padding: 0.8rem 1rem;
+                border-radius: 10px;
+                border: 1px solid var(--line);
+                background: rgba(11, 11, 11, 0.94);
+                color: var(--ink);
+                box-shadow: var(--shadow-lg);
+                opacity: 0;
+                transform: translateY(8px);
+                transition: opacity 180ms ease, transform 180ms ease;
+                font-size: 0.85rem;
+            }
+            .owner-toast.visible {
+                opacity: 1;
+                transform: translateY(0);
+            }
+            .owner-toast-success {
+                border-color: rgba(45, 106, 79, 0.7);
+                background: rgba(45, 106, 79, 0.94);
+                color: #edf7f0;
+            }
+            .owner-toast-error {
+                border-color: rgba(168, 74, 58, 0.8);
+                background: rgba(168, 74, 58, 0.96);
+                color: #fff4f2;
+            }
+            .owner-toast-warning {
+                border-color: rgba(184, 134, 46, 0.8);
+                background: rgba(184, 134, 46, 0.94);
+                color: #fff9ed;
             }
             @media (max-width: 640px) {
                 .modal-content {
@@ -1404,7 +1349,7 @@
                             const convoRes = await api(`/owner/matters/${encodeURIComponent(r.matter_id)}/conversation`, { auth: true });
                             const convo = (convoRes && convoRes.data) || {};
                             if (convo.id) { navigateTo('messages', convo.id); }
-                        } catch (err) { alert(err.message || 'Could not open conversation.'); }
+                        } catch (err) { showToast(err.message || 'Could not open conversation.', 'error'); }
                         return;
                     }
                     // No matter yet — ask for initial message to create request-scoped conversation
@@ -1461,7 +1406,7 @@
                         const convoRes = await api(`/owner/matters/${encodeURIComponent(r.matter_id)}/conversation`, { auth: true });
                         const convo = (convoRes && convoRes.data) || {};
                         if (convo.id) { navigateTo('messages', convo.id); }
-                    } catch (err) { alert(err.message || 'Could not open conversation.'); }
+                    } catch (err) { showToast(err.message || 'Could not open conversation.', 'error'); }
                 });
             }
 
@@ -1491,7 +1436,7 @@
             const declineBtn = document.getElementById('btn-decline');
             if (declineBtn) {
                 declineBtn.addEventListener('click', async () => {
-                    const reason = prompt('Reason for declining (optional):');
+                    const reason = await showPrompt({ title: 'Decline Request', message: 'Enter a reason for declining (optional):', label: 'Reason', required: false });
                     if (reason === null) return;
                     setWorkflowStatus('Declining…', 'form-status');
                     try {
@@ -1506,12 +1451,12 @@
 
             const infoBtn = document.getElementById('btn-info');
             if (infoBtn) {
-                infoBtn.addEventListener('click', () => {
-                    const itemsStr = prompt('What information do you need? (one per line)');
+                infoBtn.addEventListener('click', async () => {
+                    const itemsStr = await showPrompt({ title: 'Request Information', message: 'What information do you need? (one per line)', label: 'Information items', required: true, multiline: true });
                     if (!itemsStr) return;
                     const items = itemsStr.split('\n').map(s => s.trim()).filter(Boolean);
                     if (!items.length) return;
-                    const message = prompt('Optional message to the client:') || '';
+                    const message = await showPrompt({ title: 'Request Information', message: 'Optional message to the client:', label: 'Message', required: false, multiline: true }) || '';
                     setWorkflowStatus('Requesting information…', 'form-status');
                     api(`/owner/requests/${encodeURIComponent(r.id)}/request-info`, {
                         method: 'POST',
@@ -1567,7 +1512,7 @@
                         const convoRes = await api(`/owner/matters/${encodeURIComponent(r.matter_id)}/conversation`, { auth: true });
                         const convo = (convoRes && convoRes.data) || {};
                         if (convo.id) { navigateTo('messages', convo.id); }
-                    } catch (err) { alert(err.message || 'Could not open conversation.'); }
+                    } catch (err) { showToast(err.message || 'Could not open conversation.', 'error'); }
                 });
             }
 
@@ -1579,16 +1524,16 @@
                         try {
                             const convoRes = await api(`/owner/matters/${encodeURIComponent(r.matter_id)}/conversation`, { auth: true });
                             if (convoRes.data && convoRes.data.id) { navigateTo('messages', convoRes.data.id); }
-                        } catch (err) { alert(err.message || 'Could not open conversation.'); }
+                        } catch (err) { showToast(err.message || 'Could not open conversation.', 'error'); }
                         return;
                     }
-                    const body = prompt('Write your message to the client:') || '';
+                    const body = await showPrompt({ title: 'Message Client', message: 'Write your message to the client:', label: 'Message', required: true, multiline: true }) || '';
                     if (!body.trim()) return;
                     try {
                         const convoRes = await api(`/owner/requests/${encodeURIComponent(r.id)}/message`, { method: 'POST', body: { body: body.trim() }, auth: true });
                         const convoId = (convoRes && convoRes.data && convoRes.data.conversation_id) || null;
                         if (convoId) { navigateTo('messages', convoId); }
-                    } catch (err) { alert(err.message || 'Could not open conversation.'); }
+                    } catch (err) { showToast(err.message || 'Could not open conversation.', 'error'); }
                 });
             }
         } catch (error) {
@@ -1699,13 +1644,13 @@
             container.querySelectorAll('button[data-cancel]').forEach((btn) => {
                 btn.addEventListener('click', async () => {
                     const id = btn.getAttribute('data-cancel');
-                    if (!confirm('Cancel this appointment?')) return;
+                    if (!await showConfirm({ title: 'Cancel Appointment', message: 'Are you sure you want to cancel this appointment?', confirmText: 'Yes, cancel', cancelText: 'Keep appointment' })) return;
                     try {
                         await api('/owner/appointments/' + encodeURIComponent(id) + '/cancel', { method: 'POST', auth: true });
-                        alert('Appointment cancelled.');
+                        showToast('Appointment cancelled.', 'success');
                         loadAppointments();
                     } catch (e) {
-                        alert('Failed: ' + (e.message || ''));
+                        showToast('Failed: ' + (e.message || ''), 'error');
                     }
                 });
             });
@@ -1714,10 +1659,10 @@
                     const id = btn.getAttribute('data-complete');
                     try {
                         await api('/owner/appointments/' + encodeURIComponent(id) + '/complete', { method: 'POST', auth: true });
-                        alert('Appointment marked complete.');
+                        showToast('Appointment marked complete.', 'success');
                         loadAppointments();
                     } catch (e) {
-                        alert('Failed: ' + (e.message || ''));
+                        showToast('Failed: ' + (e.message || ''), 'error');
                     }
                 });
             });
@@ -1886,8 +1831,8 @@
             const matterId = form.matter_id.value.trim();
             const fileInput = form.file;
             const originalName = form.original_name.value.trim();
-            if (!matterId) { alert('Please select a matter.'); return; }
-            if (!fileInput.files || !fileInput.files[0]) { alert('Please choose a file.'); return; }
+            if (!matterId) { showToast('Please select a matter.', 'warning'); return; }
+            if (!fileInput.files || !fileInput.files[0]) { showToast('Please choose a file.', 'warning'); return; }
             const fd = new FormData();
             fd.append('file', fileInput.files[0]);
             fd.append('matter_id', matterId);
@@ -1900,7 +1845,7 @@
                 close();
                 await loadDocuments();
             } catch (err) {
-                alert('Upload failed: ' + (err.message || 'Unknown error'));
+                showToast('Upload failed: ' + (err.message || 'Unknown error'), 'error');
             } finally {
                 submitBtn.disabled = false;
                 submitBtn.textContent = 'Upload';
@@ -1936,7 +1881,7 @@
                     document.body.removeChild(a);
                     URL.revokeObjectURL(url);
                 } catch (err) {
-                    alert('Could not download document: ' + (err.message || 'Unknown error'));
+                    showToast('Could not download document: ' + (err.message || 'Unknown error'), 'error');
                 }
             });
         });
@@ -2302,7 +2247,7 @@
                         replyForm.reset();
                          await loadOwnerConversationDetail(id);
                     } catch (err) {
-                        alert(err.message || 'Could not send reply.');
+                        showToast(err.message || 'Could not send reply.', 'error');
                     } finally {
                         btn.disabled = false;
                     }
@@ -2677,7 +2622,7 @@
                         document.body.removeChild(a);
                         URL.revokeObjectURL(url);
                     } catch (err) {
-                        alert('Could not download document: ' + (err.message || 'Unknown error'));
+                        showToast('Could not download document: ' + (err.message || 'Unknown error'), 'error');
                     }
                 });
             });
@@ -2982,7 +2927,7 @@
                         document.body.removeChild(a);
                         URL.revokeObjectURL(url);
                     } catch (err) {
-                        alert('Could not download document: ' + (err.message || 'Unknown error'));
+                        showToast('Could not download document: ' + (err.message || 'Unknown error'), 'error');
                     }
                 });
             } else if (downloadBtn) {
@@ -3311,9 +3256,24 @@
         const fileInput = overlay.querySelector('#qr-file');
         const preview = overlay.querySelector('#qr-preview');
         const previewWrap = overlay.querySelector('.qr-preview-wrap');
+        const MAX_QR_FILE_BYTES = 10 * 1024 * 1024;
+        const validateQrFile = (file) => {
+            if (!file) return 'Please choose a QR image.';
+            if (!['image/png', 'image/jpeg', 'image/webp', 'image/gif'].includes(file.type)) {
+                return 'Only PNG, JPEG, WebP, and GIF QR images are allowed.';
+            }
+            if (file.size > MAX_QR_FILE_BYTES) {
+                return 'QR image must be under 10 MB.';
+            }
+            return null;
+        };
+
         fileInput?.addEventListener('change', () => {
             const file = fileInput.files && fileInput.files[0];
-            if (!file) {
+            const errorMessage = validateQrFile(file);
+            if (errorMessage) {
+                showToast(errorMessage, 'warning');
+                fileInput.value = '';
                 preview.src = '';
                 previewWrap.classList.remove('qr-preview-visible');
                 return;
@@ -3331,7 +3291,8 @@
             const form = e.target;
             const fileInput = form.querySelector('#qr-file');
             const file = fileInput.files && fileInput.files[0];
-            if (!file) { alert('Please choose a QR image.'); return; }
+            const validationError = validateQrFile(file);
+            if (validationError) { showToast(validationError, 'warning'); return; }
 
             const dataUrl = await new Promise((resolve, reject) => {
                 const reader = new FileReader();
@@ -3354,7 +3315,7 @@
                 close();
                 loadSettings();
             } catch (err) {
-                alert('Upload failed: ' + (err.message || 'Unknown error'));
+                showToast('Upload failed: ' + (err.message || 'Unknown error'), 'error');
             } finally {
                 submitBtn.disabled = false;
                 submitBtn.textContent = 'Upload QR';
@@ -3366,26 +3327,25 @@
     }
 
     async function showDestinationModal(destId) {
-        if (destId) {
-            // Edit Payment Destination is intentionally not implemented here
-            // so it can be handled separately without changing existing behavior.
-            return;
-        }
+        const destinations = await api('/owner/payment-destinations', { auth: true }).then(r => (r && r.data) || []).catch(() => []);
+        const existing = destId ? destinations.find((item) => item.id === destId) : null;
         const modal = new Modal({
-            title: 'Add Payment Destination',
-            description: 'Add a new payment destination for clients to pay into. The company name shown to payers comes from system settings.',
+            title: existing ? 'Edit Payment Destination' : 'Add Payment Destination',
+            description: existing
+                ? 'Update the payment destination for clients to pay into.'
+                : 'Add a new payment destination for clients to pay into. The company name shown to payers comes from system settings.',
             fields: [
-                { name: 'method', label: 'Method', type: 'select', required: true, options: [
+                { name: 'method', label: 'Method', type: 'select', required: true, value: existing ? existing.method : 'mobile_money', options: [
                     { value: 'mobile_money', label: 'Mobile Money' },
                     { value: 'bank', label: 'Bank Transfer' },
                     { value: 'qr', label: 'QR Code' }
                 ] },
-                { name: 'label', label: 'Label', type: 'text', required: true, placeholder: 'e.g. M-Pesa Paybill' },
-                { name: 'lipa_number', label: 'Mobile Money Number', type: 'text', required: false, placeholder: 'e.g. 12345678' },
-                { name: 'bank_name', label: 'Bank Name', type: 'text', required: false, placeholder: 'e.g. Equity Bank' },
-                { name: 'bank_account_name', label: 'Account Name', type: 'text', required: false },
-                { name: 'bank_account_number', label: 'Account Number', type: 'text', required: false },
-                { name: 'instructions', label: 'Instructions', type: 'textarea', required: false, placeholder: 'Reference number or notes for payers' }
+                { name: 'label', label: 'Label', type: 'text', required: true, value: existing ? existing.label || '' : '', placeholder: 'e.g. M-Pesa Paybill' },
+                { name: 'lipa_number', label: 'Mobile Money Number', type: 'text', required: false, value: existing ? existing.lipa_number || '' : '', placeholder: 'e.g. 12345678' },
+                { name: 'bank_name', label: 'Bank Name', type: 'text', required: false, value: existing ? existing.bank_name || '' : '', placeholder: 'e.g. Equity Bank' },
+                { name: 'bank_account_name', label: 'Account Name', type: 'text', required: false, value: existing ? existing.bank_account_name || '' : '' },
+                { name: 'bank_account_number', label: 'Account Number', type: 'text', required: false, value: existing ? existing.bank_account_number || '' : '' },
+                { name: 'instructions', label: 'Instructions', type: 'textarea', required: false, value: existing ? existing.instructions || '' : '', placeholder: 'Reference number or notes for payers' }
             ],
             onSubmit: async (formData) => {
                 if (!formData.method) {
@@ -3415,12 +3375,17 @@
                 if (formData.bank_account_number && formData.bank_account_number.trim()) payload.bank_account_number = formData.bank_account_number.trim();
                 if (formData.instructions && formData.instructions.trim()) payload.instructions = formData.instructions.trim();
                 try {
-                    await api('/owner/payment-destinations', { method: 'POST', auth: true, body: payload });
+                    if (existing) {
+                        await api('/owner/payment-destinations/' + encodeURIComponent(destId), { method: 'PATCH', auth: true, body: payload });
+                    } else {
+                        await api('/owner/payment-destinations', { method: 'POST', auth: true, body: payload });
+                    }
+                    showToast(existing ? 'Payment destination updated.' : 'Payment destination added.', 'success');
+                    loadSettings();
                 } catch (err) {
                     showModalError(modal, err);
                     throw err;
                 }
-                loadSettings();
             }
         });
         modal.show();

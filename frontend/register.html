@@ -8,44 +8,86 @@
     <link rel="stylesheet" href="styles.css">
     <link rel="stylesheet" href="login.css">
 </head>
-<body>
-    <div class="site-shell">
+<body class="auth-page">
+    <div class="site-shell auth-site-shell">
         <div data-site-header></div>
 
-        <main class="site-main">
-            <section class="form-shell">
-                <div class="wrap wrap-tight">
-                    <div class="section-title mb-4">
-                        <span class="kicker">Client portal</span>
-                        <h1>Create an account.</h1>
-                        <p class="text-muted">An account lets you submit matters, see status, and exchange secure messages with the firm.</p>
+        <main class="auth-shell">
+            <aside class="auth-side" aria-label="Security overview">
+                <div class="auth-side-inner">
+                    <div class="auth-brand-block">
+                        <div class="auth-mark" aria-hidden="true">EC</div>
+                        <div class="auth-brand-copy">
+                            <span>ET CETRA</span>
+                            <small>ADVOCATES COMPANY LIMITED</small>
+                        </div>
                     </div>
 
-                    <form id="registerForm" class="form form-panel form-panel--narrow" novalidate>
-                        <div class="field">
-                            <label for="rg-name">Full name</label>
-                            <input id="rg-name" name="fullName" type="text" autocomplete="name" minlength="2" maxlength="160" required>
-                            <span class="error">Please provide your full name.</span>
+                    <div class="auth-side-meta">FILE EC/AUTH/28-A</div>
+
+                    <h1>Claim your client file.</h1>
+                    <p>Chambers issues every client a numbered file. Create your sign-in to activate it — your history, documents and counsel appear instantly.</p>
+
+                    <div class="auth-trust-card" aria-label="Security guarantees">
+                        <div class="trust-heading">CHAIN OF CUSTODY</div>
+                        <ul>
+                            <li>Encrypted in transit &amp; at rest</li>
+                            <li>Logged access trail</li>
+                            <li>LSK advocate oversight</li>
+                        </ul>
+                    </div>
+                </div>
+
+                <div class="auth-side-footer">
+                    <span>Privileged notice applies</span>
+                    <span>Nairobi • 2026</span>
+                </div>
+            </aside>
+
+            <section class="auth-main">
+                <div class="auth-card auth-card--narrow">
+                    <div class="auth-kicker">CREATE WORKSPACE · 2 MINUTES</div>
+                    <h2>Activate file EC/2026/1902.</h2>
+                    <div class="auth-success-banner" aria-live="polite">
+                        <span class="banner-dot" aria-hidden="true"></span>
+                        Invitation verified — Amina Yusuf · referred by W. Njeri
+                    </div>
+
+                    <form id="registerForm" class="auth-form" novalidate>
+                        <div class="field auth-field auth-inline-grid">
+                            <div class="auth-grid-item">
+                                <label for="rg-name">Full legal name</label>
+                                <input id="rg-name" name="fullName" type="text" autocomplete="name" minlength="2" maxlength="160" required placeholder="Amina Yusuf">
+                                <span class="error">Please provide your full name.</span>
+                            </div>
+                            <div class="auth-grid-item">
+                                <label for="rg-id">National ID / Passport</label>
+                                <input id="rg-id" name="idNumber" type="text" autocomplete="off" placeholder="KE · 44•••••21">
+                            </div>
                         </div>
-                        <div class="field">
+
+                        <div class="field auth-field">
                             <label for="rg-email">Email address</label>
-                            <input id="rg-email" name="email" type="email" autocomplete="email" required>
-                            <span class="error">Please provide a valid email.</span>
+                            <input id="rg-email" name="email" type="email" autocomplete="email" required placeholder="you@example.com">
+                            <span class="error">Please provide a valid email address.</span>
                         </div>
-                        <div class="field">
-                            <label for="rg-password">Password</label>
-                            <input id="rg-password" name="password" type="password" autocomplete="new-password" minlength="12" required>
+
+                        <div class="field auth-field">
+                            <label for="rg-password">Create password</label>
+                            <input id="rg-password" name="password" type="password" autocomplete="new-password" minlength="12" required placeholder="StrongPassword!2026">
                             <span class="help">At least 12 characters.</span>
                             <span class="error">Password must be at least 12 characters.</span>
                         </div>
 
-                        <div class="form-status" id="rg-status" role="status" aria-live="polite"></div>
+                        <label class="remember-box remember-box-large" for="accept-privilege">
+                            <input id="accept-privilege" type="checkbox" checked>
+                            <span>I accept the client file letter, privacy notice and fee terms. I confirm I am the invited person.</span>
+                        </label>
 
-                        <div class="actions">
-                            <button type="submit" class="button">Create account <span class="arrow" aria-hidden="true">→</span></button>
-                            <a class="button ghost-dark" href="login.html">I already have an account</a>
-                            <a class="button ghost-dark" href="/">← Back to website</a>
-                        </div>
+                        <div id="rg-status" class="form-status" role="status" aria-live="polite"></div>
+
+                        <button type="submit" class="button auth-submit">Activate workspace <span class="arrow" aria-hidden="true">→</span></button>
+                        <a class="button ghost-dark auth-ghost" href="login.html">Already activated? Sign in</a>
                     </form>
                 </div>
             </section>

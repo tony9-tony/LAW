@@ -26,6 +26,7 @@ paymentRouter.use(authenticate);
 const SUBMIT_PAYMENT_SCHEMA = z.object({
     invoice_id: z.string().uuid(),
     method: z.enum(['mobile_money', 'bank', 'qr']),
+    destination_id: z.string().uuid().optional(),
     reference_number: z.string().trim().max(200).optional(),
     message: z.string().trim().max(1000).optional(),
     receipt: z.string().min(1)
@@ -38,6 +39,7 @@ paymentRouter.post('/', async (request, response, next) => {
             invoiceId: input.invoice_id,
             clientId: request.user.sub,
             method: input.method,
+            destinationId: input.destination_id,
             referenceNumber: input.reference_number,
             message: input.message,
             receiptData: input.receipt

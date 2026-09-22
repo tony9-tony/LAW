@@ -136,7 +136,7 @@ const QR_TYPES = new Map([
     ['image/webp', '.webp'],
     ['image/gif', '.gif']
 ]);
-const MAX_QR_BYTES = 5 * 1024 * 1024;
+const MAX_QR_BYTES = 10 * 1024 * 1024;
 
 export async function uploadPaymentDestinationQR(id, qrDataUrl) {
     if (!qrDataUrl) {
@@ -168,7 +168,7 @@ export async function uploadPaymentDestinationQR(id, qrDataUrl) {
         throw error;
     }
     if (buffer.length > MAX_QR_BYTES) {
-        const error = new Error('QR image exceeds 2 MB');
+        const error = new Error('QR image must be under 10 MB');
         error.statusCode = 400;
         error.code = 'VALIDATION_ERROR';
         throw error;
@@ -206,7 +206,7 @@ export async function removePaymentDestinationQR(id) {
     return getPaymentDestination(id);
 }
 
-export async function submitPayment({ invoiceId, clientId, method, referenceNumber, message, receiptData }) {
+export async function submitPayment({ invoiceId, clientId, method, destinationId, referenceNumber, message, receiptData }) {
     if (!receiptData) {
         const error = new Error('Receipt image is required');
         error.statusCode = 400;
@@ -243,7 +243,8 @@ export async function submitPayment({ invoiceId, clientId, method, referenceNumb
     }
 
     const invoiceResult = await query(
-        `SELECT id, client_id, total, payment_status FROM invoices WHERE id = $1 LIMIT 1`,
+        `SELECT id, client_id, total, payment_status, payment_destination_id, payment_destination_method
+         FROM invoices WHERE id = $1 LIMIT 1`,
         [invoiceId]
     );
     if (invoiceResult.rowCount === 0) {
@@ -258,6 +259,22 @@ export async function submitPayment({ invoiceId, clientId, method, referenceNumb
         error.statusCode = 404;
         error.code = 'NOT_FOUND';
         throw error;
+    }
+    if (invoice.payment_destination_method) {
+        if (invoice.payment_destination_method !== method || (destinationId && invoice.payment_destination_id && destinationId !== invoice.payment_destination_id)) {
+            const error = new Error('Payment method does not match the invoice payment destination');
+            error.statusCode = 409;
+            error.code = 'INVALID_PAYMENT_METHOD';
+            throw error;
+        }
+    } else {
+        const active = await listActiveDestinations(method);
+        if (!active.length || (destinationId && active[0].id !== destinationId)) {
+            const error = new Error('Payment method is not currently configured');
+            error.statusCode = 409;
+            error.code = 'INVALID_PAYMENT_METHOD';
+            throw error;
+        }
     }
     if (invoice.payment_status !== PAYMENT_STATUS.PAYMENT_REQUIRED && invoice.payment_status !== PAYMENT_STATUS.PAYMENT_REJECTED) {
         const error = new Error('Invoice is not in a payable state');

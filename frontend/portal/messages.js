@@ -427,6 +427,18 @@
             } catch (e) { /* fall through */ }
         }
         if (!matterId) {
+            if (requestId) {
+                try {
+                    const r = await API.getRequestConversation(requestId);
+                    if (r.data && r.data.id) {
+                        conversationId = r.data.id;
+                        loadThread(conversationId, { requestId });
+                        return;
+                    }
+                } catch (err) {
+                    if (err && err.status === 401) { window.location.replace('../login.html'); return; }
+                }
+            }
             if (notice) {
                 notice.innerHTML = '<strong>No conversation available yet.</strong> Submit a request and the firm will start a conversation once they review it.';
                 notice.style.display = '';

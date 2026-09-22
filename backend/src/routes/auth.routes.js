@@ -5,14 +5,22 @@ import { query } from '../db.js';
 import { logAudit } from '../lib/audit.js';
 
 const credentials = z.object({ email: z.string().email(), password: z.string().min(12) });
-const registration = credentials.extend({ fullName: z.string().trim().min(2).max(160) });
+const registration = credentials.extend({
+    fullName: z.string().trim().min(2).max(160),
+    role: z.enum(['CLIENT', 'LAWYER', 'STAFF', 'OWNER']).optional().default('CLIENT'),
+});
 const setupOwner = registration.extend({ role: z.literal('OWNER') });
 export const authRouter = Router();
 
 authRouter.post('/register', async (request, response, next) => {
     try {
         const input = registration.parse(request.body);
-        const user = await registerUser(input);
+        const user = await registerUser({
+            email: input.email,
+            password: input.password,
+            fullName: input.fullName,
+            role: input.role ?? 'CLIENT',
+        });
         await logAudit({ actorId: user.id, action: 'REGISTER', entityType: 'user', entityId: user.id, metadata: { role: user.role } });
         response.status(201).json({ data: user });
     } catch (error) { next(error); }

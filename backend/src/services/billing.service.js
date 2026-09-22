@@ -47,12 +47,21 @@ export async function recalcInvoiceTotals(invoiceId) {
    Line items are supplied by the caller; amounts are snapshotted here. */
 export async function createInvoiceForRequest({ requestId, matterId, clientId, currency = 'TZS', items = [], instructions = null, paymentStatus = PAYMENT_STATUS.PAYMENT_REQUIRED }) {
     const subtotal = items.reduce((sum, it) => sum + (Number(it.amount) || 0), 0);
+    const destination = await getActivePaymentDestinationSnapshot();
     const result = await withTransaction(async (client) => {
         const inserted = await client.query(
-            `INSERT INTO invoices (matter_id, client_id, request_id, status, currency, subtotal, tax, total, payment_status, payment_instructions)
-             VALUES ($1, $2, $3, 'DRAFT', $4, $5, 0, $5, $6, $7)
-             RETURNING id, matter_id, client_id, request_id, status, currency, subtotal, tax, total, payment_status, payment_instructions, created_at`,
-            [matterId || null, clientId, requestId, currency, subtotal, paymentStatus, instructions || null]
+            `INSERT INTO invoices (matter_id, client_id, request_id, status, currency, subtotal, tax, total, payment_status, payment_instructions,
+                                  payment_lipa_number, payment_bank_name, payment_bank_account_name, payment_bank_account_number,
+                                  payment_qr_storage_key, payment_qr_content_type, payment_destination_method, payment_destination_label, payment_destination_id)
+             VALUES ($1, $2, $3, 'DRAFT', $4, $5, 0, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16)
+             RETURNING id, matter_id, client_id, request_id, status, currency, subtotal, tax, total, payment_status, payment_instructions,
+                       payment_destination_method, payment_destination_label, payment_destination_id, created_at`,
+            [matterId || null, clientId, requestId, currency, subtotal, paymentStatus, instructions || null,
+             destination?.payment_lipa_number || null, destination?.payment_bank_name || null,
+             destination?.payment_bank_account_name || null, destination?.payment_bank_account_number || null,
+             destination?.payment_qr_storage_key || null, destination?.payment_qr_content_type || null,
+             destination?.payment_destination_method || null, destination?.payment_destination_label || null,
+             destination?.payment_destination_id || null]
         );
         const invoice = inserted.rows[0];
         for (const it of items) {
@@ -70,12 +79,21 @@ export async function createInvoiceForRequest({ requestId, matterId, clientId, c
 /* OWNER-facing invoice creation (matter-anchored, no request required). */
 export async function createInvoice({ matterId, clientId, requestId = null, currency = 'TZS', items = [], status = 'DRAFT', instructions = null, paymentStatus = PAYMENT_STATUS.UNPAID }) {
     const subtotal = items.reduce((sum, it) => sum + (Number(it.amount) || 0), 0);
+    const destination = await getActivePaymentDestinationSnapshot();
     const result = await withTransaction(async (client) => {
         const inserted = await client.query(
-            `INSERT INTO invoices (matter_id, client_id, request_id, status, currency, subtotal, tax, total, payment_status, payment_instructions)
-             VALUES ($1, $2, $3, $4, $5, $6, 0, $6, $7, $8)
-             RETURNING id, matter_id, client_id, request_id, status, currency, subtotal, tax, total, payment_status, payment_instructions, created_at`,
-            [matterId, clientId, requestId, status, currency, subtotal, paymentStatus, instructions || null]
+            `INSERT INTO invoices (matter_id, client_id, request_id, status, currency, subtotal, tax, total, payment_status, payment_instructions,
+                                  payment_lipa_number, payment_bank_name, payment_bank_account_name, payment_bank_account_number,
+                                  payment_qr_storage_key, payment_qr_content_type, payment_destination_method, payment_destination_label, payment_destination_id)
+             VALUES ($1, $2, $3, $4, $5, $6, 0, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17)
+             RETURNING id, matter_id, client_id, request_id, status, currency, subtotal, tax, total, payment_status, payment_instructions,
+                       payment_destination_method, payment_destination_label, payment_destination_id, created_at`,
+            [matterId, clientId, requestId, status, currency, subtotal, paymentStatus, instructions || null,
+             destination?.payment_lipa_number || null, destination?.payment_bank_name || null,
+             destination?.payment_bank_account_name || null, destination?.payment_bank_account_number || null,
+             destination?.payment_qr_storage_key || null, destination?.payment_qr_content_type || null,
+             destination?.payment_destination_method || null, destination?.payment_destination_label || null,
+             destination?.payment_destination_id || null]
         );
         const invoice = inserted.rows[0];
         for (const it of items) {

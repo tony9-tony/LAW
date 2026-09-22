@@ -87,7 +87,7 @@
         </a>
     </div>
     <div class="portal-actions">
-        <a class="public-link" href="/">← Back to website</a>
+        <a class="public-link" href="../index.html">← Back to website</a>
         <div class="portal-user">
             <span>${u.fullName || u.email || 'Signed in'}</span>
             <span class="avatar" aria-hidden="true">${initials}</span>
