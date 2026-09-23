@@ -1,4 +1,5 @@
-/* Consultation booking — client-side validation, builds a request, calls existing API. */
+/* Consultation booking — client-side validation, creates an Appointment +
+   linked Invoice via the existing API. No Matter is created. */
 (function () {
     'use strict';
 
@@ -56,6 +57,27 @@
         }
     }, true);
 
+    function buildStartEnd() {
+        const date = (form.querySelector('input[name="preferredDate"]') || {}).value || '';
+        const time = (form.querySelector('input[name="preferredTime"]') || {}).value || '';
+        if (!date) return { error: 'Please choose a preferred date.' };
+        const start = new Date(`${date}T${time || '09:00'}`);
+        if (Number.isNaN(start.getTime())) return { error: 'Preferred date/time is invalid.' };
+        const end = new Date(start.getTime() + 60 * 60 * 1000);
+        return { startsAt: start.toISOString(), endsAt: end.toISOString() };
+    }
+
+    function mapConsultationType(label) {
+        if (!label) return null;
+        const map = {
+            'Initial': 'INITIAL_CONSULTATION',
+            'Follow-up': 'FOLLOW_UP',
+            'Document review': 'MATTER_CONSULTATION',
+            'Advisory': 'GENERAL_CONSULTATION'
+        };
+        return map[label] || null;
+    }
+
     form.addEventListener('submit', async (e) => {
         e.preventDefault();
         status.className = 'form-status';
@@ -73,30 +95,44 @@
         const data = {};
         new FormData(form).forEach((v, k) => { data[k] = v; });
 
-        const subject = (data.subject || `${data.consultType} consultation`).trim();
-        const descriptionLines = [
-            `Consultation type: ${data.consultType || 'Not specified'}`,
-            `Existing client: ${data.existing || 'No'}`,
-            `Preferred: ${[data.preferredDate, data.preferredTime].filter(Boolean).join(' ') || 'Flexible'}`,
-            data.alternateDate || data.alternateTime ? `Alternate: ${[data.alternateDate, data.alternateTime].filter(Boolean).join(' ') || ''}` : '',
-            `Format: ${data.format || 'In person'}`,
-            '',
-            (data.description || '').trim()
-        ].filter(Boolean);
-        const description = descriptionLines.join('\n');
+        const time = buildStartEnd();
+        if (time.error) {
+            status.className = 'form-status error';
+            status.innerHTML = '<strong>Please review the form.</strong>' + time.error;
+            return;
+        }
+
+        const payload = {
+            consultationType: mapConsultationType(data.consultType),
+            meetingMode: (data.format || '').toLowerCase().includes('video') ? 'VIDEO'
+                : (data.format || '').toLowerCase().includes('phone') ? 'PHONE' : 'IN_PERSON',
+            durationMinutes: 60,
+            locationDetails: data.format || null,
+            startsAt: time.startsAt,
+            endsAt: time.endsAt,
+            notes: [
+                `Consultation type: ${data.consultType || 'Not specified'}`,
+                `Existing client: ${data.existing || 'No'}`,
+                `Format: ${data.format || 'In person'}`,
+                (data.phone ? `Phone: ${data.phone}` : ''),
+                (data.description || '').trim()
+            ].filter(Boolean).join('\n')
+        };
 
         try {
-            const res = await window.Site.API.createRequest({ subject, description });
-            const ref = res && res.data && res.data.id;
+            const res = await window.Site.API.bookConsultation(payload);
+            const appt = res && res.data && res.data.apointment || (res && res.data && res.data.appointment);
+            const invoice = res && res.data && res.data.invoice;
+            const ref = appt ? appt.id : null;
             status.className = 'form-status success';
-            status.innerHTML = '<strong>Request submitted — under review.</strong>The firm has received your consultation request and will confirm an appointment.' +
+            status.innerHTML = '<strong>Consultation booked.</strong>The firm has received your booking. An invoice has been created and is now awaiting payment.' +
                 (ref ? ` Your reference is <strong>#${String(ref).padStart(5,'0')}</strong>.` : '') +
-                ' No appointment is confirmed until the firm responds. Redirecting to your requests…';
+                ' Redirecting to your appointments…';
             form.reset();
-            setTimeout(() => { window.location.href = `requests.html`; }, 1200);
+            setTimeout(() => { window.location.href = `appointments.html`; }, 1200);
         } catch (apiErr) {
             status.className = 'form-status error';
-            status.innerHTML = '<strong>Could not submit your request.</strong>' + (apiErr && apiErr.message ? apiErr.message : 'Please try again.');
+            status.innerHTML = '<strong>Could not book your consultation.</strong>' + (apiErr && apiErr.message ? apiErr.message : 'Please try again.');
         }
     });
 })();

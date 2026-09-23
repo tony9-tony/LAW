@@ -67,7 +67,14 @@ requestRouter.get('/:id', async (request, response, next) => {
             `SELECT id, reference, status FROM matters WHERE originating_request_id = $1 LIMIT 1`,
             [row.id]
         );
-        response.json({ data: { ...row, originating_matter: matter.rows[0] || null } });
+        /* Surface the invoice set for this request so the client can pay it
+           through the standard invoice payment flow. */
+        const invoice = await query(
+            `SELECT id, status, payment_status, total, currency, created_at
+               FROM invoices WHERE request_id = $1 ORDER BY created_at DESC LIMIT 1`,
+            [row.id]
+        );
+        response.json({ data: { ...row, originating_matter: matter.rows[0] || null, invoice: invoice.rows[0] || null } });
     } catch (error) { next(error); }
 });
 

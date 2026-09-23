@@ -6,6 +6,15 @@
     const P = window.Portal;
 
     function escape(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, (c) => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[c])); }
+
+    function fmtCurrency(amount, currency) {
+        if (amount == null) return '—';
+        try {
+            const n = Number(amount);
+            if (Number.isNaN(n)) return String(amount);
+            return new Intl.NumberFormat('en-TZ', { style: 'currency', currency: (currency || 'TZS').toUpperCase() }).format(n);
+        } catch (e) { return String(amount); }
+    }
     function getParam(name) {
         return new URLSearchParams(location.search).get(name);
     }
@@ -453,6 +462,9 @@
                         </div>
                     </section>
 
+                    <!-- Payment set for this request uses the standard invoice payment flow. -->
+                    ${invoicePanel(request)}
+
                     <section class="panel">
                         <div class="panel-head"><h2>Related matter</h2></div>
                         <div class="panel-body">
@@ -479,6 +491,26 @@
         initComposer();
         if (msgSection) msgSection.style.display = '';
         await loadConversation(id, request.originating_matter && request.originating_matter.id ? request.originating_matter.id : null);
+    }
+
+    /* Payment panel for a request with a linked invoice: links to the invoice's
+       Pay Now section (same payment UI as matter invoices and consultations). */
+    function invoicePanel(request) {
+        const invoice = request.invoice;
+        if (!invoice) return '';
+        const paid = (invoice.payment_status || '').toUpperCase() === 'PAID';
+        return `
+                    <section class="panel">
+                        <div class="panel-head"><h2>Payment</h2></div>
+                        <div class="panel-body">
+                            <dl class="detail-meta">
+                                <dt>Invoice</dt><dd class="ref">#${String(invoice.id).padStart(5, '0')}</dd>
+                                <dt>Status</dt><dd><span class="pill">${escape(String(invoice.payment_status || 'UNPAID').replace(/_/g, ' '))}</span></dd>
+                                <dt>Amount</dt><dd>${fmtCurrency(invoice.total, invoice.currency)}</dd>
+                            </dl>
+                            ${paid ? '' : `<a class="btn primary spacer-2" href="invoices.html?id=${encodeURIComponent(invoice.id)}#payment-section">Pay Now <span class="arrow" aria-hidden="true">→</span></a>`}
+                        </div>
+                    </section>`;
     }
 
     function acceptedCopy(status) {

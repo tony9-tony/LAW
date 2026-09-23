@@ -1676,10 +1676,13 @@ ownerRouter.get('/appointments', async (request, response, next) => {
                     a.duration_minutes, a.location_details, a.starts_at, a.ends_at, a.status, a.notes,
                     a.created_at, a.updated_at,
                     u.email AS client_email, u.full_name AS client_name,
-                    m.reference AS matter_reference, m.title AS matter_title
+                    m.reference AS matter_reference, m.title AS matter_title,
+                    inv.id AS invoice_id, inv.total AS invoice_total, inv.payment_status AS invoice_payment_status,
+                    inv.payment_destination_method AS invoice_payment_method
              FROM appointments a
              JOIN users u ON u.id = a.client_id
              LEFT JOIN matters m ON m.id = a.matter_id
+             LEFT JOIN invoices inv ON inv.appointment_id = a.id
              ${whereClause}
              ORDER BY a.starts_at ASC
              LIMIT $${i} OFFSET $${i + 1}`,
@@ -1714,10 +1717,13 @@ ownerRouter.get('/appointments/:id', async (request, response, next) => {
                     a.duration_minutes, a.location_details, a.starts_at, a.ends_at, a.status, a.notes,
                     a.created_at, a.updated_at,
                     u.email AS client_email, u.full_name AS client_name,
-                    m.reference AS matter_reference, m.title AS matter_title
+                    m.reference AS matter_reference, m.title AS matter_title,
+                    inv.id AS invoice_id, inv.total AS invoice_total, inv.payment_status AS invoice_payment_status,
+                    inv.payment_destination_method AS invoice_payment_method, inv.currency AS invoice_currency
              FROM appointments a
              JOIN users u ON u.id = a.client_id
              LEFT JOIN matters m ON m.id = a.matter_id
+             LEFT JOIN invoices inv ON inv.appointment_id = a.id
              WHERE a.id = $1 LIMIT 1`,
             [request.params.id]
         );
@@ -1816,6 +1822,48 @@ ownerRouter.post('/appointments/:id/status', async (request, response, next) => 
     } catch (error) { next(error); }
 });
 
+/* POST /api/v1/owner/appointments/:id/accept — confirm a booked consultation.
+   Idempotent. Creates exactly one linked invoice (createInvoiceForAppointment).
+   Does NOT create a Matter — the consultation lifecycle stays separate. */
+ownerRouter.post('/appointments/:id/accept', async (request, response, next) => {
+    try {
+        const input = z.object({ notes: z.string().trim().max(2000).optional() }).parse(request.body || {});
+        const result = await acceptConsultation({
+            appointmentId: request.params.id,
+            actorId: request.user.sub,
+            notes: input.notes
+        });
+        await logAudit({
+            actorId: request.user.sub,
+            action: 'APPOINTMENT_CONFIRMED',
+            entityType: 'appointment',
+            entityId: request.params.id,
+            metadata: { invoice_id: result.invoice?.id || null, notes: input.notes || null }
+        });
+        response.json({ data: { appointment: result.appointment, invoice: result.invoice } });
+    } catch (error) { next(error); }
+});
+
+/* POST /api/v1/owner/appointments/:id/decline — decline a booked consultation. */
+ownerRouter.post('/appointments/:id/decline', async (request, response, next) => {
+    try {
+        const input = z.object({ reason: z.string().trim().max(2000).optional() }).parse(request.body || {});
+        const result = await declineConsultation({
+            appointmentId: request.params.id,
+            actorId: request.user.sub,
+            reason: input.reason
+        });
+        await logAudit({
+            actorId: request.user.sub,
+            action: 'APPOINTMENT_CANCELLED',
+            entityType: 'appointment',
+            entityId: request.params.id,
+            metadata: { has_reason: !!input.reason }
+        });
+        response.json({ data: result });
+    } catch (error) { next(error); }
+});
+
 /* POST /api/v1/owner/appointments/:id/cancel */
 ownerRouter.post('/appointments/:id/cancel', async (request, response, next) => {
     try {
@@ -1910,9 +1958,12 @@ ownerRouter.post('/payments/:id/verify', async (request, response, next) => {
         });
         /* Create Matter for the request after payment is approved.
            createMatterForRequest is idempotent — if a Matter already exists
-           for this request it returns the existing one. */
+           for this request it returns the existing one.
+           Consultation payments (invoice linked to an appointment) must NOT
+           create a Matter — the consultation lifecycle stays separate. */
         let matter = null;
         let consultationReviewRequired = false;
+        let appointmentConfirmed = false;
         if (result.invoiceRequestId) {
             const reqInfo = await query(
                 `SELECT id, subject, status FROM requests WHERE id = $1 LIMIT 1`,
@@ -1937,13 +1988,27 @@ ownerRouter.post('/payments/:id/verify', async (request, response, next) => {
                     description: null
                 });
             }
+        } else if (result.invoiceAppointmentId) {
+            /* Consultation payment verified — confirm the appointment. */
+            const apptCheck = await query(
+                `SELECT id, status FROM appointments WHERE id = $1 LIMIT 1`,
+                [result.invoiceAppointmentId]
+            );
+            if (apptCheck.rowCount > 0 && apptCheck.rows[0].status !== 'CONFIRMED') {
+                await query(
+                    `UPDATE appointments SET status = 'CONFIRMED', updated_at = NOW()
+                     WHERE id = $1 AND status NOT IN ('CANCELLED', 'COMPLETED', 'NO_SHOW')`,
+                    [result.invoiceAppointmentId]
+                );
+                appointmentConfirmed = true;
+            }
         }
         await logAudit({
             actorId: request.user.sub,
             action: 'PAYMENT_VERIFIED',
             entityType: 'payment',
             entityId: request.params.id,
-            metadata: { invoice_id: result.invoiceId, amount: Number(result.payment.amount), matter_id: matter?.id || null, consultation_review_required: consultationReviewRequired }
+            metadata: { invoice_id: result.invoiceId, amount: Number(result.payment.amount), matter_id: matter?.id || null, appointment_id: result.invoiceAppointmentId || null, consultation_review_required: consultationReviewRequired, appointment_confirmed: appointmentConfirmed }
         });
         await notify(result.clientId, {
             kind: 'PAYMENT_VERIFIED',
@@ -1965,7 +2030,7 @@ ownerRouter.post('/payments/:id/verify', async (request, response, next) => {
                 entityId: matter.id
             });
         }
-        response.json({ data: { ...result.payment, matter: matter ? { id: matter.id, reference: matter.reference, status: matter.status } : null } });
+        response.json({ data: { ...result.payment, matter: matter ? { id: matter.id, reference: matter.reference, status: matter.status } : null, appointment_id: result.invoiceAppointmentId || null, appointment_confirmed: appointmentConfirmed } });
     } catch (error) { next(error); }
 });
 

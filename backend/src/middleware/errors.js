@@ -9,6 +9,14 @@ export function errorHandler(error, _request, response, _next) {
             error: { code: 'VALIDATION_ERROR', message: 'Request input is invalid' },
         });
     }
+    /* Body-parser rejects oversized JSON payloads with the generic message
+       "request entity too large"; report it as an upload problem instead so
+       the UI does not show a misleading internal error. */
+    if (error.type === 'entity.too.large') {
+        return response.status(413).json({
+            error: { code: 'PAYLOAD_TOO_LARGE', message: 'Uploaded file is too large' },
+        });
+    }
     response.status(error.statusCode ?? 500).json({
         error: {
             code: error.code ?? 'INTERNAL_ERROR',

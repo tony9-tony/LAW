@@ -121,15 +121,27 @@
                 return method === 'mobile_money' ? 'LIPA NUMBER' : method === 'qr' ? 'QR CODE' : 'BANK ACCOUNT';
             }
 
+            /* QR images are streamed from the authenticated uploads route; the
+               token is required because payment assets are never served publicly. */
+            function qrImageSrc(storageKey) {
+                return storageKey ? `${API.base()}/uploads/${storageKey}?token=${encodeURIComponent(API.token())}` : '';
+            }
+
             function destinationDetails(destination) {
                 if (!destination) return '<p class="text-mute-block">No payment method selected.</p>';
                 const method = destination.method;
                 const instructions = destination.instructions ? `<p class="payment-instruction">${escape(destination.instructions)}</p>` : '';
                 if (method === 'mobile_money') {
-                    return `<div class="selected-payment selected-payment--lipa"><span class="kicker">LIPA NUMBER</span><div class="payment-value-row"><code>${escape(destination.lipa_number || '—')}</code><button type="button" class="btn small secondary" data-copy-payment="${escape(destination.lipa_number || '')}">Copy</button></div>${instructions}</div>`;
+                    /* Show the QR uploaded by the admin for THIS Lipa Number in
+                       Global Settings (same payment_destinations row), so the
+                       number and its code are always displayed together. */
+                    const qrBlock = destination.qr_storage_key
+                        ? `<img src="${qrImageSrc(destination.qr_storage_key)}" alt="Payment QR code for this Lipa Number" class="payment-qr"><p class="payment-instruction">Scan this QR code with your banking app, or use the Lipa Number above.</p>`
+                        : '';
+                    return `<div class="selected-payment selected-payment--lipa"><span class="kicker">LIPA NUMBER</span><div class="payment-value-row"><code>${escape(destination.lipa_number || '—')}</code><button type="button" class="btn small secondary" data-copy-payment="${escape(destination.lipa_number || '')}">Copy</button></div>${instructions}${qrBlock}</div>`;
                 }
                 if (method === 'qr') {
-                    const qrSrc = destination.qr_storage_key ? `${location.origin}/uploads/${encodeURIComponent(destination.qr_storage_key)}` : '';
+                    const qrSrc = qrImageSrc(destination.qr_storage_key);
                     return `<div class="selected-payment selected-payment--qr"><span class="kicker">QR CODE</span>${qrSrc ? `<img src="${qrSrc}" alt="Payment QR code" class="payment-qr">` : '<p class="text-mute-block">QR code is not configured.</p>'}<p class="payment-instruction">Scan the code with your banking app.</p></div>`;
                 }
                 return `<div class="selected-payment selected-payment--bank"><span class="kicker">BANK ACCOUNT</span><dl class="payment-bank-details"><dt>Bank name</dt><dd>${escape(destination.bank_name || '—')}</dd><dt>Account name</dt><dd>${escape(destination.bank_account_name || '—')}</dd><dt>Account number</dt><dd><code>${escape(destination.bank_account_number || '—')}</code> ${destination.bank_account_number ? `<button type="button" class="btn small secondary" data-copy-payment="${escape(destination.bank_account_number)}">Copy</button>` : ''}</dd></dl>${instructions}</div>`;

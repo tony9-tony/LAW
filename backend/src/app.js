@@ -17,6 +17,7 @@ import { ownerRouter } from './routes/owner.routes.js';
 import { invoiceRouter } from './routes/invoice.routes.js';
 import { ownerInvoiceRouter } from './routes/owner-invoice.routes.js';
 import { paymentRouter } from './routes/payment.routes.js';
+import { uploadsRouter } from './routes/uploads.routes.js';
 import { messageReactionsRouter } from './routes/message-reactions.routes.js';
 import { testHelperRouter } from './routes/test-helper.routes.js';
 import { Router } from 'express';
@@ -38,11 +39,24 @@ const corsOrigin = (process.env.CORS_ORIGIN || '').split(',').map((o) => o.trim(
 app.use(cors({
     origin: (origin, cb) => {
         if (!origin || corsOrigin.includes(origin)) return cb(null, true);
-        cb(new Error('Not allowed by CORS'));
+        const error = new Error('Not allowed by CORS');
+        error.statusCode = 403;
+        error.code = 'FORBIDDEN';
+        cb(error);
     }
 }));
-app.use(express.json({ limit: '100kb' }));
+/* Rate limiting runs before body parsing so oversized upload payloads are
+   still throttled instead of being buffered unchecked. */
 app.use(rateLimit({ windowMs: 15 * 60 * 1000, limit: process.env.NODE_ENV === 'test' ? 5000 : 500 }));
+/* Upload endpoints receive base64 data URLs inside JSON, so those prefixes
+   need a body limit that covers the service-level file limits
+   (QR code 10 MB, payment receipt 5 MB) plus base64/JSON overhead.
+   Everything else keeps the strict 100kb default below — that global limit
+   is what used to reject a normal-sized QR image with "request entity too
+   large" before the QR file validation ever ran. */
+app.use('/api/v1/owner/payment-destinations', express.json({ limit: '16mb' }));
+app.use('/api/v1/payments', express.json({ limit: '8mb' }));
+app.use(express.json({ limit: '100kb' }));
 
 const authLimiter = rateLimit({ windowMs: 15 * 60 * 1000, limit: 1000, standardHeaders: true, legacyHeaders: false, message: { error: { code: 'TOO_MANY_REQUESTS', message: 'Too many requests, please try again later' } } });
 app.use('/api/v1/auth', authLimiter);
@@ -56,7 +70,7 @@ app.use('/api/v1/auth', authLimiter);
 
     app.get('/', (_request, response) => response.redirect('/frontend/'));
 
-    app.use(express.static(projectRoot));
+    
     app.use('/frontend', express.static(path.join(projectRoot, 'frontend')));
     app.use('/subui', express.static(path.join(projectRoot, 'subui')));
     app.use('/subui', (request, response, next) => {
@@ -77,6 +91,7 @@ app.use('/api/v1/health', healthRouter);
     app.use('/api/v1/invoices', invoiceRouter);
     app.use('/api/v1/owner/invoices', ownerInvoiceRouter);
 app.use('/api/v1/payments', paymentRouter);
+app.use('/api/v1/uploads', uploadsRouter);
     app.use('/api/v1/profile', profileRouter);
     app.use('/api/v1/staff', staffRouter);
     app.use('/api/v1/owner', ownerRouter);

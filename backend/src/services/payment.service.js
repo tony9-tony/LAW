@@ -352,7 +352,7 @@ export async function listPaymentsForInvoice(invoiceId, clientId) {
 export async function verifyPayment({ paymentId, actorId, method, referenceNumber, notes }) {
     const paymentResult = await query(
         `SELECT p.id, p.invoice_id, p.client_id, p.amount, p.status, p.currency,
-                i.total, i.payment_status, i.request_id
+                i.total, i.payment_status, i.request_id, i.appointment_id
          FROM payments p
          JOIN invoices i ON i.id = p.invoice_id
          WHERE p.id = $1 LIMIT 1`,
@@ -386,13 +386,13 @@ export async function verifyPayment({ paymentId, actorId, method, referenceNumbe
         );
         return updated.rows[0];
     });
-    return { payment: result, invoiceId: payment.invoice_id, clientId: payment.client_id, invoiceRequestId: payment.request_id };
+    return { payment: result, invoiceId: payment.invoice_id, clientId: payment.client_id, invoiceRequestId: payment.request_id, invoiceAppointmentId: payment.appointment_id };
 }
 
 export async function rejectPayment({ paymentId, actorId, reason }) {
     const paymentResult = await query(
         `SELECT p.id, p.invoice_id, p.client_id, p.status,
-                i.total, i.payment_status AS invoice_payment_status, i.request_id
+                i.total, i.payment_status AS invoice_payment_status, i.request_id, i.appointment_id
          FROM payments p
          JOIN invoices i ON i.id = p.invoice_id
          WHERE p.id = $1 LIMIT 1`,

@@ -184,6 +184,8 @@ if (!formData) headers['Content-Type'] = 'application/json';
         getMatterDocuments(id) { return this.request(`/matters/${encodeURIComponent(id)}/documents`, { auth: true }); },
         getMatterAppointments(id) { return this.request(`/matters/${encodeURIComponent(id)}/appointments`, { auth: true }); },
         listAppointments() { return this.request('/appointments', { auth: true }); },
+        getAppointment(id) { return this.request(`/appointments/${encodeURIComponent(id)}`, { auth: true }); },
+        bookConsultation(payload) { return this.request('/appointments', { method: 'POST', body: payload, auth: true }); },
         listNotifications(opts) {
             const qs = (opts && opts.unreadOnly) ? '?unread=true' : '';
             return this.request(`/notifications${qs}`, { auth: true });

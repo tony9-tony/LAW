@@ -3,7 +3,7 @@
    emits timeline events, and notifies the client. */
 import { query, withTransaction } from '../db.js';
 import { notify } from './notification.service.js';
-import { createInvoiceForRequest, PAYMENT_STATUS } from './billing.service.js';
+import { createInvoiceForRequest, createInvoiceForAppointment, PAYMENT_STATUS } from './billing.service.js';
 import { getServiceCatalog } from './payment.service.js';
 import { notifyMessageCreated, notifyRequestCreated, notifyRequestStatusChanged, notifyRequestMoreInfo, notifyRequestAccepted, notifyRequestDeclined, notifyMatterCreated, notifyMatterStatusChanged, notifyAppointmentCreated, notifyAppointmentUpdated, notifyAppointmentCancelled, notifyAppointmentCompleted, notifyDocumentRequested, notifyNotificationCreated } from './sse.js';
 
@@ -655,5 +655,109 @@ export async function changeAppointmentStatus({ appointmentId, actorId, status, 
     else { notifyAppointmentUpdated(appointmentId, row.client_id, row.matter_id, row.starts_at, status).catch(() => {}); }
 
     await notify(row.client_id, { kind, title, body, entityType: 'appointment', entityId: appointmentId });
+    return updated.rows[0];
+}
+
+/* Accept a booked consultation.
+   IDEMPOTENT: safe to call repeatedly. Sets the appointment to CONFIRMED and
+   ensures exactly one invoice exists for it (createInvoiceForAppointment
+   returns the existing invoice if one already exists). No Matter is created
+   — the consultation lifecycle stays separate from the matter lifecycle. */
+export async function acceptConsultation({ appointmentId, actorId, notes }) {
+    const existing = await query(
+        `SELECT id, client_id, matter_id, status, request_id FROM appointments WHERE id = $1 LIMIT 1`,
+        [appointmentId]
+    );
+    if (existing.rowCount === 0) {
+        const error = new Error('Appointment not found');
+        error.statusCode = 404;
+        error.code = 'NOT_FOUND';
+        throw error;
+    }
+    const row = existing.rows[0];
+    if (row.status === 'CONFIRMED') {
+        const error = new Error('Appointment already confirmed');
+        error.statusCode = 409;
+        error.code = 'ALREADY_CONFIRMED';
+        throw error;
+    }
+    if (['CANCELLED', 'COMPLETED', 'NO_SHOW'].includes(row.status)) {
+        const error = new Error('Cannot confirm a resolved appointment');
+        error.statusCode = 409;
+        error.code = 'INVALID_STATUS';
+        throw error;
+    }
+
+    const updated = await query(
+        `UPDATE appointments SET status = 'CONFIRMED', updated_at = NOW() WHERE id = $1 RETURNING id, status, updated_at`,
+        [appointmentId]
+    );
+
+    const invoice = await createInvoiceForAppointment({
+        appointmentId,
+        clientId: row.client_id,
+        paymentStatus: PAYMENT_STATUS.PAYMENT_REQUIRED
+    });
+
+    if (row.matter_id) {
+        await recordMatterEvent(row.matter_id, actorId, 'APPOINTMENT_STATUS', 'Appointment confirmed', notes || null);
+    }
+
+    await notify(row.client_id, {
+        kind: 'APPOINTMENT_UPDATED',
+        title: 'Consultation confirmed',
+        body: 'Your consultation has been confirmed. Payment is required before the appointment.',
+        entityType: 'appointment',
+        entityId: appointmentId
+    });
+    await notifyAppointmentUpdated(appointmentId, row.client_id, row.matter_id, row.starts_at, 'CONFIRMED').catch(() => {});
+
+    return { appointment: updated.rows[0], invoice };
+}
+
+/* Decline a booked consultation. Sets the appointment to CANCELLED. */
+export async function declineConsultation({ appointmentId, actorId, reason }) {
+    const existing = await query(
+        `SELECT id, client_id, matter_id, status FROM appointments WHERE id = $1 LIMIT 1`,
+        [appointmentId]
+    );
+    if (existing.rowCount === 0) {
+        const error = new Error('Appointment not found');
+        error.statusCode = 404;
+        error.code = 'NOT_FOUND';
+        throw error;
+    }
+    const row = existing.rows[0];
+    if (row.status === 'CANCELLED') {
+        const error = new Error('Appointment already cancelled');
+        error.statusCode = 409;
+        error.code = 'ALREADY_CANCELLED';
+        throw error;
+    }
+    if (['CONFIRMED', 'COMPLETED', 'NO_SHOW'].includes(row.status)) {
+        const error = new Error('Cannot cancel a confirmed appointment');
+        error.statusCode = 409;
+        error.code = 'INVALID_STATUS';
+        throw error;
+    }
+
+    const updated = await query(
+        `UPDATE appointments SET status = 'CANCELLED', updated_at = NOW() WHERE id = $1 RETURNING id, status, updated_at`,
+        [appointmentId]
+    );
+
+    if (row.matter_id) {
+        await recordMatterEvent(row.matter_id, actorId, 'APPOINTMENT_STATUS', 'Appointment cancelled', reason || null);
+    }
+
+    await notify(row.client_id, {
+        kind: 'APPOINTMENT_CANCELLED',
+        title: 'Consultation declined',
+        body: reason || 'Your consultation request has been declined by the firm.',
+        entityType: 'appointment',
+        entityId: appointmentId
+    });
+    await notifyAppointmentCancelled(appointmentId, row.client_id, row.matter_id).catch(() => {});
+
     return updated.rows[0];
 }

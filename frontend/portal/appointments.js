@@ -7,6 +7,29 @@
 
     function escape(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, (c) => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[c])); }
 
+    function fmtCurrency(amount, currency) {
+        if (amount == null) return '—';
+        try {
+            const n = Number(amount);
+            if (Number.isNaN(n)) return String(amount);
+            return new Intl.NumberFormat('en-TZ', { style: 'currency', currency: (currency || 'TZS').toUpperCase() }).format(n);
+        } catch (e) { return String(amount); }
+    }
+
+    /* Consultations are billed through the standard invoice payment flow:
+       when the linked invoice still needs payment, link straight to that
+       invoice's Pay Now section so the client uses the same payment UI
+       (method choice, Lipa/QR/Bank, proof upload, verification). */
+    function paymentBlock(appointment) {
+        if (!appointment.invoice_id) return '';
+        const total = appointment.invoice_total != null ? ` · ${fmtCurrency(appointment.invoice_total, appointment.invoice_currency)}` : '';
+        const status = (appointment.invoice_payment_status || 'PAYMENT_REQUIRED').toUpperCase();
+        if (status === 'PAID') {
+            return `<div class="doc-meta">Payment received${total} <span class="pill status-open">PAID</span></div>`;
+        }
+        return `<div class="doc-meta">Payment ${status.replace(/_/g, ' ').toLowerCase()}${total} <a class="btn small secondary" href="invoices.html?id=${encodeURIComponent(appointment.invoice_id)}#payment-section">Pay Now</a></div>`;
+    }
+
     function renderList(container, items, metaEl) {
         if (!items.length) {
             container.innerHTML = '<div class="empty-state"><span class="ico">·</span><strong>No appointments.</strong></div>';
@@ -26,6 +49,7 @@
                         <div class="doc-name">${start}${end ? ' — ' + end : ''}</div>
                         <div class="doc-meta">${matterLink} ${a.matter_title ? '· ' + escape(a.matter_title) : ''}</div>
                         ${a.notes ? `<div class="doc-meta">${escape(a.notes)}</div>` : ''}
+                        ${paymentBlock(a)}
                     </div>
                     <span class="pill">${escape((a.status || 'scheduled').toUpperCase())}</span>
                 </div>

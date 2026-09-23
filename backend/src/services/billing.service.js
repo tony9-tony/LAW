@@ -4,7 +4,7 @@
    Changing service_catalog.fixed_price later must NOT affect existing
    invoices — invoice_items stores the historical snapshot. */
 import { query, withTransaction } from '../db.js';
-import { listActiveDestinations } from './payment.service.js';
+import { listActiveDestinations, getServiceCatalog } from './payment.service.js';
 
 export const INVOICE_STATUS = {
     DRAFT: 'DRAFT',
@@ -41,6 +41,76 @@ export async function recalcInvoiceTotals(invoiceId) {
         [invoiceId, subtotal, tax, total]
     );
     return { subtotal, tax, total };
+}
+
+/* Create an invoice for a consultation/appointment.
+   IDEMPOTENT: if an invoice already exists for this appointment_id it is
+   returned unchanged. This guarantees exactly one invoice per consultation
+   regardless of how many times the page is opened, refreshed, or the
+   admin accepts the booking. */
+export async function createInvoiceForAppointment({ appointmentId, clientId, currency = 'TZS', items = null, instructions = null, paymentStatus = PAYMENT_STATUS.PAYMENT_REQUIRED }) {
+    const existing = await query(
+        `SELECT id, appointment_id, client_id, status, currency, subtotal, tax, total, payment_status, payment_instructions,
+                payment_lipa_number, payment_bank_name, payment_bank_account_name, payment_bank_account_number,
+                payment_qr_storage_key, payment_qr_content_type, payment_destination_method, payment_destination_label,
+                payment_destination_id, created_at, updated_at
+         FROM invoices WHERE appointment_id = $1 LIMIT 1`,
+        [appointmentId]
+    );
+    if (existing.rowCount > 0) {
+        return existing.rows[0];
+    }
+
+    const destination = await getActivePaymentDestinationSnapshot();
+    let lineItems = items;
+    if (!lineItems || !lineItems.length) {
+        const services = await getServiceCatalog({ activeOnly: true });
+        const consultationService = services.find((s) => s.code === 'CONSULTATION');
+        if (consultationService) {
+            const amount = Number(consultationService.fixed_price) || 0;
+            lineItems = [{
+                description: consultationService.name,
+                quantity: 1,
+                unit_price: amount,
+                amount
+            }];
+        } else {
+            lineItems = [{
+                description: 'Consultation',
+                quantity: 1,
+                unit_price: 0,
+                amount: 0
+            }];
+        }
+    }
+    const subtotal = lineItems.reduce((sum, it) => sum + (Number(it.amount) || 0), 0);
+
+    const result = await withTransaction(async (client) => {
+        const inserted = await client.query(
+            `INSERT INTO invoices (matter_id, client_id, request_id, appointment_id, status, currency, subtotal, tax, total, payment_status, payment_instructions,
+                                  payment_lipa_number, payment_bank_name, payment_bank_account_name, payment_bank_account_number,
+                                  payment_qr_storage_key, payment_qr_content_type, payment_destination_method, payment_destination_label, payment_destination_id)
+             VALUES ($1, $2, $3, $4, 'DRAFT', $5, $6, 0, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17)
+             RETURNING id, matter_id, client_id, request_id, appointment_id, status, currency, subtotal, tax, total, payment_status, payment_instructions,
+                       payment_destination_method, payment_destination_label, payment_destination_id, created_at`,
+            [null, clientId, null, appointmentId, currency, subtotal, paymentStatus, instructions || null,
+             destination?.payment_lipa_number || null, destination?.payment_bank_name || null,
+             destination?.payment_bank_account_name || null, destination?.payment_bank_account_number || null,
+             destination?.payment_qr_storage_key || null, destination?.payment_qr_content_type || null,
+             destination?.payment_destination_method || null, destination?.payment_destination_label || null,
+             destination?.payment_destination_id || null]
+        );
+        const invoice = inserted.rows[0];
+        for (const it of lineItems) {
+            await client.query(
+                `INSERT INTO invoice_items (invoice_id, description, quantity, unit_price, amount)
+                 VALUES ($1, $2, $3, $4, $5)`,
+                [invoice.id, it.description, Number(it.quantity) || 1, Number(it.unit_price) || 0, Number(it.amount) || 0]
+            );
+        }
+        return invoice;
+    });
+    return result;
 }
 
 /* Create an invoice for a request (CLIENT-side lifecycle).
