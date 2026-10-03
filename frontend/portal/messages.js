@@ -100,12 +100,35 @@
         }
     }
 
+    /* The firm speaks first: the reply box opens only after someone from
+       the firm has written in this conversation. */
+    function setComposeOpen(open) {
+        if (!form) return;
+        let wait = document.getElementById('compose-wait');
+        if (!wait) {
+            wait = document.createElement('div');
+            wait.id = 'compose-wait';
+            wait.className = 'alert info';
+            wait.setAttribute('role', 'status');
+            wait.innerHTML = '<strong>The firm will message you first.</strong> As soon as your advocate writes to you here, you can reply. You will also get a notification.';
+            form.parentNode.insertBefore(wait, form);
+        }
+        wait.style.display = open ? 'none' : '';
+        form.style.display = open ? '' : 'none';
+    }
+
+    function isFirmMessage(m) {
+        if (m && m.sender_role) return m.sender_role !== 'CLIENT';
+        return !(m && String(m.sender_id) === String(API.user() && API.user().id));
+    }
+
     function onRealtimeMessage(data) {
         if (data.conversationId !== conversationId) return;
         const msg = data.message;
         if (!msg || displayedMessageIds.has(msg.id)) return;
         displayedMessageIds.add(msg.id);
         const fromClient = String(msg.sender_id) === String(API.user() && API.user().id);
+        if (isFirmMessage(msg)) setComposeOpen(true);
         const name = msg.sender_name || (fromClient ? 'You' : 'Firm');
         const html = `
             <div class="msg ${fromClient ? 'from-client' : ''}" data-msg-id="${msg.id}">
@@ -263,6 +286,7 @@
         }).join('');
 
         thread.insertAdjacentHTML('beforeend', html);
+        if (newItems.some(isFirmMessage)) setComposeOpen(true);
 
         const last = newItems[newItems.length - 1];
         if (last && last.id) lastKnownMessageId = last.id;
@@ -331,6 +355,7 @@
         try {
             const detail = await API.getConversation(convoId);
             renderThread(detail.data.messages || [], detail.data);
+            setComposeOpen(detail.data.firm_has_written !== undefined ? !!detail.data.firm_has_written : (detail.data.messages || []).some(isFirmMessage));
             meta.textContent = `${(detail.data.messages || []).length} message${(detail.data.messages || []).length === 1 ? '' : 's'}`;
             await API.markConversationRead(convoId).catch(() => {});
             if (window.Portal && window.Portal.refreshUnreadIndicators) {
@@ -520,6 +545,7 @@
                 }
                 loadThread(conversationId, { requestId: currentConvoRequestId, matterId: currentConvoMatterId });
             } catch (err) {
+                if (err && err.code === 'WAIT_FOR_FIRM') setComposeOpen(false);
                 if (statusEl) {
                     statusEl.className = 'form-status error';
                     statusEl.innerHTML = '<strong>Failed to send.</strong> ' + escape(err && err.message ? err.message : 'Please try again.');

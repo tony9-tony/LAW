@@ -2137,14 +2137,14 @@
                     <div class="panel-head"><h2>Conversations</h2><span class="panel-meta">${items.length} total</span></div>
                     <div class="panel-body tight">
                         ${items.length === 0
-                            ? '<div class="empty-state"><span class="ico">·</span><strong>No conversations yet.</strong><p>Conversations will appear here when clients message through their matters.</p></div>'
+                            ? '<div class="empty-state"><span class="ico">·</span><strong>No conversations yet.</strong><p>Conversations appear here once you message a client about a request or a matter.</p></div>'
                             : `<table class="table">
-                            <thead><tr><th>Matter</th><th>Client</th><th>Last Message</th><th>Date</th><th>Status</th><th>Actions</th></tr></thead>
+                            <thead><tr><th>Matter / request</th><th>Client</th><th>Last Message</th><th>Date</th><th>Status</th><th>Actions</th></tr></thead>
                             <tbody>${items.map((c) => {
                                 const isUnread = (Number(c.unread_count) || 0) > 0;
                                 return `
                                 <tr data-conversation-id="${c.id}">
-                                    <td class="mono">${escape(c.reference || '—')}${c.title ? ' — ' + escape(c.title) : ''}${isUnread ? '<span class="unread-dot" aria-hidden="true" title="Unread"></span>' : ''}</td>
+                                    <td class="mono">${c.matter_id ? escape(c.reference || '—') + (c.title ? ' — ' + escape(c.title) : '') : 'Request' + (c.request_subject ? ' — ' + escape(c.request_subject) : '')}${isUnread ? '<span class="unread-dot" aria-hidden="true" title="Unread"></span>' : ''}</td>
                                     <td>${escape(c.client_name || '—')}<br><span class="muted">${escape(c.client_email || '')}</span></td>
                                     <td>${escape(c.last_message_body || '—')}</td>
                                     <td class="muted">${escape(c.last_message_at || c.created_at)}</td>

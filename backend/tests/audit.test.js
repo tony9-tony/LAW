@@ -122,6 +122,8 @@ test('C. Message sending creates an audit log entry', async () => {
         [matterId]
     );
     const convoId = convo.rows[0].id;
+    // The firm writes first; only then can the client reply.
+    await query(`INSERT INTO messages (conversation_id, sender_id, body) VALUES ($1, $2, 'Welcome')`, [convoId, owner.id]);
 
     const token = makeToken('CLIENT', client.id);
     const res = await request(app)

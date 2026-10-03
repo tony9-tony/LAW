@@ -71,7 +71,12 @@ conversationRouter.get('/:id', async (request, response, next) => {
         params.push(q.limit);
 
         const messages = await query(messagesQuery, params);
-        response.json({ data: { ...convo, messages: messages.rows } });
+        const firm = await query(
+            `SELECT 1 FROM messages m JOIN users u ON u.id = m.sender_id
+             WHERE m.conversation_id = $1 AND u.role <> 'CLIENT' LIMIT 1`,
+            [convo.id]
+        );
+        response.json({ data: { ...convo, firm_has_written: firm.rowCount > 0, messages: messages.rows } });
     } catch (error) { next(error); }
 });
 
@@ -84,6 +89,19 @@ conversationRouter.post('/:id/messages', async (request, response, next) => {
     try {
         const convo = await ensureOwned('conversations', request.params.id, request.user.sub);
         const input = sendInput.parse(request.body);
+
+        /* The firm speaks first: a client can only reply once someone from
+           the firm (owner, lawyer or staff) has written in this conversation. */
+        if (request.user.role === 'CLIENT') {
+            const firmWrote = await query(
+                `SELECT 1 FROM messages m JOIN users u ON u.id = m.sender_id
+                 WHERE m.conversation_id = $1 AND u.role <> 'CLIENT' LIMIT 1`,
+                [convo.id]
+            );
+            if (firmWrote.rowCount === 0) {
+                return response.status(403).json({ error: { code: 'WAIT_FOR_FIRM', message: 'The firm will message you first. You can reply as soon as they do.' } });
+            }
+        }
 
          // Validate parent message ownership if provided
          if (input.parentMessageId) {

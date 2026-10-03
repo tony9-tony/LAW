@@ -665,15 +665,18 @@ ownerRouter.get('/conversations', async (request, response, next) => {
     try {
         const q = ownerConversationListSchema.parse(request.query);
         const result = await query(
-            `SELECT c.id, c.matter_id, m.reference, m.title, m.status AS matter_status,
+            `SELECT c.id, c.matter_id, c.request_id, m.reference, m.title, m.status AS matter_status,
+                    r.subject AS request_subject, r.status AS request_status,
                     c.created_at,
-                    (SELECT COUNT(*)::int FROM messages WHERE conversation_id = c.id AND read_at IS NULL) AS unread_count,
+                    (SELECT COUNT(*)::int FROM messages mm JOIN users su ON su.id = mm.sender_id
+                      WHERE mm.conversation_id = c.id AND mm.read_at IS NULL AND su.role = 'CLIENT') AS unread_count,
                     (SELECT body FROM messages WHERE conversation_id = c.id ORDER BY created_at DESC LIMIT 1) AS last_message_body,
                     (SELECT created_at FROM messages WHERE conversation_id = c.id ORDER BY created_at DESC LIMIT 1) AS last_message_at,
                     u.email AS client_email, u.full_name AS client_name
              FROM conversations c
-             JOIN matters m ON m.id = c.matter_id
-             JOIN users u ON u.id = m.client_id
+             LEFT JOIN matters m ON m.id = c.matter_id
+             LEFT JOIN requests r ON r.id = c.request_id
+             JOIN users u ON u.id = COALESCE(m.client_id, r.client_id, c.client_id)
              ORDER BY last_message_at DESC NULLS LAST, c.created_at DESC
              LIMIT $1 OFFSET $2`,
             [q.limit, q.offset]
@@ -800,7 +803,8 @@ ownerRouter.get('/messages', async (request, response, next) => {
                     s.email AS sender_email, s.full_name AS sender_name,
                     u.email AS client_email, u.full_name AS client_name,
                     m2.read_at AS last_message_read,
-                    (SELECT COUNT(*)::int FROM messages WHERE conversation_id = c.id AND read_at IS NULL) AS unread_count
+                    (SELECT COUNT(*)::int FROM messages mm JOIN users su ON su.id = mm.sender_id
+                      WHERE mm.conversation_id = c.id AND mm.read_at IS NULL AND su.role = 'CLIENT') AS unread_count
              FROM conversations c
              LEFT JOIN matters m ON m.id = c.matter_id
              LEFT JOIN requests r ON r.id = c.request_id
@@ -1003,12 +1007,14 @@ ownerRouter.get('/clients/:id', async (request, response, next) => {
             query(
                 `SELECT c.id, c.matter_id, m.reference, m.title AS matter_title,
                         c.created_at,
-                        (SELECT COUNT(*)::int FROM messages WHERE conversation_id = c.id AND read_at IS NULL) AS unread_count,
+                        (SELECT COUNT(*)::int FROM messages mm JOIN users su ON su.id = mm.sender_id
+                      WHERE mm.conversation_id = c.id AND mm.read_at IS NULL AND su.role = 'CLIENT') AS unread_count,
                         (SELECT body FROM messages WHERE conversation_id = c.id ORDER BY created_at DESC LIMIT 1) AS last_message_body,
                         (SELECT created_at FROM messages WHERE conversation_id = c.id ORDER BY created_at DESC LIMIT 1) AS last_message_at
                  FROM conversations c
-                 JOIN matters m ON m.id = c.matter_id
-                 WHERE m.client_id = $1
+                 LEFT JOIN matters m ON m.id = c.matter_id
+                 LEFT JOIN requests r ON r.id = c.request_id
+                 WHERE COALESCE(m.client_id, r.client_id, c.client_id) = $1
                  ORDER BY c.created_at DESC`,
                 [client.id]
             )

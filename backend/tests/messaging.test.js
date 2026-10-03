@@ -57,6 +57,11 @@ async function insertTestData(suffix) {
     const [convoA, convoB] = convos.rows;
     cleanupIds.convos.push(convoA.id, convoB.id);
 
+    // The firm writes first in each conversation; then the client replies.
+    await query(
+        `INSERT INTO messages (conversation_id, sender_id, body, created_at) VALUES ($1, $2, $3, NOW() - INTERVAL '1 minute'), ($4, $2, $5, NOW() - INTERVAL '1 minute')`,
+        [convoA.id, owner.id, 'Welcome A', convoB.id, 'Welcome B']
+    );
     await query(
         `INSERT INTO messages (conversation_id, sender_id, body) VALUES ($1, $2, $3), ($4, $5, $6)`,
         [convoA.id, clientA.id, 'Hello from A', convoB.id, clientB.id, 'Hello from B']
@@ -158,6 +163,61 @@ test('G. CLIENT cannot send message as another user', async () => {
         .send({ body: 'test', sender_id: clientB.id });
     assert.equal(res.status, 201);
     assert.equal(res.body.data.sender_id, clientA.id);
+});
+
+test('G2. CLIENT cannot write first: the firm must message first', async () => {
+    const { clientA, owner, convoA } = await insertTestData('G2');
+    await query(`DELETE FROM messages WHERE conversation_id = $1`, [convoA.id]);
+    const clientToken = makeToken('CLIENT', clientA.id);
+    const blocked = await request(app)
+        .post(`/api/v1/conversations/${convoA.id}/messages`)
+        .set('Authorization', `Bearer ${clientToken}`)
+        .send({ body: 'Me first' });
+    assert.equal(blocked.status, 403);
+    assert.equal(blocked.body.error.code, 'WAIT_FOR_FIRM');
+    const view = await request(app).get(`/api/v1/conversations/${convoA.id}`).set('Authorization', `Bearer ${clientToken}`);
+    assert.equal(view.body.data.firm_has_written, false);
+
+    const firm = await request(app)
+        .post(`/api/v1/owner/conversations/${convoA.id}/messages`)
+        .set('Authorization', `Bearer ${makeToken('OWNER', owner.id)}`)
+        .send({ body: 'Hello, we have started on your matter.' });
+    assert.equal(firm.status, 201);
+    const reply = await request(app)
+        .post(`/api/v1/conversations/${convoA.id}/messages`)
+        .set('Authorization', `Bearer ${clientToken}`)
+        .send({ body: 'Thank you' });
+    assert.equal(reply.status, 201);
+});
+
+test('G3. Owner Messages page lists request conversations and counts only client messages as unread', async () => {
+    const { clientA, owner } = await insertTestData('G3');
+    const req = await query(
+        `INSERT INTO requests (client_id, subject, description) VALUES ($1, 'Request chat test', 'A request used for the inbox test.') RETURNING id`,
+        [clientA.id]
+    );
+    const convoId = (await query(`INSERT INTO conversations (request_id, client_id) VALUES ($1, $2) RETURNING id`, [req.rows[0].id, clientA.id])).rows[0].id;
+    const ownerToken = makeToken('OWNER', owner.id);
+    const findRow = async () => {
+        const inbox = await request(app).get('/api/v1/owner/conversations?limit=100').set('Authorization', `Bearer ${ownerToken}`);
+        return inbox.body.data.find((c) => c.id === convoId);
+    };
+    try {
+        await request(app).post(`/api/v1/owner/conversations/${convoId}/messages`).set('Authorization', `Bearer ${ownerToken}`).send({ body: 'Please send the title deed.' });
+        let row = await findRow();
+        assert.ok(row, 'request conversation is on the owner Messages page');
+        assert.equal(row.request_subject, 'Request chat test');
+        assert.equal(row.unread_count, 0, "the firm's own message is not unread for the firm");
+        await request(app).post(`/api/v1/conversations/${convoId}/messages`).set('Authorization', `Bearer ${makeToken('CLIENT', clientA.id)}`).send({ body: 'Sending it today.' });
+        row = await findRow();
+        assert.equal(row.unread_count, 1);
+        assert.equal(row.last_message_body, 'Sending it today.');
+    } finally {
+        await query(`DELETE FROM notifications WHERE entity_id = $1`, [convoId]).catch(() => {});
+        await query(`DELETE FROM messages WHERE conversation_id = $1`, [convoId]);
+        await query(`DELETE FROM conversations WHERE id = $1`, [convoId]);
+        await query(`DELETE FROM requests WHERE id = $1`, [req.rows[0].id]);
+    }
 });
 
 test('H. OWNER reply uses OWNER sender_id, not client-supplied', async () => {
