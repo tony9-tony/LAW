@@ -26,3 +26,8 @@ cd
 (SELECT
 backend/{
 {
+# Old scripts, backups and database dumps kept out of the project
+_archive/
+# Local design references and experiments (large, not part of the app)
+_design_extract/
+trial/
