@@ -1,0 +1,11 @@
+# Keep line endings consistent: the repository stores LF, Windows checkouts
+# may use CRLF, and a file is never shown as "modified" for line endings alone.
+* text=auto
+*.bat text eol=crlf
+*.cmd text eol=crlf
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.jfif binary
+*.ico binary
+*.dump binary
