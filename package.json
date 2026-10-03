@@ -7,7 +7,7 @@
   "scripts": {
     "dev": "node backend/src/server.js",
     "start": "node backend/src/server.js",
-    "test": "node --test",
+    "test": "node --test backend/tests/**/*.test.js",
     "db:migrate": "node database/migrate.js"
   },
   "engines": {
