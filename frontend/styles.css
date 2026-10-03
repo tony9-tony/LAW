@@ -2405,3 +2405,39 @@ h4 { font-size: clamp(1rem, 1.4vw, 1.1rem); line-height: 1.35; font-family: var(
     .actions { gap: 0.6rem; }
     .button { padding: 0.85rem 1.1rem; font-size: 0.7rem; }
 }
+
+/* The header keeps the page's side margins (its own vertical padding used to
+   reset them to zero, so the name and menu button touched the screen edges). */
+.wrap.site-header-inner { padding-left: 6vw; padding-right: 6vw; }
+@media (max-width: 760px) { .wrap.site-header-inner { padding-left: 5vw; padding-right: 5vw; } }
+
+/* Wide screens: menu items stay on one line; the firm name may take two. */
+@media (min-width: 761px) {
+    .primary-nav a { white-space: nowrap; }
+    .brand { flex: 0 1 auto; min-width: 0; }
+    .brand-name { text-wrap: balance; }
+    .brand-tag { white-space: nowrap; }
+}
+@media (min-width: 761px) and (max-width: 1320px) {
+    .wrap.site-header-inner { padding-left: 4vw; padding-right: 4vw; gap: 1.25rem; }
+    .primary-nav { gap: 1.1rem; }
+    .primary-nav a { letter-spacing: 0.1em; }
+    .brand-name { font-size: 1.1rem; }
+}
+
+/* Phone header: the full firm name on at most two tidy lines, with the menu
+   button beside it (not pushed onto its own line). */
+@media (max-width: 760px) {
+    .site-header-inner { flex-wrap: nowrap; gap: 0.75rem; }
+    .brand { flex: 1 1 auto; min-width: 0; gap: 0.2rem; }
+    .brand-name { font-size: 1.02rem; letter-spacing: 0.02em; line-height: 1.15; text-wrap: balance; }
+    .brand-tag { font-size: 0.58rem; letter-spacing: 0.18em; }
+    .nav-toggle { flex: none; padding: 0.45rem 0.55rem; }
+    .nav-toggle span { width: 20px; margin: 4px 0; }
+    .nav-toggle[aria-expanded="true"] span:nth-child(1) { transform: translateY(5.5px) rotate(45deg); }
+    .nav-toggle[aria-expanded="true"] span:nth-child(3) { transform: translateY(-5.5px) rotate(-45deg); }
+}
+@media (max-width: 380px) {
+    .brand-name { font-size: 0.94rem; }
+    .brand-tag { letter-spacing: 0.14em; }
+}
