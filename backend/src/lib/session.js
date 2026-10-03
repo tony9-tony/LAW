@@ -1,0 +1,60 @@
+/* Signed-in sessions for the browser.
+ *
+ * At login the server puts the JWT in an httpOnly cookie, so page scripts
+ * never hold it (an injected script cannot read or steal it). The browser
+ * sends the cookie by itself with every same-site request, image and SSE
+ * stream. API clients (a future mobile app, tests) can still send the token
+ * as "Authorization: Bearer <token>".
+ *
+ * The web pages keep the word "session" where they used to keep the token,
+ * only to know that someone is signed in; that word is not a credential and
+ * is ignored here.
+ */
+import jwt from 'jsonwebtoken';
+import { config } from '../config.js';
+
+export const SESSION_COOKIE = 'law_session';
+const SESSION_MARKER = 'session';
+const MAX_AGE_MS = 60 * 60 * 1000; // matches the token's 1 hour lifetime
+
+function readCookie(header, name) {
+    if (!header) return null;
+    for (const part of String(header).split(';')) {
+        const index = part.indexOf('=');
+        if (index === -1) continue;
+        if (part.slice(0, index).trim() === name) {
+            try { return decodeURIComponent(part.slice(index + 1).trim()); } catch { return null; }
+        }
+    }
+    return null;
+}
+
+const usable = (value) => (typeof value === 'string' && value && value !== SESSION_MARKER && value !== 'null' && value !== 'undefined' ? value : null);
+
+/** The token a request carries: Bearer header, then the session cookie, then ?token= (older pages). */
+export function requestToken(request) {
+    const header = request.headers?.authorization;
+    const bearer = header && header.startsWith('Bearer ') ? usable(header.slice(7).trim()) : null;
+    return bearer || usable(readCookie(request.headers?.cookie, SESSION_COOKIE)) || usable(request.query?.token);
+}
+
+/** The verified user of a request, or null. */
+export function verifiedUser(request) {
+    const token = requestToken(request);
+    if (!token) return null;
+    try { return jwt.verify(token, config.jwtSecret); } catch { return null; }
+}
+
+export function setSessionCookie(response, token) {
+    response.cookie(SESSION_COOKIE, token, {
+        httpOnly: true,
+        sameSite: 'lax',
+        secure: config.nodeEnv === 'production',
+        maxAge: MAX_AGE_MS,
+        path: '/',
+    });
+}
+
+export function clearSessionCookie(response) {
+    response.clearCookie(SESSION_COOKIE, { httpOnly: true, sameSite: 'lax', secure: config.nodeEnv === 'production', path: '/' });
+}

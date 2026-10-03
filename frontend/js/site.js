@@ -122,9 +122,13 @@
             if (location.protocol === 'file:') return 'http://localhost:3000/api/v1';
             return '/api/v1';
         },
+        /* The sign-in itself lives in an httpOnly cookie the server sets, which
+           page scripts cannot read. Here we only keep the word "session" to know
+           someone is signed in. Opened straight from disk (file://) there is no
+           cookie, so the token itself is kept, as before. */
         token() { return localStorage.getItem('auth_token') || ''; },
         setToken(t) {
-            if (t) localStorage.setItem('auth_token', t);
+            if (t) localStorage.setItem('auth_token', location.protocol === 'file:' ? t : 'session');
             else localStorage.removeItem('auth_token');
         },
         user() {
@@ -139,7 +143,12 @@
             const user = this.user();
             return !!(this.token() && user && user.role === 'CLIENT');
         },
-        clear() { this.setToken(''); this.setUser(null); },
+        clear() {
+            this.setToken('');
+            this.setUser(null);
+            // Ends the server session (removes the cookie); harmless if already signed out.
+            fetch(this.base() + '/auth/logout', { method: 'POST', credentials: 'include' }).catch(() => {});
+        },
         async request(path, { method = 'GET', body, auth = false, formData } = {}) {
             const headers = {};
 if (!formData) headers['Content-Type'] = 'application/json';

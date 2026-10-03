@@ -1,5 +1,6 @@
 import jwt from 'jsonwebtoken';
 import { config } from '../config.js';
+import { verifiedUser } from '../lib/session.js';
 import { query } from '../db.js';
 
 // Map of userId -> Set of Response objects (SSE connections)
@@ -18,17 +19,7 @@ export function sseMiddleware(req, res, next) {
     const path = req.path || (req.url ? new URL(req.url, 'http://localhost').pathname : '');
     if (path !== '/api/v1/events' && path !== '/events') return next();
 
-    let user;
-    const authHeader = req.headers.authorization;
-    if (authHeader && authHeader.startsWith('Bearer ')) {
-        try { user = jwt.verify(authHeader.slice(7), config.jwtSecret); } catch { user = null; }
-    }
-    if (!user) {
-        const token = req.query && req.query.token;
-        if (token) {
-            try { user = jwt.verify(token, config.jwtSecret); } catch { user = null; }
-        }
-    }
+    const user = verifiedUser(req);
     if (!user) {
         res.writeHead(401, { 'Content-Type': 'application/json' });
         res.end(JSON.stringify({ error: { code: 'UNAUTHENTICATED', message: 'Authentication required' } }));

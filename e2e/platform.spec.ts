@@ -91,13 +91,14 @@ test.describe('Public Website', () => {
   test('homepage loads', async ({ page }) => {
     await page.goto(`${PUBLIC}/index.html`);
     await page.waitForLoadState('networkidle');
-    await expect(page.locator('h1')).toContainText('Legal counsel');
+    await expect(page.locator('h1')).toContainText('Counsel');
   });
 
   test('login page loads', async ({ page }) => {
     await page.goto(`${PUBLIC}/login.html`);
     await page.waitForLoadState('networkidle');
-    await expect(page.locator('h1')).toContainText('Sign in');
+    await expect(page.locator('h1')).toContainText('Welcome back');
+    await expect(page.getByRole('button', { name: /Sign in/ })).toBeVisible();
   });
 });
 

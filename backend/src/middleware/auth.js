@@ -1,13 +1,9 @@
 import jwt from 'jsonwebtoken';
 import { config } from '../config.js';
+import { requestToken } from '../lib/session.js';
 
 export function authenticate(request, response, next) {
-    const header = request.get('authorization');
-    let token = header?.startsWith('Bearer ') ? header.slice(7) : null;
-    if (!token) {
-        const queryToken = request.query && request.query.token;
-        if (queryToken) token = queryToken;
-    }
+    const token = requestToken(request);
     if (!token) return response.status(401).json({ error: { code: 'UNAUTHENTICATED', message: 'Authentication required' } });
 
     try {

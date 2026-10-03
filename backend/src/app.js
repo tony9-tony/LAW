@@ -1,7 +1,7 @@
 import express from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
-import rateLimit from 'express-rate-limit';
+import rateLimit, { ipKeyGenerator } from 'express-rate-limit';
 import { config } from './config.js';
 import { healthRouter } from './routes/health.routes.js';
 import { authRouter } from './routes/auth.routes.js';
@@ -17,6 +17,7 @@ import { ownerRouter } from './routes/owner.routes.js';
 import { invoiceRouter } from './routes/invoice.routes.js';
 import { ownerInvoiceRouter } from './routes/owner-invoice.routes.js';
 import { paymentRouter } from './routes/payment.routes.js';
+import { supportRouter } from './routes/support.routes.js';
 import { uploadsRouter } from './routes/uploads.routes.js';
 import { messageReactionsRouter } from './routes/message-reactions.routes.js';
 import { testHelperRouter } from './routes/test-helper.routes.js';
@@ -36,14 +37,20 @@ adminRouter.get('/', (_request, response) => response.redirect('/subui/login.htm
 export const app = express();
 app.use(helmet());
 const corsOrigin = (process.env.CORS_ORIGIN || '').split(',').map((o) => o.trim()).filter(Boolean);
-app.use(cors({
-    origin: (origin, cb) => {
-        if (!origin || corsOrigin.includes(origin)) return cb(null, true);
-        const error = new Error('Not allowed by CORS');
-        error.statusCode = 403;
-        error.code = 'FORBIDDEN';
-        cb(error);
-    }
+/* The site, the portal and the API are served by this same server, so a
+   browser calling the API from its own pages (same host) is always allowed,
+   on localhost, a LAN address or a tunnel. CORS_ORIGIN lists any OTHER sites
+   allowed to call it. */
+const sameOrigin = (origin, request) => {
+    try { return new URL(origin).host === request.get('host'); } catch { return false; }
+};
+app.use(cors((request, cb) => {
+    const origin = request.get('origin');
+    if (!origin || corsOrigin.includes(origin) || sameOrigin(origin, request)) return cb(null, { origin: true, credentials: true });
+    const error = new Error('Not allowed by CORS');
+    error.statusCode = 403;
+    error.code = 'FORBIDDEN';
+    return cb(error);
 }));
 /* Rate limiting runs before body parsing so oversized upload payloads are
    still throttled instead of being buffered unchecked. */
@@ -60,6 +67,18 @@ app.use(express.json({ limit: '100kb' }));
 
 const authLimiter = rateLimit({ windowMs: 15 * 60 * 1000, limit: 1000, standardHeaders: true, legacyHeaders: false, message: { error: { code: 'TOO_MANY_REQUESTS', message: 'Too many requests, please try again later' } } });
 app.use('/api/v1/auth', authLimiter);
+// Password guessing: at most 10 failed sign-ins per 15 minutes from one address
+// for one e-mail. Successful sign-ins do not count.
+const loginLimiter = rateLimit({
+    windowMs: 15 * 60 * 1000,
+    limit: Number(process.env.LOGIN_ATTEMPT_LIMIT) || (process.env.NODE_ENV === 'test' ? 1000 : 10),
+    skipSuccessfulRequests: true,
+    standardHeaders: true,
+    legacyHeaders: false,
+    keyGenerator: (request) => `${ipKeyGenerator(request.ip)}|${String(request.body?.email || '').toLowerCase().slice(0, 200)}`,
+    message: { error: { code: 'TOO_MANY_ATTEMPTS', message: 'Too many failed sign-in attempts. Please wait 15 minutes and try again.' } },
+});
+app.use('/api/v1/auth/login', loginLimiter);
 
     app.use((_request, response, next) => {
         response.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
@@ -96,6 +115,7 @@ app.use('/api/v1/uploads', uploadsRouter);
     app.use('/api/v1/staff', staffRouter);
     app.use('/api/v1/owner', ownerRouter);
 app.use('/api/v1/messages', messageReactionsRouter);
+app.use('/api/v1/support', supportRouter);
 app.use('/admin', adminRouter);
 app.get('/api/v1/events', sseMiddleware);
 

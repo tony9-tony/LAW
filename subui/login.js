@@ -96,7 +96,7 @@
                     throw new Error(message);
                 }
                 if (result && result.data && result.data.token) {
-                    localStorage.setItem('auth_token', result.data.token);
+                    localStorage.setItem('auth_token', location.protocol === 'file:' ? result.data.token : 'session');
                     localStorage.setItem('auth_user', JSON.stringify(result.data.user || {}));
                 }
                 status.className = 'form-status success';
@@ -137,11 +137,12 @@
                     throw new Error(message);
                 }
                 if (result && result.data && result.data.token) {
-                    localStorage.setItem('auth_token', result.data.token);
+                    localStorage.setItem('auth_token', location.protocol === 'file:' ? result.data.token : 'session');
                     localStorage.setItem('auth_user', JSON.stringify(result.data.user || {}));
                 }
                 const user = result && result.data && result.data.user ? result.data.user : {};
                 if (user.role !== 'OWNER') {
+                    fetch(API_BASE + '/auth/logout', { method: 'POST', credentials: 'include' }).catch(() => {});
                     localStorage.removeItem('auth_token');
                     localStorage.removeItem('auth_user');
                     status.className = 'form-status error';
@@ -160,6 +161,7 @@
     }
 
     function backToWebsite() {
+        fetch(API_BASE + '/auth/logout', { method: 'POST', credentials: 'include' }).catch(() => {});
         localStorage.removeItem('auth_token');
         localStorage.removeItem('auth_user');
         window.location.href = '/';

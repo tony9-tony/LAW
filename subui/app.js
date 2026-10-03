@@ -3768,6 +3768,7 @@
 
     document.getElementById('subui-signout')?.addEventListener('click', () => {
         ownerSseDisconnect();
+        fetch((window.__API_BASE__ || '/api/v1') + '/auth/logout', { method: 'POST', credentials: 'include' }).catch(() => {});
         localStorage.removeItem(tokenKey);
         localStorage.removeItem('auth_user');
         window.location.href = 'login.html';

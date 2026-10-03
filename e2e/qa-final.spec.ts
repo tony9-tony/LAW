@@ -34,7 +34,9 @@ async function apiLogin(email: string, password: string): Promise<string> {
 }
 
 async function registerUser(email: string, password: string, fullName: string, role: string = 'CLIENT') {
-    const res = await fetch(`${BASE}/api/v1/auth/register`, {
+    // Public sign-up only makes clients; other roles come from the test helper
+    // (server started with NODE_ENV=test).
+    const res = await fetch(`${BASE}/api/v1/${role === 'CLIENT' ? 'auth/register' : 'test/users'}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email, password, fullName, role }),

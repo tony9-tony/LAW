@@ -7,7 +7,7 @@ import { config } from '../src/config.js';
 import { query } from '../src/db.js';
 import { acquireDbTestLock, releaseDbTestLock } from './db-test-lock.js';
 
-const JWT_SECRET = config.jwtSecret || 'development-only-secret';
+const JWT_SECRET = config.jwtSecret;
 
 function makeToken(role, sub) {
     return jwt.sign({ sub, role, email: `${sub}@example.com` }, JWT_SECRET, { expiresIn: '1h' });

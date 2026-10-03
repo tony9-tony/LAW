@@ -8,7 +8,7 @@ import request from 'supertest';
 import jwt from 'jsonwebtoken';
 import { app } from '../src/app.js';
 
-const JWT_SECRET = process.env.JWT_SECRET || 'development-only-secret';
+const JWT_SECRET = (await import('../src/config.js')).config.jwtSecret; // the same secret the app uses
 function makeToken(role) {
     return jwt.sign({ sub: '00000000-0000-0000-0000-000000000000', role, email: 'test@example.com' }, JWT_SECRET, { expiresIn: '1h' });
 }

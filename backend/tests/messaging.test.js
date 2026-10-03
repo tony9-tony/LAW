@@ -10,7 +10,7 @@ import { config } from '../src/config.js';
 import { query } from '../src/db.js';
 import { acquireDbTestLock, releaseDbTestLock } from './db-test-lock.js';
 
-const JWT_SECRET = process.env.JWT_SECRET || 'development-only-secret';
+const JWT_SECRET = (await import('../src/config.js')).config.jwtSecret; // the same secret the app uses
 
 function makeToken(role, sub) {
     return jwt.sign({ sub, role, email: `${sub}@example.com` }, JWT_SECRET, { expiresIn: '1h' });

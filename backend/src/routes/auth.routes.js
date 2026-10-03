@@ -3,11 +3,14 @@ import { z } from 'zod';
 import { loginUser, registerUser } from '../services/auth.service.js';
 import { query } from '../db.js';
 import { logAudit } from '../lib/audit.js';
+import { clearSessionCookie, setSessionCookie } from '../lib/session.js';
 
 const credentials = z.object({ email: z.string().email(), password: z.string().min(12) });
+// Public sign-up always makes a CLIENT. A "role" sent by the browser is
+// ignored: staff, lawyers and owners are created by the owner (staff routes)
+// or, for the very first owner only, by /setup-owner.
 const registration = credentials.extend({
     fullName: z.string().trim().min(2).max(160),
-    role: z.enum(['CLIENT', 'LAWYER', 'STAFF', 'OWNER']).optional().default('CLIENT'),
 });
 const setupOwner = registration.extend({ role: z.literal('OWNER') });
 export const authRouter = Router();
@@ -19,7 +22,7 @@ authRouter.post('/register', async (request, response, next) => {
             email: input.email,
             password: input.password,
             fullName: input.fullName,
-            role: input.role ?? 'CLIENT',
+            role: 'CLIENT',
         });
         await logAudit({ actorId: user.id, action: 'REGISTER', entityType: 'user', entityId: user.id, metadata: { role: user.role } });
         response.status(201).json({ data: user });
@@ -31,8 +34,15 @@ authRouter.post('/login', async (request, response, next) => {
         const input = credentials.parse(request.body);
         const result = await loginUser(input);
         await logAudit({ actorId: result.user.id, action: 'LOGIN', entityType: 'user', entityId: result.user.id });
+        setSessionCookie(response, result.token);
         response.json({ data: result });
     } catch (error) { next(error); }
+});
+
+// Signs the browser out: the session cookie is removed.
+authRouter.post('/logout', (_request, response) => {
+    clearSessionCookie(response);
+    response.json({ data: { signedOut: true } });
 });
 
 authRouter.get('/setup-status', async (_request, response, next) => {

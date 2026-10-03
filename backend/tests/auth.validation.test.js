@@ -9,13 +9,13 @@ test('registration rejects weak passwords before database access', async () => {
     assert.equal(response.body.error.code, 'VALIDATION_ERROR');
 });
 
-test('owner registration preserves OWNER role', async () => {
+test('public registration cannot choose a staff or owner role', async () => {
     const email = `owner-role-${Date.now()}@example.com`;
     const response = await request(app)
         .post('/api/v1/auth/register')
         .send({ email, password: 'StrongPassword123!', fullName: 'Owner Role', role: 'OWNER' });
 
     assert.equal(response.status, 201);
-    assert.equal(response.body.data.role, 'OWNER');
+    assert.equal(response.body.data.role, 'CLIENT');
     assert.equal(response.body.data.fullName, 'Owner Role');
 });
