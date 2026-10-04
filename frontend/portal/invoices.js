@@ -57,7 +57,7 @@
                     </thead>
                     <tbody>${items.map((inv) => `
                         <tr class="row-link" data-href="invoices.html?id=${inv.id}">
-                            <td><span class="ref">#${String(inv.id).padStart(5, '0')}</span></td>
+                            <td><span class="ref">#${P.shortRef(inv.id)}</span></td>
                             <td class="subj"><strong>${escape(inv.matter_reference || '—')}</strong>${inv.matter_title ? ' · ' + escape(inv.matter_title) : ''}</td>
                             <td>${P.statusPill(inv.status)}</td>
                             <td class="muted">${fmtDateShort(inv.issued_at)}</td>
@@ -88,10 +88,12 @@
             const inv = invRes.data || {};
             const items = (itemsRes && itemsRes.data) || [];
             const destinations = (destRes && destRes.data) || [];
-            if (meta) meta.textContent = 'Invoice #' + String(inv.id).padStart(5, '0');
+            if (meta) meta.textContent = 'Invoice #' + P.shortRef(inv.id);
             const matterHref = inv.matter_id ? `matter.html?id=${inv.matter_id}` : '#';
             const isPaid = (inv.payment_status || '').toUpperCase() === 'PAID';
-            const paymentStatusLabel = isPaid ? 'Paid' : (inv.payment_status || 'unpaid');
+            const PAYMENT_LABELS = { PAYMENT_REQUIRED: 'Payment required', PAYMENT_PENDING_VERIFICATION: 'Awaiting verification', PAYMENT_REJECTED: 'Proof not accepted, please resubmit', PAID: 'Paid', UNPAID: 'Unpaid' };
+            const paymentStatusLabel = isPaid ? 'Paid' : (PAYMENT_LABELS[String(inv.payment_status || 'UNPAID').toUpperCase()] || String(inv.payment_status).replace(/_/g, ' '));
+            const awaitingVerification = String(inv.payment_status || '').toUpperCase() === 'PAYMENT_PENDING_VERIFICATION';
             // Use snapshotted payment destination from invoice if available, otherwise fall back to dynamic
             const hasSnapshot = !!(inv.payment_lipa_number || inv.payment_bank_name || inv.payment_qr_storage_key);
             const paymentMethod = inv.payment_destination_method || '';
@@ -151,13 +153,12 @@
                 <div class="detail-grid">
                     <div>
                         <section class="panel">
-                            <div class="panel-head"><h2>Invoice</h2><span class="panel-meta">#${String(inv.id).padStart(5, '0')}</span></div>
+                            <div class="panel-head"><h2>Invoice</h2><span class="panel-meta">#${P.shortRef(inv.id)}</span></div>
                             <div class="panel-body">
                                 <dl class="detail-meta">
-                                    <dt>Matter</dt><dd><a class="link-bronze" href="${escape(matterHref)}">${escape(inv.matter_reference || '—')}${inv.matter_title ? ' · ' + escape(inv.matter_title) : ''}</a></dd>
-                                    <dt>Status</dt><dd>${P.statusPill(inv.status)}</dd>
+                                    <dt>Matter</dt><dd>${inv.matter_reference ? `<a class="link-bronze" href="${escape(matterHref)}">${escape(inv.matter_reference)}${inv.matter_title ? ' · ' + escape(inv.matter_title) : ''}</a>` : '<span class="text-soft">Opens once your payment is confirmed</span>'}</dd>
                                     <dt>Payment</dt><dd><span class="pill ${isPaid ? 'status-open' : 'status-new'}">${escape(paymentStatusLabel)}</span></dd>
-                                    <dt>Issued</dt><dd>${fmtDate(inv.issued_at)}</dd>
+                                    <dt>Issued</dt><dd>${fmtDate(inv.issued_at || inv.created_at)}</dd>
                                     <dt>Due</dt><dd>${fmtDate(inv.due_at)}</dd>
                                     <dt>Paid</dt><dd>${inv.paid_at ? fmtDate(inv.paid_at) : '—'}</dd>
                                     <dt>Currency</dt><dd>${escape((inv.currency || 'TZS').toUpperCase())}</dd>
@@ -187,7 +188,7 @@
                         <section class="panel" id="payment-section">
                             <div class="panel-head"><h2>Payment</h2><span class="panel-meta">Amount due ${fmtCurrency(inv.total, inv.currency)}</span></div>
                             <div class="panel-body">
-                                ${availableDestinations.length ? `<button type="button" class="btn primary" id="pay-now">Pay Now</button>
+                                ${awaitingVerification ? '<div class="alert info"><strong>Payment proof received.</strong> The firm is checking it. You will get a notification as soon as it is confirmed, and your matter will open.</div>' : availableDestinations.length ? `<button type="button" class="btn primary" id="pay-now">Pay Now</button>
                                 <div id="payment-checkout" hidden>
                                     <div class="payment-method-choices" id="payment-method-choices" aria-label="Choose payment method">
                                         ${availableDestinations.map((d) => `<button type="button" class="payment-method-choice" data-method="${escape(d.method)}" data-destination-id="${escape(d.id || '')}"><span>${methodLabel(d.method)}</span><small>${escape(d.label || '')}</small></button>`).join('')}
@@ -300,7 +301,8 @@
                     };
                     const res = await API.submitPayment(payload);
                     statusEl.className = 'form-status success';
-                    statusEl.innerHTML = '<strong>Payment submitted.</strong> Your proof is under review. The firm will verify and notify you once confirmed.';
+                    statusEl.innerHTML = '<strong>Payment submitted.</strong> Your proof is under review. The firm will verify it and notify you; your matter opens once it is confirmed.';
+                    form.querySelector('button[type="submit"]')?.setAttribute('disabled', 'disabled');
                     form.reset();
                     receiptInput.value = '';
                 } catch (err) {

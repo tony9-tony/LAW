@@ -53,7 +53,7 @@
                     </thead>
                     <tbody>${items.map((p) => `
                         <tr class="row-link" data-href="payments.html?id=${p.id}">
-                            <td><span class="ref">#${String(p.id).padStart(5, '0')}</span></td>
+                            <td><span class="ref">#${P.shortRef(p.id)}</span></td>
                             <td class="muted">#${p.invoice_id ? p.invoice_id.split('-')[0] : '—'}</td>
                             <td>${P.statusPill(p.status || 'pending')}</td>
                             <td style="text-align:right;font-family:var(--mono);font-size:0.88rem;">${fmtCurrency(p.amount, p.currency)}</td>
@@ -86,12 +86,12 @@
                 throw new Error((data && data.error && data.error.message) || ('HTTP ' + res.status));
             }
             const p = data.data || {};
-            if (meta) meta.textContent = 'Payment #' + String(p.id).padStart(5, '0');
+            if (meta) meta.textContent = 'Payment #' + P.shortRef(p.id);
             root.innerHTML = `
                 <div class="detail-grid">
                     <div>
                         <section class="panel">
-                            <div class="panel-head"><h2>Payment</h2><span class="panel-meta">#${String(p.id).padStart(5, '0')}</span></div>
+                            <div class="panel-head"><h2>Payment</h2><span class="panel-meta">#${P.shortRef(p.id)}</span></div>
                             <div class="panel-body">
                                 <dl class="detail-meta">
                                     <dt>Invoice</dt><dd>#${escape(p.invoice_id ? p.invoice_id.split('-')[0] : '—')}</dd>

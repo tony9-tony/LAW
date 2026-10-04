@@ -641,7 +641,7 @@ img { max-width: 100%; display: block; }
 .btn.ghost, .button.ghost { background: transparent; border-color: transparent; color: var(--ink-mute); box-shadow: none; }
 .btn.ghost:hover, .button.ghost:hover { background: var(--bg-elev); border-color: var(--line); color: var(--ink); }
 .btn.small { padding: 0.5rem 0.85rem; font-size: 0.66rem; }
-.btn.primary, .button.primary { background: var(--green); border-color: var(--green); color: var(--ink); }
+.btn.primary, .button.primary { background: var(--green); border-color: var(--green); color: #f3efe8; }
 .btn.primary:hover, .button.primary:hover { background: var(--green-soft); border-color: var(--green-soft); }
 .btn.ghost-dark, .button.ghost-dark { background: transparent; color: var(--ink-mute); border-color: var(--line); box-shadow: none; }
 .btn.ghost-dark:hover, .button.ghost-dark:hover { background: var(--bg-elev); color: var(--ink); border-color: var(--green); }
@@ -746,7 +746,7 @@ img { max-width: 100%; display: block; }
 .stepper .step.active .step-label { color: var(--ink); }
 .stepper .step.done .step-label { color: var(--ink-faint); text-decoration: line-through; }
 .stepper .step.done::before {
-    content: 'âœ“';
+    content: '\2713';
     position: absolute;
     top: 0.85rem;
     right: 1rem;
@@ -1464,8 +1464,8 @@ img { max-width: 100%; display: block; }
     .doc-row .doc-meta { font-size: 0.72rem; }
     .doc-row .doc-size { font-size: 0.74rem; }
     .detail-meta { grid-template-columns: 1fr; font-size: 0.85rem; }
-    .detail-meta dt { grid-column: 1; grid-row: 1; }
-    .detail-meta dd { grid-column: 1; grid-row: 2; padding-left: 0; }
+    .detail-meta dt { grid-column: 1; grid-row: auto; margin-top: 0.35rem; }
+    .detail-meta dd { grid-column: 1; grid-row: auto; padding-left: 0; overflow-wrap: anywhere; }
 }
 
 /* 17. Upload modal (portal) */
@@ -1979,5 +1979,11 @@ img { max-width: 100%; display: block; }
     .phase5-page #pay-form .actions, .phase5-page #pay-form .actions .btn { width: 100%; justify-content: center; }
 }
 
-
-
+/* Phones: nothing in the billing pages may be wider than the screen. */
+@media (max-width: 600px) {
+    .detail-grid, .detail-grid > * { min-width: 0; }
+    .panel { max-width: 100%; }
+    #payment-section .actions .btn, #payment-section #pay-now { width: 100%; justify-content: center; white-space: normal; }
+    #payment-section input[type="file"] { max-width: 100%; }
+    .selected-payment code, .detail-meta code { overflow-wrap: anywhere; }
+}

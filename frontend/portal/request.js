@@ -86,6 +86,20 @@
         realtimeHandlersRegistered = false;
     }
 
+    /* The firm speaks first: the reply box opens once the firm has written. */
+    function setComposeOpen(open) {
+        if (!msgForm) return;
+        const notice = document.getElementById('msg-notice');
+        if (notice) notice.innerHTML = open
+            ? '<strong>Secure messaging.</strong> Messages are stored against your request and are visible to the firm only.'
+            : '<strong>The firm will message you first.</strong> As soon as your advocate writes to you here, you can reply. You will also get a notification.';
+        msgForm.style.display = open ? '' : 'none';
+    }
+    function isFirmMessage(m) {
+        if (m && m.sender_role) return m.sender_role !== 'CLIENT';
+        return !(m && String(m.sender_id) === String(API.user() && API.user().id));
+    }
+
     function onRealtimeMessage(data) {
         if (!conversationId || data.conversationId !== conversationId) return;
         const msg = data.message;
@@ -94,6 +108,7 @@
         const fromClient = String(msg.sender_id) === String(API.user() && API.user().id);
         const html = renderMessage(msg, fromClient);
         threadEl.insertAdjacentHTML('beforeend', html);
+        if (isFirmMessage(msg)) setComposeOpen(true);
         if (lastKnownMessageId) lastKnownMessageId = msg.id;
         updateMsgCount();
         scrollToBottom();
@@ -130,7 +145,7 @@
 
     function renderThread(items) {
         if (!items || !items.length) {
-            threadEl.innerHTML = `<div class="empty-state tight"><span class="ico">·</span><strong>No messages yet.</strong><p>Type your message below to start the conversation.</p></div>`;
+            threadEl.innerHTML = `<div class="empty-state tight"><span class="ico">·</span><strong>No messages yet.</strong><p>The firm will write to you here.</p></div>`;
             lastKnownMessageId = null;
             displayedMessageIds.clear();
             return;
@@ -158,6 +173,7 @@
             return renderMessage(m, fromClient);
         }).join('');
         threadEl.insertAdjacentHTML('beforeend', html);
+        if (newItems.some(isFirmMessage)) setComposeOpen(true);
         const last = newItems[newItems.length - 1];
         if (last && last.id) lastKnownMessageId = last.id;
         updateMsgCount();
@@ -246,6 +262,7 @@
             conversationId = convo.id;
             const detail = await API.getConversation(conversationId);
             renderThread(detail.data.messages || []);
+            setComposeOpen(detail.data.firm_has_written !== undefined ? !!detail.data.firm_has_written : (detail.data.messages || []).some(isFirmMessage));
             if (msgMetaEl) {
                 const count = (detail.data.messages || []).length;
                 msgMetaEl.textContent = `${count} message${count === 1 ? '' : 's'}`;
@@ -366,7 +383,7 @@
             return;
         }
 
-        document.getElementById('ref').textContent = `Reference #${String(request.id).padStart(5, '0')}`;
+        document.getElementById('ref').textContent = `Reference #${P.shortRef(request.id)}`;
         document.getElementById('subject').textContent = request.subject || 'Request details';
         document.getElementById('head-meta').textContent = request.description ? 'Submitted on ' + P.fmtDateShort(request.created_at) : 'No description provided.';
         document.title = `${request.subject || 'Request'} | Client Portal`;
@@ -390,7 +407,7 @@
             messageLabel = 'Open conversation';
             messageNote = 'A matter has been opened. Your conversation with the firm is linked below.';
         } else {
-            messageNote = 'You can message the lawyer directly below. The firm will respond as soon as possible.';
+            messageNote = 'The firm will message you here first; you can reply once they do.';
         }
 
         if (actionsEl) {
@@ -455,7 +472,7 @@
                     <section class="panel">
                         <div class="panel-head"><h2>Next action</h2></div>
                         <div class="panel-body">
-                            <p class="text-soft">${acceptedCopy(request.status)}</p>
+                            <p class="text-soft">${acceptedCopy(request.status, request)}</p>
                             <p class="text-small-mute">${escape(messageNote)}</p>
                             <a class="${messageBtnClass}" href="${escape(messagesHref)}" style="margin-top:0.75rem;">${messageLabel} <span class="arrow" aria-hidden="true">→</span></a>
                             <a class="btn secondary spacer-2" href="documents.html">View related documents</a>
@@ -478,7 +495,7 @@
                         <div class="panel-head"><h2>Reference</h2></div>
                         <div class="panel-body">
                             <dl class="detail-meta">
-                                <dt>ID</dt><dd class="ref">#${String(request.id).padStart(5, '0')}</dd>
+                                <dt>ID</dt><dd class="ref">#${P.shortRef(request.id)}</dd>
                                 <dt>Account</dt><dd>${escape((API.user() && API.user().email) || '—')}</dd>
                             </dl>
                         </div>
@@ -504,18 +521,24 @@
                         <div class="panel-head"><h2>Payment</h2></div>
                         <div class="panel-body">
                             <dl class="detail-meta">
-                                <dt>Invoice</dt><dd class="ref">#${String(invoice.id).padStart(5, '0')}</dd>
-                                <dt>Status</dt><dd><span class="pill">${escape(String(invoice.payment_status || 'UNPAID').replace(/_/g, ' '))}</span></dd>
+                                <dt>Invoice</dt><dd class="ref">#${P.shortRef(invoice.id)}</dd>
+                                <dt>Status</dt><dd><span class="pill">${escape(({ PAYMENT_REQUIRED: 'Payment required', PAYMENT_PENDING_VERIFICATION: 'Awaiting verification', PAYMENT_REJECTED: 'Please resubmit', PAID: 'Paid' })[String(invoice.payment_status || '').toUpperCase()] || String(invoice.payment_status || 'UNPAID').replace(/_/g, ' '))}</span></dd>
                                 <dt>Amount</dt><dd>${fmtCurrency(invoice.total, invoice.currency)}</dd>
                             </dl>
-                            ${paid ? '' : `<a class="btn primary spacer-2" href="invoices.html?id=${encodeURIComponent(invoice.id)}#payment-section">Pay Now <span class="arrow" aria-hidden="true">→</span></a>`}
+                            ${paid || String(invoice.payment_status || '').toUpperCase() === 'PAYMENT_PENDING_VERIFICATION' ? '' : `<a class="btn primary spacer-2" href="invoices.html?id=${encodeURIComponent(invoice.id)}#payment-section">Pay Now <span class="arrow" aria-hidden="true">→</span></a>`}
                         </div>
                     </section>`;
     }
 
-    function acceptedCopy(status) {
+    function acceptedCopy(status, request) {
         const s = (status || '').toUpperCase();
-        if (s === 'ACCEPTED') return 'This request has been accepted. A matter has been opened and the firm will reach out via secure message.';
+        if (s === 'ACCEPTED') {
+            if (request && request.originating_matter && request.originating_matter.id) return 'Your payment is confirmed and your matter is open. The firm will message you here.';
+            const ps = String((request && request.invoice && request.invoice.payment_status) || '').toUpperCase();
+            if (ps === 'PAYMENT_PENDING_VERIFICATION') return 'Your payment proof has been received. The firm is checking it; your matter opens as soon as it is confirmed.';
+            if (ps === 'PAYMENT_REJECTED') return 'Your payment proof could not be confirmed. Please open the invoice and submit it again.';
+            return 'Your request has been accepted. Please pay the invoice below; your matter opens once the firm confirms your payment.';
+        }
         if (s === 'DECLINED') return 'The firm has reviewed this request and is unable to take it on at this time.';
         if (s === 'UNDER_REVIEW') return 'The firm is reviewing your request. You will be notified when the status changes.';
         if (s === 'SCHEDULED') return 'A consultation has been scheduled. Please check your messages for details.';

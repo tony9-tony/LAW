@@ -238,7 +238,13 @@
         return `<span class="pill status-${s}">${label}</span>`;
     }
 
-    window.Portal = { mount, guard, fmtDate, fmtDateShort, statusPill, refreshUnreadIndicators };
+    /* Short, readable reference for an id (ids are long UUIDs): "B29FE05C". */
+    function shortRef(id) {
+        const v = String(id == null ? '' : id);
+        return /^[0-9a-f]{8}-/i.test(v) ? v.slice(0, 8).toUpperCase() : v.padStart(5, '0');
+    }
+
+    window.Portal = { mount, guard, fmtDate, fmtDateShort, statusPill, refreshUnreadIndicators, shortRef };
 
     if (document.readyState === 'loading') {
         document.addEventListener('DOMContentLoaded', mount);
