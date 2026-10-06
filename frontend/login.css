@@ -537,7 +537,8 @@ html:has(.auth-page), .auth-page { height: 100%; }
    A dark-blue overlay keeps the text readable; without the file the plain blue shows. */
 .auth-side {
     background:
-        linear-gradient(180deg, rgba(15, 34, 57, 0.55) 0%, rgba(15, 34, 57, 0.78) 100%),
+        linear-gradient(180deg, rgba(15, 34, 57, 0.25) 0%, rgba(15, 34, 57, 0.6) 100%),
         url("img/auth-bg.jpg") 55% center / cover no-repeat,
         #0f2239;
 }
+.auth-side h1, .auth-side p, .auth-trust-card, .auth-brand-copy, .auth-side-meta { text-shadow: 0 1px 8px rgba(5, 12, 24, 0.85); }
