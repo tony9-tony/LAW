@@ -87,11 +87,11 @@ export const SUPPORT_FAQ = [
         topics: ['payment', 'malipo', 'pay', 'lipa', 'invoice', 'ankara', 'qr', 'bank', 'benki', 'receipt', 'risiti', 'proof'],
         en: {
             q: 'How do payments work?',
-            a: 'When payment is required, an invoice appears in your portal with a Pay Now section. Pick the payment method shown there (for example mobile money / Lipa Number, QR code, or bank transfer), follow the displayed instructions, then upload your payment proof with a reference. The firm reviews the proof and, once approved, the invoice is marked as paid. Only signed-in clients can pay, inside the portal.'
+            a: 'When payment is required, an invoice appears in your portal with a Pay Now section. Payment is by Lipa Namba only, and it works from every mobile network and every bank. Pay to the Lipa Namba shown there (or scan its QR code), then upload your payment proof with a reference. The firm reviews the proof and, once approved, the invoice is marked as paid. Only signed-in clients can pay, inside the portal.'
         },
         sw: {
             q: 'Malipo yanafanyaje kazi?',
-            a: 'Malipo yanapohitajika, ankara inaonekana kwenye mlango wako na sehemu ya Lipa Sasa. Chagua njia iliyoonyeshwa (kwa mfano pesa za simu / Namba ya Lipa, QR code, au benki), fuata maelekezo, kisha pakia uthibitisho wa malipo pamoja na kumbukumbu. Kampuni inapitia na, ukiidhinishwa, ankara inawekwa alama ya kulipwa.'
+            a: 'Malipo yanapohitajika, ankara inaonekana kwenye mlango wako na sehemu ya Lipa Sasa. Malipo ni kwa Lipa Namba tu, na inafanya kazi kwa mitandao yote ya simu na benki zote. Lipa kwenye Lipa Namba iliyoonyeshwa (au changanua QR code yake), kisha pakia uthibitisho wa malipo pamoja na kumbukumbu. Kampuni inapitia na, ukiidhinishwa, ankara inawekwa alama ya kulipwa.'
         }
     },
     {

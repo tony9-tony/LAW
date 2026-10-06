@@ -19,7 +19,7 @@
     /* Consultations are billed through the standard invoice payment flow:
        when the linked invoice still needs payment, link straight to that
        invoice's Pay Now section so the client uses the same payment UI
-       (method choice, Lipa/QR/Bank, proof upload, verification). */
+       (Lipa Namba payment, proof upload, verification). */
     function paymentBlock(appointment) {
         if (!appointment.invoice_id) return '';
         const total = appointment.invoice_total != null ? ` · ${fmtCurrency(appointment.invoice_total, appointment.invoice_currency)}` : '';

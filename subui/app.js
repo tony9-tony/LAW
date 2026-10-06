@@ -391,9 +391,15 @@
                 max-width: 500px;
                 width: 90%;
                 max-height: 90vh;
-                overflow-y: auto;
+                max-height: 90dvh;
+                display: flex;
+                flex-direction: column;
+                overflow: hidden;
+                background: var(--bg-elev, #fffdf9);
                 box-shadow: 0 20px 60px rgba(0, 0, 0, 0.2);
             }
+            .modal-content > .modal-form { flex: 1 1 auto; min-height: 0; overflow-y: auto; padding-right: 4px; }
+            .modal-content > .modal-header, .modal-content > .modal-description, .modal-content > .modal-message, .modal-content > .modal-footer { flex: none; }
             .modal-header {
                 display: flex;
                 justify-content: space-between;
@@ -482,6 +488,7 @@
                 display: flex;
                 gap: 12px;
                 justify-content: flex-end;
+                margin-top: 12px;
                 padding-top: 16px;
                 border-top: 1px solid var(--line);
             }
@@ -3130,34 +3137,26 @@
             // Global Payment Settings
             html += `
             <section class="panel">
-                <div class="panel-head"><h2>Global Payment Settings</h2><span class="panel-meta">Manage payment destinations. Company name comes from system settings.</span></div>
+                <div class="panel-head"><h2>Global Payment Settings</h2><span class="panel-meta">Payments are accepted by Lipa Namba only, which works with all mobile networks and all banks.</span></div>
                 <div class="panel-body">
                     <div style="margin-bottom:1rem;">
-                        <button class="btn primary" id="btn-add-destination">Add Payment Destination</button>
+                        <button class="btn primary" id="btn-add-destination">Add Lipa Namba</button>
                     </div>
                     <div id="destinations-list">
             `;
             if (!destinations.length) {
-                html += `<div class="empty-state"><span class="ico">·</span><strong>No payment destinations configured.</strong><p>Add a payment destination to accept payments via mobile money, bank transfer, or QR code.</p></div>`;
+                html += `<div class="empty-state"><span class="ico">·</span><strong>No payment destinations configured.</strong><p>Add your Lipa Namba so clients can pay from any mobile network or bank.</p></div>`;
             } else {
                 html += `
                 <table class="table">
-                    <thead><tr><th>Method</th><th>Label</th><th>Details</th><th>QR Code</th><th>Instructions</th><th>Status</th><th>Actions</th></tr></thead>
+                    <thead><tr><th>Label</th><th>Lipa Namba</th><th>QR Code</th><th>Instructions</th><th>Status</th><th>Actions</th></tr></thead>
                     <tbody>
                 `;
                 destinations.forEach((d) => {
-                    const details = [];
-                    if (d.method === 'mobile_money' && d.lipa_number) details.push(`Lipa: ${escape(d.lipa_number)}`);
-                    if (d.method === 'bank') {
-                        if (d.bank_name) details.push(`Bank: ${escape(d.bank_name)}`);
-                        if (d.bank_account_name) details.push(`Account: ${escape(d.bank_account_name)}`);
-                        if (d.bank_account_number) details.push(`Number: ${escape(d.bank_account_number)}`);
-                    }
                     html += `
                         <tr>
-                            <td><span class="pill">${escape(d.method)}</span></td>
                             <td>${escape(d.label)}</td>
-                            <td class="muted">${details.join(' · ') || '—'}</td>
+                            <td><code>${escape(d.lipa_number || '—')}</code></td>
                             <td>${d.qr_storage_key ? `<img src="/api/v1/uploads/${escape(d.qr_storage_key)}?token=${token()}" alt="QR" class="payment-qr">` : '<span class="muted">—</span>'}</td>
                             <td class="muted" style="max-width:300px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${escape(d.instructions || '—')}</td>
                             <td>${d.is_active ? '<span class="pill status-open">Active</span>' : '<span class="pill status-closed">Inactive</span>'}</td>
@@ -3330,29 +3329,21 @@
         const destinations = await api('/owner/payment-destinations', { auth: true }).then(r => (r && r.data) || []).catch(() => []);
         const existing = destId ? destinations.find((item) => item.id === destId) : null;
         const modal = new Modal({
-            title: existing ? 'Edit Payment Destination' : 'Add Payment Destination',
+            title: existing ? 'Edit Lipa Namba' : 'Add Lipa Namba',
             description: existing
-                ? 'Update the payment destination for clients to pay into.'
-                : 'Add a new payment destination for clients to pay into. The company name shown to payers comes from system settings.',
+                ? 'Update the Lipa Namba clients pay into. It works with all mobile networks and all banks.'
+                : 'Add the Lipa Namba clients pay into. It works with all mobile networks and all banks.',
             fields: [
-                { name: 'method', label: 'Method', type: 'select', required: true, value: existing ? existing.method : 'mobile_money', options: [
-                    { value: 'mobile_money', label: 'Mobile Money' },
-                    { value: 'bank', label: 'Bank Transfer' },
-                    { value: 'qr', label: 'QR Code' }
-                ] },
-                { name: 'label', label: 'Label', type: 'text', required: true, value: existing ? existing.label || '' : '', placeholder: 'e.g. M-Pesa Paybill' },
-                { name: 'lipa_number', label: 'Mobile Money Number', type: 'text', required: false, value: existing ? existing.lipa_number || '' : '', placeholder: 'e.g. 12345678' },
-                { name: 'bank_name', label: 'Bank Name', type: 'text', required: false, value: existing ? existing.bank_name || '' : '', placeholder: 'e.g. Equity Bank' },
-                { name: 'bank_account_name', label: 'Account Name', type: 'text', required: false, value: existing ? existing.bank_account_name || '' : '' },
-                { name: 'bank_account_number', label: 'Account Number', type: 'text', required: false, value: existing ? existing.bank_account_number || '' : '' },
-                { name: 'instructions', label: 'Instructions', type: 'textarea', required: false, value: existing ? existing.instructions || '' : '', placeholder: 'Reference number or notes for payers' }
+                { name: 'label', label: 'Label', type: 'text', required: true, value: existing ? existing.label || '' : 'Lipa Namba', placeholder: 'e.g. Lipa Namba' },
+                { name: 'lipa_number', label: 'Lipa Namba', type: 'text', required: true, value: existing ? existing.lipa_number || '' : '', placeholder: 'e.g. 5123456' },
+                { name: 'instructions', label: 'Instructions for clients', type: 'textarea', required: false, value: existing ? (existing.instructions || '') : 'Pay to the Lipa Namba above from any mobile network or any bank. Use the invoice number as the reference, then upload your payment proof in the portal.', placeholder: 'Reference number or notes for payers' }
             ],
             onSubmit: async (formData) => {
-                if (!formData.method) {
-                    const err = new Error('Please select a payment method');
+                if (!(formData.lipa_number && formData.lipa_number.trim())) {
+                    const err = new Error('Lipa Namba is required');
                     err.code = 'VALIDATION_ERROR';
                     err.statusCode = 400;
-                    err.body = { error: { code: 'VALIDATION_ERROR', message: 'Please select a payment method' } };
+                    err.body = { error: { code: 'VALIDATION_ERROR', message: 'Lipa Namba is required' } };
                     showModalError(modal, err);
                     throw err;
                 }
@@ -3364,19 +3355,18 @@
                     showModalError(modal, err);
                     throw err;
                 }
+                // Payments are by Lipa Namba only (works with every mobile network and bank).
                 const payload = {
-                    method: formData.method,
+                    method: 'mobile_money',
                     label: formData.label.trim(),
+                    lipa_number: formData.lipa_number.trim(),
                     is_active: true
                 };
-                if (formData.lipa_number && formData.lipa_number.trim()) payload.lipa_number = formData.lipa_number.trim();
-                if (formData.bank_name && formData.bank_name.trim()) payload.bank_name = formData.bank_name.trim();
-                if (formData.bank_account_name && formData.bank_account_name.trim()) payload.bank_account_name = formData.bank_account_name.trim();
-                if (formData.bank_account_number && formData.bank_account_number.trim()) payload.bank_account_number = formData.bank_account_number.trim();
                 if (formData.instructions && formData.instructions.trim()) payload.instructions = formData.instructions.trim();
                 try {
                     if (existing) {
-                        await api('/owner/payment-destinations/' + encodeURIComponent(destId), { method: 'PATCH', auth: true, body: payload });
+                        const { method: _m, ...patch } = payload;
+                        await api('/owner/payment-destinations/' + encodeURIComponent(destId), { method: 'PATCH', auth: true, body: patch });
                     } else {
                         await api('/owner/payment-destinations', { method: 'POST', auth: true, body: payload });
                     }
@@ -3478,13 +3468,10 @@
             ]);
             const inv = invoiceRes.data;
             const items = (itemsRes && itemsRes.data) || [];
-            const hasSnapshot = !!(inv.payment_lipa_number || inv.payment_bank_name || inv.payment_qr_storage_key);
+            const hasSnapshot = !!(inv.payment_lipa_number || inv.payment_qr_storage_key);
             const paymentMethod = inv.payment_destination_method || '';
             const paymentLabel = inv.payment_destination_label || '';
             const lipaNumber = inv.payment_lipa_number || '';
-            const bankName = inv.payment_bank_name || '';
-            const bankAccountName = inv.payment_bank_account_name || '';
-            const bankAccountNumber = inv.payment_bank_account_number || '';
             const qrStorageKey = inv.payment_qr_storage_key || '';
             const qrContentType = inv.payment_qr_content_type || '';
             const paymentInstructions = inv.payment_instructions || 'No payment instructions available.';
@@ -3522,9 +3509,6 @@
                                 <div class="payment-details" style="margin-top:0.75rem;">
                                     ${paymentMethod ? `<div class="payment-method"><strong>Method:</strong> ${escape(paymentLabel || paymentMethod)}</div>` : ''}
                                     ${lipaNumber ? `<div class="payment-detail"><strong>Lipa Number:</strong> <code>${escape(lipaNumber)}</code></div>` : ''}
-                                    ${bankName ? `<div class="payment-detail"><strong>Bank:</strong> ${escape(bankName)}</div>` : ''}
-                                    ${bankAccountName ? `<div class="payment-detail"><strong>Account Name:</strong> ${escape(bankAccountName)}</div>` : ''}
-                                    ${bankAccountNumber ? `<div class="payment-detail"><strong>Account Number:</strong> <code>${escape(bankAccountNumber)}</code></div>` : ''}
                                     ${qrStorageKey ? `<div class="payment-detail"><strong>QR Code:</strong><br><img src="/api/v1/uploads/${escape(qrStorageKey)}?token=${token()}" alt="Payment QR Code" class="payment-qr"></div>` : ''}
                                     <div class="payment-detail"><strong>Instructions:</strong><pre style="background:#f5f5f5;padding:0.75rem;border-radius:6px;font-size:0.85rem;white-space:pre-wrap;">${escape(paymentInstructions)}</pre></div>
                                 </div>
