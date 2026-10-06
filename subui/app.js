@@ -58,6 +58,7 @@
         }
         const container = document.getElementById('main-content');
         container.innerHTML = '<div class="empty-state"><span class="ico">·</span><strong>Loading...</strong></div>';
+        if (ownerChat && section !== 'messages') { ownerChat.destroy(); ownerChat = null; }
         try {
             switch (section) {
                 case 'users':             await loadUsers(); break;
@@ -1766,12 +1767,13 @@
                                 <div class="admin-doc-card">
                                     <div class="admin-doc-main">
                                         <strong class="admin-doc-name">${escape(d.original_name)}</strong>
-                                        <span class="admin-doc-meta">${escape(d.matter_reference || '—')} · ${escape(d.client_name || '—')} · ${escape(d.size_bytes ? (d.size_bytes / 1024).toFixed(1) + ' KB' : '—')} · ${escape(d.created_at)}</span>
+                                        <span class="admin-doc-meta">${escape(d.matter_reference || '—')} · ${escape(d.client_name || '—')} · ${escape(d.size_bytes ? (d.size_bytes / 1024).toFixed(1) + ' KB' : '—')} · ${escape(d.created_at)} · ${d.uploaded_by_role === 'OWNER' ? 'Shared by the firm' : 'Uploaded by the client'}${d.request_description ? ' · for: ' + escape(d.request_description) : ''}</span>
                                         <span class="pill status-${(d.status || 'available').toLowerCase().replace(/\s+/g, '_')}">${escape(d.status || 'AVAILABLE')}</span>
                                     </div>
                                     <div class="admin-doc-actions">
                                         <button class="btn small secondary" data-doc="${d.id}">View</button>
-                                        ${d.storage_key ? `<button class="btn small" data-download="${d.id}" data-name="${escape(d.original_name)}">Download</button>` : ''}
+                                        <button class="btn small" data-download="${d.id}" data-name="${escape(d.original_name)}">Download</button>
+                                        <button class="btn small ghost" data-remove-doc="${d.id}" data-name="${escape(d.original_name)}">Remove</button>
                                     </div>
                                 </div>
                             `).join('')}</div>`
@@ -1779,6 +1781,7 @@
                     </div>
                 </section>
             `;
+            bindRemoveDocs(container, loadDocuments);
             document.getElementById('btn-upload-doc-toggle')?.addEventListener('click', () => showAdminUploadModal(matters));
             container.querySelectorAll('button[data-doc]').forEach((btn) => {
                 btn.addEventListener('click', () => loadDocumentDetail(btn.getAttribute('data-doc')));
@@ -1787,6 +1790,22 @@
         } catch (error) {
             container.innerHTML = `<div class="empty-state"><span class="ico">!</span><strong>Could not load documents.</strong><p>${escape(error.message)}</p></div>`;
         }
+    }
+
+    function bindRemoveDocs(root, reload) {
+        root.querySelectorAll('button[data-remove-doc]').forEach((btn) => {
+            btn.addEventListener('click', async () => {
+                if (!confirm('Remove "' + btn.getAttribute('data-name') + '"? It disappears for the client too and stays in the audit trail.')) return;
+                try { await api('/owner/documents/' + encodeURIComponent(btn.getAttribute('data-remove-doc')), { method: 'DELETE', auth: true }); await reload(); }
+                catch (err) { showToast(err.message || 'Could not remove the document.', 'error'); }
+            });
+        });
+        root.querySelectorAll('button[data-cancel-docreq]').forEach((btn) => {
+            btn.addEventListener('click', async () => {
+                try { await api('/owner/document-requests/' + encodeURIComponent(btn.getAttribute('data-cancel-docreq')) + '/cancel', { method: 'POST', auth: true }); await reload(); }
+                catch (err) { showToast(err.message || 'Could not cancel the request.', 'error'); }
+            });
+        });
     }
 
     function showAdminUploadModal(matters) {
@@ -1888,6 +1907,7 @@
     }
 
     let currentOwnerConversationId = null;
+    let ownerChat = null;
     let ownerPollTimer = null;
     let ownerLastKnownMessageId = null;
     let ownerDisplayedMessageIds = new Set();
@@ -2102,6 +2122,7 @@
 
     async function loadMessages(conversationId) {
         const container = document.getElementById('main-content');
+        if (ownerChat) { ownerChat.destroy(); ownerChat = null; }
         if (conversationId) {
             currentOwnerConversationId = conversationId;
         } else {
@@ -2183,16 +2204,11 @@
             ]);
             refreshOwnerUnreadBadge();
             const convo = detailRes.data || {};
-            const messages = (convo.messages) || [];
-            ownerDisplayedMessageIds.clear();
-            messages.forEach(m => ownerDisplayedMessageIds.add(m.id));
-            const last = messages[messages.length - 1];
-            if (last && last.id) ownerLastKnownMessageId = last.id;
             container.innerHTML = `
                 <div class="page-head">
                     <div>
                         <span class="kicker">Conversation</span>
-                        <h1>${escape(convo.reference || 'Matter')}${convo.title ? ' — ' + escape(convo.title) : ''}</h1>
+                        <h1>${escape(convo.reference || (convo.request_subject ? 'Request' : 'Conversation'))}${convo.title ? ' — ' + escape(convo.title) : (convo.subject ? ' — ' + escape(convo.subject) : '')}</h1>
                         <p class="head-meta">Client: ${escape(convo.client_name || '—')} (${escape(convo.client_email || '')})</p>
                     </div>
                     <div class="action-row">
@@ -2202,58 +2218,31 @@
                 <section class="panel" aria-labelledby="thread-head">
                     <div class="panel-head">
                         <h2 id="thread-head">Thread</h2>
-                        <span class="panel-meta">${messages.length} message${messages.length === 1 ? '' : 's'}</span>
+                        <span class="panel-meta">Reply, react, delete · live</span>
                     </div>
-                    <div class="panel-body">
-                        <div class="thread" id="owner-thread">
-                            ${messages.length ? messages.map((m) => {
-                                const isOwner = m.sender_role === 'OWNER';
-                                return `
-                                    <div class="msg ${isOwner ? 'from-client' : ''}">
-                                        <div class="meta">${escape(m.sender_name || (isOwner ? 'Firm' : 'Client'))} · ${escape(m.created_at)}</div>
-                                        <div class="body">${escape(m.body)}</div>
-                                    </div>
-                                `;
-                            }).join('') : '<div class="empty-state tight"><span class="ico">·</span><strong>No messages yet.</strong></div>'}
-                        </div>
-                        <div class="compose">
-                            <form id="owner-reply-form">
-                                <div class="field">
-                                    <label for="owner-reply-body">Reply to client</label>
-                                    <textarea id="owner-reply-body" name="body" placeholder="Write your reply…" required></textarea>
-                                </div>
-                                <div class="page-actions">
-                                    <button type="submit" class="btn primary">Send reply <span class="arrow" aria-hidden="true">→</span></button>
-                                </div>
-                            </form>
-                        </div>
-                    </div>
+                    <div class="panel-body"><div id="owner-chat-root"></div></div>
                 </section>
             `;
             document.getElementById('btn-back-inbox')?.addEventListener('click', () => {
+                if (ownerChat) { ownerChat.destroy(); ownerChat = null; }
                 refreshOwnerUnreadBadge();
                 navigateTo('messages');
             });
-            const replyForm = document.getElementById('owner-reply-form');
-            if (replyForm) {
-                replyForm.addEventListener('submit', async (e) => {
-                    e.preventDefault();
-                    const body = replyForm.querySelector('#owner-reply-body').value.trim();
-                    if (!body) return;
-                    const btn = replyForm.querySelector('button[type="submit"]');
-                    btn.disabled = true;
-                    try {
-                        await api(`/owner/conversations/${encodeURIComponent(id)}/messages`, { method: 'POST', body: { body }, auth: true });
-                        replyForm.reset();
-                         await loadOwnerConversationDetail(id);
-                    } catch (err) {
-                        showToast(err.message || 'Could not send reply.', 'error');
-                    } finally {
-                        btn.disabled = false;
-                    }
-                });
-            }
-            ownerSseConnect();
+            if (ownerChat) { ownerChat.destroy(); ownerChat = null; }
+            const meUser = (() => { try { return JSON.parse(localStorage.getItem('auth_user') || 'null') || {}; } catch (e) { return {}; } })();
+            const enc = encodeURIComponent(id);
+            ownerChat = window.ChatWidget.mount(document.getElementById('owner-chat-root'), {
+                conversationId: id,
+                selfId: meUser.id || (JSON.parse(atob(token().split('.')[1].replace(/-/g, '+').replace(/_/g, '/'))).sub),
+                otherLabel: convo.client_name || 'Client',
+                apiBase: (window.__API_BASE__ || '/api/v1'),
+                token: () => token(),
+                loginUrl: '/subui/login.html',
+                downloadPath: (docId) => `/owner/documents/${encodeURIComponent(docId)}/download`,
+                http: (path, o) => api(path, { auth: true, method: (o && o.method) || 'GET', body: o && o.body }),
+                paths: { thread: `/owner/conversations/${enc}`, send: `/owner/conversations/${enc}/messages`, read: `/owner/conversations/${enc}/read` },
+                onActivity: () => { try { refreshOwnerUnreadBadge(); } catch (e) { /* ignore */ } }
+            });
         } catch (error) {
             ownerStopPolling();
             ownerSseDisconnect();
@@ -2447,6 +2436,7 @@
             const m = res.data;
             const events = res.events || [];
             const documents = res.documents || [];
+            const docRequests = res.document_requests || [];
             const appointments = res.appointments || [];
             const conversation = res.conversation || null;
             const originatingRequest = res.originating_request || null;
@@ -2532,6 +2522,14 @@
                     </div>
                 </section>
                 ` : ''}
+                ${docRequests.length ? `<section class="panel">
+                    <div class="panel-head"><h2>Documents requested from the client (${docRequests.filter((r) => r.status === 'OPEN').length} open)</h2></div>
+                    <div class="panel-body tight"><table class="table"><thead><tr><th>Asked for</th><th>Status</th><th>Asked</th><th></th></tr></thead><tbody>${docRequests.map((r) => `
+                        <tr><td>${escape(r.description)}${r.note ? `<br><span class="muted">${escape(r.note)}</span>` : ''}</td>
+                        <td>${r.status === 'FULFILLED' ? `<span class="pill status-closed">Received</span><br><span class="muted">${escape(r.fulfilled_document_name || '')}</span>` : r.status === 'CANCELLED' ? '<span class="pill">Cancelled</span>' : '<span class="pill status-new">Waiting for client</span>'}</td>
+                        <td class="muted">${escape(r.created_at)}</td>
+                        <td>${r.status === 'OPEN' ? `<button class="btn small ghost" data-cancel-docreq="${r.id}">Cancel</button>` : ''}</td></tr>`).join('')}</tbody></table></div>
+                </section>` : ''}
                 <section class="panel">
                     <div class="panel-head"><h2>Documents (${documents.length})</h2></div>
                     <div class="panel-body tight">
@@ -2541,11 +2539,12 @@
                                 <div class="admin-doc-card">
                                     <div class="admin-doc-main">
                                         <strong class="admin-doc-name">${escape(d.original_name)}</strong>
-                                        <span class="admin-doc-meta">${escape(d.size_bytes ? d.size_bytes + ' bytes' : '—')} · ${escape(d.status)} · ${escape(d.created_at)}</span>
+                                        <span class="admin-doc-meta">${escape(d.size_bytes ? d.size_bytes + ' bytes' : '—')} · ${d.uploaded_by_role === 'OWNER' ? 'Shared by the firm' : 'Uploaded by the client'} · ${escape(d.created_at)}</span>
                                     </div>
                                     <div class="admin-doc-actions">
                                         <button class="btn small secondary" data-doc="${d.id}">View</button>
-                                        ${d.storage_key ? `<button class="btn small" data-download="${d.id}" data-name="${escape(d.original_name)}">Download</button>` : ''}
+                                        <button class="btn small" data-download="${d.id}" data-name="${escape(d.original_name)}">Download</button>
+                                        <button class="btn small ghost" data-remove-doc="${d.id}" data-name="${escape(d.original_name)}">Remove</button>
                                     </div>
                                 </div>
                             `).join('')}</div>`
@@ -2595,6 +2594,7 @@
             container.querySelectorAll('button[data-request]').forEach((btn) => {
                 btn.addEventListener('click', () => loadRequestDetail(btn.getAttribute('data-request')));
             });
+            bindRemoveDocs(container, () => loadMatterDetail(id));
             container.querySelectorAll('button[data-doc]').forEach((btn) => {
                 btn.addEventListener('click', () => loadDocumentDetail(btn.getAttribute('data-doc')));
             });
@@ -3941,13 +3941,25 @@
 
     document.addEventListener('visibilitychange', () => {
         if (document.visibilityState === 'visible') {
-            if (currentOwnerConversationId && !(ownerSse && ownerSse.readyState === EventSource.OPEN)) {
-                ownerSseConnect();
-            }
         }
     });
 
+    /* Live: a document a client uploads reaches the owner centre straight away. */
+    function startOwnerLive() {
+        if (!window.EventSource || !token()) return;
+        const es = new EventSource('/api/v1/events?token=' + encodeURIComponent(token()));
+        es.onmessage = (evt) => {
+            let data; try { data = JSON.parse(evt.data); } catch (e) { return; }
+            if (data.type === 'document.created') {
+                showToast('New document: ' + ((data.document && data.document.original_name) || 'a client uploaded a file'), 'success');
+                const route = readRoute() || '';
+                if (route === 'documents' || /^matters\/[^/]+$/.test(route)) navigateFromLocation();
+            }
+        };
+    }
+
     loadCurrentUser();
+    startOwnerLive();
     startAuthPoller();
     navigateFromLocation();
     startOwnerUnreadBadgePolling();

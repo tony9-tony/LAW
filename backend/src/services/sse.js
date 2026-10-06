@@ -41,6 +41,7 @@ export function sseMiddleware(req, res, next) {
 
     // Send initial connection event (after registration so it is delivered)
     sendToUser(userId, { type: 'connected', timestamp: Date.now() });
+    markDeliveredOnConnect(userId);
 
     const cleanup = () => {
         const set = userStreams.get(userId);
@@ -56,30 +57,80 @@ export function sseMiddleware(req, res, next) {
 
 export function sendToUser(userId, event) {
     const set = userStreams.get(userId);
-    if (!set) return;
+    if (!set) return 0;
     const payload = `id: ${nextEventId()}\ndata: ${JSON.stringify(event)}\n\n`;
+    let written = 0;
     for (const res of set) {
         try {
             res.write(payload);
+            written += 1;
         } catch { /* ignore dead connections */ }
     }
+    return written;
 }
 
-export async function notifyMessageCreated(conversationId, messageId, senderId, body, senderRole, senderName) {
+/* True when the user has at least one open live connection. */
+export function isOnline(userId) {
+    const set = userStreams.get(userId);
+    return Boolean(set && set.size > 0);
+}
+
+/* Sends the new message to every other participant. Returns the ids of the
+   people who were online (the message counts as "delivered" to them). */
+export async function notifyMessageCreated(conversationId, messageId, senderId, body, senderRole, senderName, extra = {}) {
     const participants = await getConversationParticipants(conversationId);
+    const online = [];
     for (const pid of participants) {
         if (pid === senderId) continue;
-        sendToUser(pid, {
+        const written = sendToUser(pid, {
             type: 'message.created',
             conversationId,
-            message: { id: messageId, sender_id: senderId, sender_role: senderRole, sender_name: senderName, body, created_at: new Date().toISOString() },
+            message: { id: messageId, sender_id: senderId, sender_role: senderRole, sender_name: senderName, body, created_at: new Date().toISOString(), ...extra },
             timestamp: Date.now()
         });
+        if (written) online.push(pid);
+    }
+    return online;
+}
+
+/* A message was deleted. "everyone" tells the other side to show the tombstone. */
+export async function notifyMessageDeleted(conversationId, messageId, deletedBy, scope) {
+    if (scope === 'me') {
+        sendToUser(deletedBy, { type: 'message.deleted', conversationId, messageId, scope: 'me', timestamp: Date.now() });
+        return;
+    }
+    const participants = await getConversationParticipants(conversationId);
+    for (const pid of participants) {
+        sendToUser(pid, { type: 'message.deleted', conversationId, messageId, scope: 'everyone', deletedBy, timestamp: Date.now() });
     }
 }
 
-export async function notifyMessageDelivered(conversationId, messageId, deliveredTo) {
-    sendToUser(deliveredTo, {
+/* Anything the user missed while offline counts as delivered once they connect. */
+async function markDeliveredOnConnect(userId) {
+    try {
+        const result = await query(
+            `UPDATE messages m SET delivered_at = NOW()
+             FROM conversations c
+             LEFT JOIN matters mat ON mat.id = c.matter_id
+             LEFT JOIN requests r ON r.id = c.request_id
+             WHERE m.conversation_id = c.id AND m.delivered_at IS NULL AND m.sender_id <> $1
+               AND ($1 IN (mat.client_id, c.client_id, r.client_id, mat.assigned_to)
+                    OR EXISTS (SELECT 1 FROM users u WHERE u.id = $1 AND u.role = 'OWNER'))
+             RETURNING m.id, m.conversation_id, m.sender_id`,
+            [userId]
+        );
+        const seen = new Set();
+        for (const row of result.rows) {
+            const key = `${row.sender_id}:${row.conversation_id}`;
+            if (seen.has(key)) continue;
+            seen.add(key);
+            sendToUser(row.sender_id, { type: 'message.delivered', conversationId: row.conversation_id, messageId: null, timestamp: Date.now() });
+        }
+    } catch { /* delivery marks must never break the live connection */ }
+}
+
+export async function notifyMessageDelivered(conversationId, messageId, senderId) {
+    sendToUser(senderId, {
         type: 'message.delivered',
         conversationId,
         messageId,
@@ -433,17 +484,34 @@ export async function notifyPaymentRejected(paymentId, invoiceId, clientId, reas
 
 async function getConversationParticipants(conversationId) {
     const result = await query(
-        `SELECT c.client_id AS convo_client, c.request_id, m.client_id AS matter_client, m.assigned_to
+        `SELECT c.client_id AS convo_client, c.request_id, m.client_id AS matter_client, m.assigned_to, r.client_id AS request_client
          FROM conversations c
          LEFT JOIN matters m ON m.id = c.matter_id
+         LEFT JOIN requests r ON r.id = c.request_id
          WHERE c.id = $1 LIMIT 1`,
         [conversationId]
     );
     if (result.rowCount === 0) return [];
     const row = result.rows[0];
-    const participants = [row.convo_client, row.matter_client].filter(Boolean);
+    const participants = [row.convo_client, row.matter_client, row.request_client].filter(Boolean);
     if (row.assigned_to) participants.push(row.assigned_to);
     const owners = await query(`SELECT id FROM users WHERE role = 'OWNER' AND is_active = TRUE`);
     for (const o of owners.rows) participants.push(o.id);
     return [...new Set(participants)];
+}
+
+/* A document reached a matter (uploaded by the client, or shared by the firm). */
+export async function notifyDocumentCreated(matterId, clientId, document, uploaderId, requestId = null) {
+    const event = {
+        type: 'document.created',
+        matterId,
+        requestId,
+        document,
+        timestamp: Date.now()
+    };
+    const people = new Set([clientId]);
+    const owners = await query(`SELECT id FROM users WHERE role = 'OWNER' AND is_active = TRUE`);
+    for (const o of owners.rows) people.add(o.id);
+    people.delete(uploaderId);
+    for (const pid of people) sendToUser(pid, event);
 }

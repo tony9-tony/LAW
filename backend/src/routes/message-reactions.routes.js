@@ -3,10 +3,21 @@ import { Router } from 'express';
 import { z } from 'zod';
 import { authenticate } from '../middleware/auth.js';
 import { query } from '../db.js';
-import { ensureOwned } from '../lib/authorization.js';
+import { findMessageFor } from '../services/chat.service.js';
 
 export const messageReactionsRouter = Router();
 messageReactionsRouter.use(authenticate);
+
+/* One check for every route: the caller must be able to see this message, and a deleted one cannot be reacted to. */
+messageReactionsRouter.param('messageId', async (request, response, next, messageId) => {
+    try {
+        if (!/^[0-9a-f-]{36}$/i.test(messageId)) return response.status(404).json({ error: { code: 'NOT_FOUND', message: 'Message not found' } });
+        const message = await findMessageFor(request.user, messageId);
+        if (!message) return response.status(403).json({ error: { code: 'FORBIDDEN', message: 'Not authorized' } });
+        if (message.deleted_at && request.method === 'POST') return response.status(409).json({ error: { code: 'MESSAGE_DELETED', message: 'This message was deleted' } });
+        next();
+    } catch (error) { next(error); }
+});
 
 const reactionSchema = z.object({ emoji: z.string().min(1).max(32) });
 

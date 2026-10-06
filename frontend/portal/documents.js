@@ -73,16 +73,39 @@
         return c;
     }
 
+    function who(d) { return d.uploaded_by_role === 'OWNER' ? 'Shared by the firm' : 'Uploaded by you'; }
+    function canPreview(d) { return /^(application\/pdf|image\/)/.test(d.content_type || ''); }
+
     async function load() {
         const root = document.getElementById('docs-root');
         const meta = document.getElementById('docs-meta');
-        root.innerHTML = '<div class="empty-state"><span class="ico">·</span><strong>Loading documents…</strong></div>';
+        const reqRoot = document.getElementById('docs-requests');
         meta.textContent = 'Loading…';
         try {
-            const res = await API.listDocuments();
+            const [res, reqRes] = await Promise.all([API.listDocuments(), API.request('/documents/requests', { auth: true }).catch(() => ({ data: [] }))]);
             const items = (res && res.data) || [];
+            const requests = (reqRes && reqRes.data) || [];
+            if (reqRoot) {
+                reqRoot.innerHTML = requests.length ? `
+                    <section class="panel" aria-labelledby="req-head" style="border-color:var(--warn);">
+                        <div class="panel-head"><h2 id="req-head">The firm is waiting for ${requests.length} document${requests.length === 1 ? '' : 's'}</h2><span class="panel-meta">Upload to answer</span></div>
+                        <div class="panel-body tight">
+                            ${requests.map((r) => `
+                                <div class="doc-card" style="margin:.75rem;">
+                                    <div class="doc-card-top"><span class="doc-icon">!</span>
+                                        <div class="doc-card-info">
+                                            <div class="doc-name">${escape(r.description)}</div>
+                                            <div class="doc-meta">${escape(r.matter_reference || '')}${r.matter_title ? ' · ' + escape(r.matter_title) : ''} · asked ${P.fmtDateShort(r.created_at)}${r.due_date ? ' · due ' + P.fmtDateShort(r.due_date) : ''}${r.note ? ' · ' + escape(r.note) : ''}</div>
+                                        </div>
+                                    </div>
+                                    <div class="doc-card-bottom"><button class="btn small" data-answer="${r.id}" data-matter="${r.matter_id}" data-desc="${escape(r.description)}">Upload this document</button></div>
+                                </div>`).join('')}
+                        </div>
+                    </section>` : '';
+                reqRoot.querySelectorAll('button[data-answer]').forEach((btn) => btn.addEventListener('click', () => openUploadModal({ matterId: btn.dataset.matter, requestId: btn.dataset.answer, description: btn.dataset.desc })));
+            }
             if (!items.length) {
-                root.innerHTML = `<div class="empty-state"><span class="ico">·</span><strong>No documents yet.</strong><p>Documents shared with you by the firm will appear here.</p></div>`;
+                root.innerHTML = `<div class="empty-state"><span class="ico">·</span><strong>No documents yet.</strong><p>Documents you upload, and those the firm shares with you, appear here.</p></div>`;
                 meta.textContent = '0 documents';
                 return;
             }
@@ -92,14 +115,16 @@
                         <span class="doc-icon">${ext(d.original_name)}</span>
                         <div class="doc-card-info">
                             <div class="doc-name">${escape(d.original_name || 'Document')}</div>
-                            <div class="doc-meta">${escape(d.matter_reference || '')} ${d.matter_title ? '· ' + escape(d.matter_title) : ''} · ${P.fmtDateShort(d.created_at)}</div>
+                            <div class="doc-meta">${escape(d.matter_reference || '')} ${d.matter_title ? '· ' + escape(d.matter_title) : ''} · ${P.fmtDateShort(d.created_at)} · ${who(d)}${d.request_description ? ' · for: ' + escape(d.request_description) : ''}</div>
                         </div>
                     </div>
                     <div class="doc-card-bottom">
                         <span class="doc-size">${bytes(d.size_bytes)}</span>
                         <span class="pill">${escape((d.status || 'AVAILABLE').toUpperCase())}</span>
-                        <button class="btn small secondary" data-view-doc="${d.id}">View</button>
+                        <button class="btn small secondary" data-view-doc="${d.id}">Details</button>
+                        ${canPreview(d) ? `<button class="btn small secondary" data-preview="${d.id}" data-type="${escape(d.content_type)}">Preview</button>` : ''}
                         <button class="btn small" data-download="${d.id}" data-name="${escape(d.original_name)}">Download</button>
+                        ${d.uploaded_by_role !== 'OWNER' ? `<button class="btn small ghost" data-remove="${d.id}" data-name="${escape(d.original_name)}">Remove</button>` : ''}
                     </div>
                 </div>
             `).join('')}</div>`;
@@ -144,6 +169,8 @@
                                     <tr><th>Size</th><td>${escape(d.size_bytes ? bytes(d.size_bytes) : '—')}</td></tr>
                                     <tr><th>Status</th><td><span class="pill">${escape((d.status || 'AVAILABLE').toUpperCase())}</span></td></tr>
                                     <tr><th>Matter</th><td>${escape(d.matter_reference || '—')} — ${escape(d.matter_title || '')}</td></tr>
+                                    <tr><th>Added by</th><td>${escape(d.uploaded_by_role === 'OWNER' ? 'The firm' : 'You')}</td></tr>
+                                    ${d.request_description ? `<tr><th>Answers request</th><td>${escape(d.request_description)}</td></tr>` : ''}
                                     <tr><th>Uploaded</th><td class="muted">${escape(d.created_at)}</td></tr>
                                 </tbody>
                             </table>
@@ -160,13 +187,14 @@
         }
     }
 
-    function openUploadModal() {
+    function openUploadModal(prefill) {
+        prefill = prefill || {};
         const overlay = document.createElement('div');
         overlay.className = 'modal-overlay';
         overlay.innerHTML = `
             <div class="modal-card">
                 <div class="modal-card-head">
-                    <h3>Upload Document</h3>
+                    <h3>${prefill.requestId ? 'Upload requested document' : 'Upload Document'}</h3>${prefill.description ? `<p class="muted" style="margin:.25rem 0 0">${escape(prefill.description)}</p>` : ''}
                     <button class="modal-close-btn" aria-label="Close">&times;</button>
                 </div>
                 <form class="modal-form" id="portal-upload-form">
@@ -181,7 +209,6 @@
                     <label>Original name (optional)
                         <input type="text" name="original_name" placeholder="Defaults to uploaded file name" />
                     </label>
-                    <div class="form-status" id="upload-status" role="status" aria-live="polite" style="margin-top:0.75rem;"></div>
                     <div class="modal-form-actions">
                         <button type="submit" class="btn primary">Upload</button>
                         <button type="button" class="btn ghost modal-cancel">Cancel</button>
@@ -195,11 +222,7 @@
         API.listMatters().then((res) => {
             const matters = (res && res.data) || [];
             if (!matters.length) {
-                const statusEl = overlay.querySelector('#upload-status');
-                if (statusEl) {
-                    statusEl.className = 'form-status error';
-                    statusEl.innerHTML = '<strong>No matters available.</strong>You do not have any matters yet. Please wait for a matter to be created before uploading documents.';
-                }
+                showToast('You do not have any matters yet. Please wait for a matter to be created before uploading documents.', 'warning');
                 return;
             }
             matters.forEach((m) => {
@@ -208,7 +231,8 @@
                 opt.textContent = `${m.reference || m.id} — ${m.title || 'Untitled'}`;
                 matterSelect.appendChild(opt);
             });
-        }).catch(() => { const statusEl = overlay.querySelector('#upload-status'); if (statusEl) { statusEl.className = 'form-status error'; statusEl.textContent = 'Could not load matters. Please try again.'; } });
+            if (prefill.matterId) { matterSelect.value = prefill.matterId; if (prefill.requestId) matterSelect.disabled = true; }
+        }).catch(() => showToast('Could not load matters. Please try again.', 'error'));
 
         const close = () => document.body.removeChild(overlay);
         overlay.querySelector('.modal-close-btn').addEventListener('click', close);
@@ -218,7 +242,7 @@
         overlay.querySelector('#portal-upload-form').addEventListener('submit', async (e) => {
             e.preventDefault();
             const form = e.target;
-            const matterId = form.matter_id.value.trim();
+            const matterId = (prefill.matterId || form.matter_id.value).trim();
             const fileInput = form.file;
             const originalName = form.original_name.value.trim();
             if (!matterId) { showToast('Please select a matter.', 'warning'); return; }
@@ -227,6 +251,7 @@
             fd.append('file', fileInput.files[0]);
             fd.append('matter_id', matterId);
             if (originalName) fd.append('original_name', originalName);
+            if (prefill.requestId) fd.append('request_id', prefill.requestId);
             const submitBtn = form.querySelector('button[type="submit"]');
             submitBtn.disabled = true;
             submitBtn.textContent = 'Uploading…';
@@ -235,11 +260,7 @@
                 close();
                 await load();
             } catch (err) {
-                const statusEl = overlay.querySelector('#upload-status');
-                if (statusEl) {
-                    statusEl.className = 'form-status error';
-                    statusEl.innerHTML = '<strong>Upload failed.</strong>' + escape(err.message || 'Unknown error');
-                }
+                showToast('Upload failed: ' + (err.message || 'Unknown error'), 'error');
             } finally {
                 submitBtn.disabled = false;
                 submitBtn.textContent = 'Upload';
@@ -249,7 +270,33 @@
         overlay.style.display = 'flex';
     }
 
+    async function fetchBlob(docId, inline) {
+        const res = await fetch(`${API.base()}/documents/${encodeURIComponent(docId)}/download${inline ? '?inline=1' : ''}`, { headers: { 'Authorization': `Bearer ${API.token()}` } });
+        if (!res.ok) {
+            const data = await res.json().catch(() => ({}));
+            throw new Error((data && data.error && data.error.message) || `Request failed (${res.status})`);
+        }
+        return res.blob();
+    }
+
     function bindActions() {
+        document.querySelectorAll('button[data-preview]').forEach((btn) => {
+            btn.addEventListener('click', async () => {
+                const win = window.open('', '_blank');
+                try {
+                    const blob = await fetchBlob(btn.getAttribute('data-preview'), true);
+                    const url = URL.createObjectURL(new Blob([blob], { type: btn.getAttribute('data-type') || blob.type }));
+                    if (win) win.location.href = url;
+                } catch (err) { if (win) win.close(); showToast('Could not open the document: ' + (err.message || 'Unknown error'), 'error'); }
+            });
+        });
+        document.querySelectorAll('button[data-remove]').forEach((btn) => {
+            btn.addEventListener('click', async () => {
+                if (!confirm(`Remove "${btn.getAttribute('data-name')}"? The firm will no longer see it.`)) return;
+                try { await API.request(`/documents/${encodeURIComponent(btn.getAttribute('data-remove'))}`, { method: 'DELETE', auth: true }); await load(); }
+                catch (err) { showToast('Could not remove the document: ' + (err.message || 'Unknown error'), 'error'); }
+            });
+        });
         document.querySelectorAll('button[data-view-doc]').forEach((btn) => {
             btn.addEventListener('click', () => loadDocumentDetail(btn.getAttribute('data-view-doc')));
         });
@@ -287,6 +334,12 @@
         });
     }
 
-    document.getElementById('btn-upload-document')?.addEventListener('click', openUploadModal);
+    document.getElementById('btn-upload-document')?.addEventListener('click', () => openUploadModal());
     load();
+    /* Live: a document the firm shares, or a new request for one, shows up without refreshing. */
+    const RT = window.Site && window.Site.Realtime;
+    if (RT) {
+        const refresh = () => { if (!document.querySelector('.doc-detail') && !document.querySelector('.modal-overlay')) load(); };
+        ['document.created', 'document.requested'].forEach((t) => RT.on(t, refresh));
+    }
 })();

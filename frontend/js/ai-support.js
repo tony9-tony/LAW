@@ -10,10 +10,10 @@
         var host = document.createElement('div');
         host.id = 'ai-support';
         host.innerHTML =
+            '<div id="ai-support-teaser" role="status" hidden><button type="button" class="ai-teaser-x" aria-label="Dismiss">&times;</button><strong>Need legal guidance?</strong><span>Ask our assistant — free, 24/7.</span></div>' +
             '<button type="button" id="ai-support-fab" aria-label="Open AI Support chat" aria-expanded="false" aria-controls="ai-support-panel">' +
-            '<span class="ai-fab-dot" aria-hidden="true"><svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true"><path fill="#fff" d="M6.2 11.6l-3.1-3.1 1.1-1.1 2 2 5.5-5.5 1.1 1.1z"/></svg></span>' +
-            '<span>AI Support</span>' +
-            '<svg class="ai-fab-tick" viewBox="0 0 16 16" width="13" height="13" aria-label="Verified"><circle cx="8" cy="8" r="8" fill="#1d9bf0"/><path fill="#fff" d="M6.9 11.3l-2.6-2.6.9-.9 1.7 1.7 4.3-4.3.9.9z"/></svg>' +
+            '<span class="ai-fab-icon" aria-hidden="true"><svg viewBox="0 0 24 24" width="22" height="22"><path fill="currentColor" d="M4 4h16a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H9l-5 4v-4a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2z"/><circle cx="8" cy="11" r="1.3" fill="#fff"/><circle cx="12" cy="11" r="1.3" fill="#fff"/><circle cx="16" cy="11" r="1.3" fill="#fff"/></svg><i class="ai-fab-online"></i></span>' +
+            '<span class="ai-fab-text"><b>Ask AI Support</b><small>Online now</small></span>' +
             '</button>' +
             '<section id="ai-support-panel" role="dialog" aria-modal="false" aria-label="AI Support chat" hidden>' +
             '<header class="ai-head"><div><strong>AI Support</strong><span class="ai-sub">Guidance only — not a lawyer</span></div>' +
@@ -33,14 +33,24 @@
         els.form = host.querySelector('#ai-support-form');
         els.input = host.querySelector('#ai-support-input');
         els.close = host.querySelector('#ai-support-close');
+        els.teaser = host.querySelector('#ai-support-teaser');
+        els.teaser.addEventListener('click', function (e) { if (e.target.classList.contains('ai-teaser-x')) { dismissTeaser(true); } else { open(); } });
+        var seen = false; try { seen = sessionStorage.getItem('aiTeaser') === '1'; } catch (e) {}
+        if (!seen) setTimeout(function () { if (!state.open) els.teaser.hidden = false; }, 4000);
         els.fab.addEventListener('click', toggle);
         els.close.addEventListener('click', close);
         document.addEventListener('keydown', function (e) { if (e.key === 'Escape' && state.open) close(); });
         els.form.addEventListener('submit', onSubmit);
     }
+    function dismissTeaser(remember) {
+        if (!els.teaser) return;
+        els.teaser.hidden = true;
+        if (remember) { try { sessionStorage.setItem('aiTeaser', '1'); } catch (e) {} }
+    }
     function toggle() { state.open ? close() : open(); }
     function open() {
         state.open = true;
+        dismissTeaser(true);
         els.panel.hidden = false;
         els.host.classList.add('open');
         els.fab.setAttribute('aria-expanded', 'true');
