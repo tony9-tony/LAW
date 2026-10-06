@@ -304,7 +304,8 @@ export async function setPaymentForRequest({ requestId, actorId, amount, descrip
             // Update invoice with new amount, description, and payment destination snapshot
             const updated = await client.query(
                 `UPDATE invoices
-                 SET status = 'DRAFT',
+                 SET status = 'ISSUED',
+                     issued_at = COALESCE(issued_at, NOW()),
                      currency = $2,
                      subtotal = $3,
                      tax = 0,
@@ -353,7 +354,7 @@ export async function setPaymentForRequest({ requestId, actorId, amount, descrip
             // Record event
             await client.query(
                 `INSERT INTO request_events (request_id, actor_id, event_type, title, note)
-                 VALUES ($1, $2, 'PAYMENT_SET', 'Payment amount set by admin', $3)`,
+                 VALUES ($1, $2, 'PAYMENT_SET', 'Payment requested', $3)`,
                 [requestId, actorId, `Amount: ${currency} ${Number(amount).toLocaleString()}, Description: ${description}`]
             );
 
@@ -367,7 +368,7 @@ export async function setPaymentForRequest({ requestId, actorId, amount, descrip
                 `INSERT INTO invoices (matter_id, client_id, request_id, status, currency, subtotal, tax, total, payment_status, payment_instructions,
                                       payment_lipa_number, payment_bank_name, payment_bank_account_name, payment_bank_account_number,
                                       payment_qr_storage_key, payment_qr_content_type, payment_destination_method, payment_destination_label, payment_destination_id)
-                 VALUES ($1, $2, $3, 'DRAFT', $4, $5, 0, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16)
+                 VALUES ($1, $2, $3, 'ISSUED', $4, $5, 0, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16)
                  RETURNING id, matter_id, client_id, request_id, status, currency, subtotal, tax, total, payment_status, payment_instructions,
                            payment_lipa_number, payment_bank_name, payment_bank_account_name, payment_bank_account_number,
                            payment_qr_storage_key, payment_qr_content_type, payment_destination_method, payment_destination_label, payment_destination_id,
@@ -397,7 +398,7 @@ export async function setPaymentForRequest({ requestId, actorId, amount, descrip
             // Record event
             await client.query(
                 `INSERT INTO request_events (request_id, actor_id, event_type, title, note)
-                 VALUES ($1, $2, 'PAYMENT_SET', 'Payment amount set by admin', $3)`,
+                 VALUES ($1, $2, 'PAYMENT_SET', 'Payment requested', $3)`,
                 [requestId, actorId, `Amount: ${currency} ${Number(amount).toLocaleString()}, Description: ${description}`]
             );
 

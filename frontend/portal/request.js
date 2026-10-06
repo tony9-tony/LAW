@@ -547,4 +547,10 @@
     }
 
     load();
+    /* Live: the payment panel appears as soon as the firm requests payment. */
+    const RTpay = window.Site && window.Site.Realtime;
+    if (RTpay) ['payment.requested', 'payment.verified', 'payment.rejected'].forEach((t) => RTpay.on(t, () => {
+        const a = document.activeElement;
+        if (!(a && /^(INPUT|TEXTAREA)$/.test(a.tagName))) load();
+    }));
 })();

@@ -12,7 +12,7 @@ import { saveUploadedFile, storageFilePath, deleteStoredFile } from '../services
 import { acceptRequest, declineRequest, updateRequestStatus, requestMoreInfo, processClientResponse, updateMatterStatus, addInternalNote, scheduleAppointment, rescheduleAppointment, changeAppointmentStatus, recordMatterEvent, createMatterForRequest, isConsultationRequest } from '../services/workflow.service.js';
 import { verifyPayment, rejectPayment, listPaymentsForOwner, getPaymentById, getPaymentDestinations, createPaymentDestination, updatePaymentDestination, getServiceCatalog, receiptPath, uploadPaymentDestinationQR, removePaymentDestinationQR } from '../services/payment.service.js';
 import { setPaymentForRequest, PAYMENT_STATUS } from '../services/billing.service.js';
-import { notifyPaymentVerified, notifyPaymentRejected, notifyDocumentRequested } from '../services/sse.js';
+import { notifyPaymentVerified, notifyPaymentRejected, notifyDocumentRequested, notifyPaymentRequested } from '../services/sse.js';
 import { logAudit } from '../lib/audit.js';
 import { storeDocument, removeDocument } from '../services/document.service.js';
 import { findConversationFor, listMessages, postMessage, conversationForMatter } from '../services/chat.service.js';
@@ -1255,6 +1255,18 @@ ownerRouter.post('/requests/:id/set-payment', async (request, response, next) =>
             currency: input.currency || 'TZS'
         });
         await logAudit({ actorId: request.user.sub, action: 'PAYMENT_SET', entityType: 'request', entityId: request.params.id, metadata: { invoice_id: invoice.id, amount: input.amount, currency: input.currency || 'TZS' } });
+        /* Tell the client: a notification (bell + list) and a live update on any page they have open. */
+        const currency = input.currency || 'TZS';
+        try {
+            await notify(invoice.client_id, {
+                kind: 'PAYMENT_REQUESTED',
+                title: 'Payment requested',
+                body: `${currency} ${Number(input.amount).toLocaleString('en-US')}: ${input.description}. Open the invoice to pay.`,
+                entityType: 'invoice',
+                entityId: invoice.id
+            });
+            await notifyPaymentRequested(invoice.client_id, { requestId: request.params.id, invoiceId: invoice.id, amount: input.amount, currency });
+        } catch (notifyError) { console.error('payment notification failed', notifyError.message); }
         response.json({ data: invoice });
     } catch (error) { next(error); }
 });

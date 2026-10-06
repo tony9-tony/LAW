@@ -240,6 +240,11 @@ export async function notifyRequestMoreInfo(requestId, clientId, items) {
     });
 }
 
+/* The firm asked the client to pay for a request: show it live on the request and invoice pages. */
+export async function notifyPaymentRequested(clientId, { requestId, invoiceId, amount, currency }) {
+    sendToUser(clientId, { type: 'payment.requested', requestId, invoiceId, amount, currency, timestamp: Date.now() });
+}
+
 export async function notifyRequestAccepted(requestId, clientId, matterId, reference) {
     sendToUser(clientId, {
         type: 'request.accepted',
