@@ -36,7 +36,7 @@ const adminRouter = Router();
 adminRouter.get('/', (_request, response) => response.redirect('/subui/login.html'));
 
 export const app = express();
-app.use(helmet());
+app.use(helmet({ referrerPolicy: { policy: 'same-origin' } }));
 const corsOrigin = (process.env.CORS_ORIGIN || '').split(',').map((o) => o.trim()).filter(Boolean);
 /* The site, the portal and the API are served by this same server, so a
    browser calling the API from its own pages (same host) is always allowed,

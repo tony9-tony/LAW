@@ -3,7 +3,7 @@
 (function () {
     'use strict';
 
-    const tokenKey = 'auth_token';
+    const tokenKey = 'owner_auth_token';
 
     function token() { return localStorage.getItem(tokenKey) || ''; }
 
@@ -86,7 +86,7 @@
         } catch (error) {
             if (error && error.status === 401) {
                 localStorage.removeItem(tokenKey);
-                localStorage.removeItem('auth_user');
+                localStorage.removeItem('owner_auth_user');
                 window.location.href = 'login.html';
                 return;
             }
@@ -653,13 +653,13 @@
             const check = await api('/profile', { auth: true });
             if (!check.data || check.data.role !== 'OWNER') {
                 localStorage.removeItem(tokenKey);
-                localStorage.removeItem('auth_user');
+                localStorage.removeItem('owner_auth_user');
                 window.location.href = 'login.html';
                 return;
             }
         } catch {
             localStorage.removeItem(tokenKey);
-            localStorage.removeItem('auth_user');
+            localStorage.removeItem('owner_auth_user');
             window.location.href = 'login.html';
             return;
         }
@@ -2229,7 +2229,7 @@
                 navigateTo('messages');
             });
             if (ownerChat) { ownerChat.destroy(); ownerChat = null; }
-            const meUser = (() => { try { return JSON.parse(localStorage.getItem('auth_user') || 'null') || {}; } catch (e) { return {}; } })();
+            const meUser = (() => { try { return JSON.parse(localStorage.getItem('owner_auth_user') || 'null') || {}; } catch (e) { return {}; } })();
             const enc = encodeURIComponent(id);
             ownerChat = window.ChatWidget.mount(document.getElementById('owner-chat-root'), {
                 conversationId: id,
@@ -3759,7 +3759,7 @@
             } catch (err) {
                 if (err && err.status === 401) {
                     localStorage.removeItem(tokenKey);
-                    localStorage.removeItem('auth_user');
+                    localStorage.removeItem('owner_auth_user');
                     window.location.href = 'login.html';
                 }
             }
@@ -3770,7 +3770,7 @@
         ownerSseDisconnect();
         fetch((window.__API_BASE__ || '/api/v1') + '/auth/logout', { method: 'POST', credentials: 'include' }).catch(() => {});
         localStorage.removeItem(tokenKey);
-        localStorage.removeItem('auth_user');
+        localStorage.removeItem('owner_auth_user');
         window.location.href = 'login.html';
     });
 
