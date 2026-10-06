@@ -3123,8 +3123,8 @@
                 <section class="panel">
                     <div class="panel-head"><h2>System Settings</h2></div>
                     <div class="panel-body">
-                        <table class="table">
-                            <thead><tr><th>Key</th><th>Value</th><th>Description</th><th>Category</th><th>Last Updated</th></tr></thead>
+                        <table class="table table-settings">
+                            <thead><tr><th>Key</th><th>Value</th><th>Description</th><th>Category</th><th class="nowrap">Last Updated</th></tr></thead>
                             <tbody>
                 `;
                 items.forEach((s) => {
@@ -3135,7 +3135,7 @@
                             <td>${escape(val)}</td>
                             <td>${escape(s.description || '—')}</td>
                             <td class="muted">${escape(s.category)}</td>
-                            <td class="muted">${escape(s.updated_at)}</td>
+                            <td class="muted nowrap">${escape(s.updated_at ? new Date(s.updated_at).toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' }) : '—')}</td>
                         </tr>
                     `;
                 });
@@ -3161,22 +3161,22 @@
                 html += `<div class="empty-state"><span class="ico">·</span><strong>No payment destinations configured.</strong><p>Add your Lipa Namba so clients can pay from any mobile network or bank.</p></div>`;
             } else {
                 html += `
-                <table class="table">
-                    <thead><tr><th>Label</th><th>Lipa Namba</th><th>QR Code</th><th>Instructions</th><th>Status</th><th>Actions</th></tr></thead>
+                <table class="table table-dest">
+                    <thead><tr><th class="col-label">Label</th><th class="col-lipa">Lipa Namba</th><th class="col-qr">QR Code</th><th>Instructions</th><th class="col-status">Status</th><th class="col-actions">Actions</th></tr></thead>
                     <tbody>
                 `;
                 destinations.forEach((d) => {
                     html += `
-                        <tr>
+                        <tr class="${d.is_active ? '' : 'is-inactive'}">
                             <td>${escape(d.label)}${d.method !== 'mobile_money' ? '<br><small style="color:#a64d3b">Old method, not shown to clients. Edit to make it a Lipa Namba.</small>' : ''}</td>
                             <td><code>${escape(d.lipa_number || '—')}</code></td>
                             <td>${d.qr_storage_key ? `<img src="/api/v1/uploads/${escape(d.qr_storage_key)}?token=${token()}" alt="QR" class="payment-qr">` : '<span class="muted">—</span>'}</td>
-                            <td class="muted" style="max-width:300px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${escape(d.instructions || '—')}</td>
+                            <td class="instr" title="${escape(d.instructions || '')}">${escape(d.instructions || '—')}</td>
                             <td>${d.is_active ? '<span class="pill status-open">Active</span>' : '<span class="pill status-closed">Inactive</span>'}</td>
-                            <td>
+                            <td><div class="row-actions">
                                 <button class="btn small secondary" data-dest="${d.id}" data-action="edit">Edit</button>
                                 ${d.qr_storage_key ? `<button class="btn small secondary" data-dest="${d.id}" data-action="remove-qr">Remove QR</button>` : `<button class="btn small secondary" data-dest="${d.id}" data-action="upload-qr">Upload QR</button>`}
-                            </td>
+                            </div></td>
                         </tr>
                     `;
                 });

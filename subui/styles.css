@@ -925,3 +925,23 @@ button { cursor: pointer; background: transparent; border: 0; padding: 0; }
 /* Readable sign-out button on the dark sidebar */
 .sidebar-foot .sign-out { color: #f4f0e8; border-color: rgba(255, 255, 255, 0.4); }
 .sidebar-foot .sign-out:hover { background: #f4f0e8; color: #0f1f2a; border-color: #f4f0e8; }
+
+/* Settings tidy-up: system settings table and payment destinations */
+.panel-head { flex-wrap: wrap; gap: 0.35rem 1rem; }
+.panel-head .panel-meta { font-size: 0.8rem; color: var(--ink-mute); max-width: 100%; }
+.panel-body { overflow-x: auto; }
+.table-settings td, .table-settings th { padding: 0.7rem 1rem; vertical-align: middle; }
+.table-settings td.nowrap, .table-settings th.nowrap { white-space: nowrap; }
+.table-dest { table-layout: fixed; min-width: 720px; }
+.table-dest th, .table-dest td { padding: 0.75rem 1rem; vertical-align: middle; }
+.table-dest .col-label { width: 20%; }
+.table-dest .col-lipa { width: 15%; }
+.table-dest .col-qr { width: 96px; }
+.table-dest .col-status { width: 100px; }
+.table-dest .col-actions { width: 270px; }
+.table-dest .row-actions .btn { padding: 0.45rem 0.75rem; font-size: 0.66rem; letter-spacing: 0.08em; }
+.table-dest td.instr { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--ink-mute); }
+.table-dest .payment-qr { width: 64px; height: 64px; max-width: 64px; max-height: 64px; border-radius: 8px; object-fit: cover; }
+.table-dest .row-actions { display: flex; gap: 0.4rem; flex-wrap: wrap; }
+.table-dest .row-actions .btn { white-space: nowrap; }
+.table-dest tr.is-inactive td { opacity: 0.6; }
