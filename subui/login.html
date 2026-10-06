@@ -368,12 +368,14 @@
         .panel { box-shadow: none; }
         @media (max-width: 760px) {
             .login-shell { padding: 0; }
-            .auth-layout { height: 100%; border-radius: 0; border: 0; grid-template-columns: 1fr; grid-template-rows: auto 1fr; }
-            .auth-visual { min-height: 0; padding: 0.9rem 1.1rem; }
-            .brand-lockup .eyebrow, .brand-lockup .subhead, .visual-bottom { display: none; }
-            .brand-lockup h1 { font-size: 1.5rem; }
-            .brand-lockup h1 br { display: none; }
-            .auth-panel { align-items: flex-start; padding: 1rem 1.1rem; }
+            .auth-layout { height: 100%; border-radius: 0; border: 0; grid-template-columns: 34% 66%; }
+            .auth-visual { min-height: 0; padding: 0.9rem 0.6rem; border: 0; }
+            .brand-lockup .eyebrow, .brand-lockup .subhead, .mini-stat .label { display: none; }
+            .brand-lockup h1 { font-size: 1.2rem; }
+            .mini-grid { grid-template-columns: 1fr; gap: 0.4rem; }
+            .mini-stat { padding: 0.4rem 0.5rem; }
+            .mini-stat strong { font-size: 1rem; }
+            .auth-panel { align-items: flex-start; padding: 1rem 0.9rem; }
         }
     </style>
 </head>
