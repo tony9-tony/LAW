@@ -2053,3 +2053,23 @@ img { max-width: 100%; display: block; }
 .portal-toast.out { opacity: 0; transform: translateY(8px); }
 .modal-hint { font-size: 0.85rem; margin: 0 0 0.5rem; }
 .modal-form-actions { display: flex; justify-content: flex-end; gap: 0.6rem; }
+
+/* One navigation colour on every client page: navy top bar and sidebar, as on the dashboard. */
+body .portal-topbar { background: #123d68; color: #f8f4ea; border-bottom-color: rgba(255,255,255,0.12); }
+body .portal-brand { color: #f8f4ea; }
+body .portal-brand-tag, body .public-link { color: #dfeaf7; }
+body .portal-sidebar { background: #123d68; border-right-color: rgba(255,255,255,0.12); }
+body .side-label, body .side-meta { color: #c7d5e7; }
+body .side-meta a { color: #f0d9a2; }
+body .side-nav a { color: #dfeaf7; }
+body .side-nav a:hover { background: #1d4f80; color: #fff; border-left-color: var(--gold); }
+body .side-nav a.active { background: #edf3fb; border-left-color: var(--gold); color: #123d68; }
+body .side-nav a .ico { color: #dfeaf7; }
+body .side-nav a.active .ico { color: #123d68; }
+body .portal-user { color: #d0d4d9; }
+body .avatar { background: #142945; border-color: #c4a15a; color: #fff; }
+body .signout-btn, body .portal-theme-toggle { border-color: rgba(255,255,255,0.25); color: #e8e4dc; background: transparent; }
+
+/* Same light content panels on every page (profile, notifications, practice were dark-on-dark). */
+body.notifications-page .panel, body.practice-page .panel, body.practice-areas-page .panel, body.profile-page .panel { background: var(--bg-elev, #fffdf8); border-radius: 12px; }
+body.notifications-page .panel-head, body.practice-page .panel-head, body.practice-areas-page .panel-head, body.profile-page .panel-head { background: var(--bg-soft, #f7f4ef); border-bottom-color: var(--line-soft, #e6dfd2); }
