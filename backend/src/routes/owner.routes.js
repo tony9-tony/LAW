@@ -2055,9 +2055,9 @@ ownerRouter.get('/payment-destinations', async (_request, response, next) => {
 
 /* POST /api/v1/owner/payment-destinations */
 const createDestinationSchema = z.object({
-    method: z.enum(['mobile_money', 'bank', 'qr']),
+    method: z.literal('mobile_money'), // Lipa Namba only: works with every mobile network and bank
     label: z.string().trim().min(1).max(200),
-    lipa_number: z.string().trim().max(100).optional(),
+    lipa_number: z.string().trim().min(1).max(100),
     bank_name: z.string().trim().max(200).optional(),
     bank_account_name: z.string().trim().max(200).optional(),
     bank_account_number: z.string().trim().max(100).optional(),

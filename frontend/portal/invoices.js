@@ -87,7 +87,7 @@
             ]);
             const inv = invRes.data || {};
             const items = (itemsRes && itemsRes.data) || [];
-            const destinations = (destRes && destRes.data) || [];
+            const destinations = ((destRes && destRes.data) || []).filter((d) => d.method === 'mobile_money'); /* Lipa Namba is the only payment method */
             if (meta) meta.textContent = 'Invoice #' + P.shortRef(inv.id);
             const matterHref = inv.matter_id ? `matter.html?id=${inv.matter_id}` : '#';
             const isPaid = (inv.payment_status || '').toUpperCase() === 'PAID';
@@ -95,13 +95,10 @@
             const paymentStatusLabel = isPaid ? 'Paid' : (PAYMENT_LABELS[String(inv.payment_status || 'UNPAID').toUpperCase()] || String(inv.payment_status).replace(/_/g, ' '));
             const awaitingVerification = String(inv.payment_status || '').toUpperCase() === 'PAYMENT_PENDING_VERIFICATION';
             // Use snapshotted payment destination from invoice if available, otherwise fall back to dynamic
-            const hasSnapshot = !!(inv.payment_lipa_number || inv.payment_bank_name || inv.payment_qr_storage_key);
-            const paymentMethod = inv.payment_destination_method || '';
+            const hasSnapshot = !!(inv.payment_lipa_number || inv.payment_qr_storage_key);
+            const paymentMethod = inv.payment_lipa_number ? 'mobile_money' : (inv.payment_destination_method === 'mobile_money' ? 'mobile_money' : '');
             const paymentLabel = inv.payment_destination_label || '';
             const lipaNumber = inv.payment_lipa_number || '';
-            const bankName = inv.payment_bank_name || '';
-            const bankAccountName = inv.payment_bank_account_name || '';
-            const bankAccountNumber = inv.payment_bank_account_number || '';
             const qrStorageKey = inv.payment_qr_storage_key || '';
             const qrContentType = inv.payment_qr_content_type || '';
             const paymentInstructions = inv.payment_instructions || 'No payment instructions available.';
@@ -110,9 +107,6 @@
                 method: paymentMethod,
                 label: paymentLabel,
                 lipa_number: lipaNumber,
-                bank_name: bankName,
-                bank_account_name: bankAccountName,
-                bank_account_number: bankAccountNumber,
                 qr_storage_key: qrStorageKey,
                 qr_content_type: qrContentType,
                 instructions: paymentInstructions
@@ -120,7 +114,7 @@
             const availableDestinations = destinations.length ? destinations : (snapshotDestination ? [snapshotDestination] : []);
 
             function methodLabel(method) {
-                return method === 'mobile_money' ? 'LIPA NUMBER' : method === 'qr' ? 'QR CODE' : 'BANK ACCOUNT';
+                return 'LIPA NAMBA';
             }
 
             /* QR images are streamed from the authenticated uploads route; the
@@ -138,15 +132,11 @@
                        Global Settings (same payment_destinations row), so the
                        number and its code are always displayed together. */
                     const qrBlock = destination.qr_storage_key
-                        ? `<img src="${qrImageSrc(destination.qr_storage_key)}" alt="Payment QR code for this Lipa Number" class="payment-qr"><p class="payment-instruction">Scan this QR code with your banking app, or use the Lipa Number above.</p>`
+                        ? `<img src="${qrImageSrc(destination.qr_storage_key)}" alt="Payment QR code for this Lipa Number" class="payment-qr"><p class="payment-instruction">Scan this QR code with any mobile money or banking app, or use the Lipa Namba above.</p>`
                         : '';
-                    return `<div class="selected-payment selected-payment--lipa"><span class="kicker">LIPA NUMBER</span><div class="payment-value-row"><code>${escape(destination.lipa_number || '—')}</code><button type="button" class="btn small secondary" data-copy-payment="${escape(destination.lipa_number || '')}">Copy</button></div>${instructions}${qrBlock}</div>`;
+                    return `<div class="selected-payment selected-payment--lipa"><span class="kicker">LIPA NAMBA</span><div class="payment-value-row"><code>${escape(destination.lipa_number || '—')}</code><button type="button" class="btn small secondary" data-copy-payment="${escape(destination.lipa_number || '')}">Copy</button></div><p class="payment-instruction"><strong>Pay from any mobile network or any bank</strong> using this Lipa Namba.</p>${instructions}${qrBlock}</div>`;
                 }
-                if (method === 'qr') {
-                    const qrSrc = qrImageSrc(destination.qr_storage_key);
-                    return `<div class="selected-payment selected-payment--qr"><span class="kicker">QR CODE</span>${qrSrc ? `<img src="${qrSrc}" alt="Payment QR code" class="payment-qr">` : '<p class="text-mute-block">QR code is not configured.</p>'}<p class="payment-instruction">Scan the code with your banking app.</p></div>`;
-                }
-                return `<div class="selected-payment selected-payment--bank"><span class="kicker">BANK ACCOUNT</span><dl class="payment-bank-details"><dt>Bank name</dt><dd>${escape(destination.bank_name || '—')}</dd><dt>Account name</dt><dd>${escape(destination.bank_account_name || '—')}</dd><dt>Account number</dt><dd><code>${escape(destination.bank_account_number || '—')}</code> ${destination.bank_account_number ? `<button type="button" class="btn small secondary" data-copy-payment="${escape(destination.bank_account_number)}">Copy</button>` : ''}</dd></dl>${instructions}</div>`;
+                return '<p class="text-mute-block">Pay by Lipa Namba. No other method is available.</p>';
             }
             
             root.innerHTML = `
