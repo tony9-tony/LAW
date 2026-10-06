@@ -3168,7 +3168,7 @@
                 destinations.forEach((d) => {
                     html += `
                         <tr>
-                            <td>${escape(d.label)}</td>
+                            <td>${escape(d.label)}${d.method !== 'mobile_money' ? '<br><small style="color:#a64d3b">Old method, not shown to clients. Edit to make it a Lipa Namba.</small>' : ''}</td>
                             <td><code>${escape(d.lipa_number || '—')}</code></td>
                             <td>${d.qr_storage_key ? `<img src="/api/v1/uploads/${escape(d.qr_storage_key)}?token=${token()}" alt="QR" class="payment-qr">` : '<span class="muted">—</span>'}</td>
                             <td class="muted" style="max-width:300px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${escape(d.instructions || '—')}</td>
@@ -3385,7 +3385,7 @@
                 try {
                     let saved;
                     if (existing) {
-                        const { method: _m, ...patch } = payload;
+                        const patch = payload; /* sends method too, so an old bank destination becomes a Lipa Namba one */
                         saved = await api('/owner/payment-destinations/' + encodeURIComponent(destId), { method: 'PATCH', auth: true, body: patch });
                     } else {
                         saved = await api('/owner/payment-destinations', { method: 'POST', auth: true, body: payload });

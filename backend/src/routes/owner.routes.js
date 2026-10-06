@@ -2076,6 +2076,7 @@ ownerRouter.post('/payment-destinations', async (request, response, next) => {
 
 /* PATCH /api/v1/owner/payment-destinations/:id */
 const updateDestinationSchema = z.object({
+    method: z.literal('mobile_money').optional(),
     label: z.string().trim().min(1).max(200).optional(),
     lipa_number: z.string().trim().max(100).optional(),
     bank_name: z.string().trim().max(200).optional(),

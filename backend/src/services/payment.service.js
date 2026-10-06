@@ -96,10 +96,17 @@ export async function createPaymentDestination({ method, label, lipa_number, ban
     return result;
 }
 
-export async function updatePaymentDestination(id, { label, lipa_number, bank_name, bank_account_name, bank_account_number, instructions, is_active }) {
+export async function updatePaymentDestination(id, { method, label, lipa_number, bank_name, bank_account_name, bank_account_number, instructions, is_active }) {
     const updates = [];
     const params = [];
     let i = 1;
+    if (method === 'mobile_money') {
+        /* Converts an old bank/QR destination into the Lipa Namba one: the old bank details are
+           cleared and any other active Lipa Namba is switched off (one active per method). */
+        await query(`UPDATE payment_destinations SET is_active = FALSE, updated_at = NOW()
+                     WHERE method = 'mobile_money' AND id <> $1 AND is_active = TRUE`, [id]);
+        updates.push(`method = 'mobile_money'`, `bank_name = NULL`, `bank_account_name = NULL`, `bank_account_number = NULL`);
+    }
     if (label !== undefined) { updates.push(`label = $${i}`); params.push(label); i++; }
     if (lipa_number !== undefined) { updates.push(`lipa_number = $${i}`); params.push(lipa_number); i++; }
     if (bank_name !== undefined) { updates.push(`bank_name = $${i}`); params.push(bank_name); i++; }
