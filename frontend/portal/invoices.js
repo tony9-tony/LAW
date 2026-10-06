@@ -87,7 +87,7 @@
             ]);
             const inv = invRes.data || {};
             const items = (itemsRes && itemsRes.data) || [];
-            const destinations = ((destRes && destRes.data) || []).filter((d) => d.method === 'mobile_money'); /* Lipa Namba is the only payment method */
+            const destinations = ((destRes && destRes.data) || []).filter((d) => d.method === 'mobile_money' || (d.lipa_number && String(d.lipa_number).trim())); /* Lipa Namba is the only payment method */
             if (meta) meta.textContent = 'Invoice #' + P.shortRef(inv.id);
             const matterHref = inv.matter_id ? `matter.html?id=${inv.matter_id}` : '#';
             const isPaid = (inv.payment_status || '').toUpperCase() === 'PAID';
@@ -127,7 +127,7 @@
                 if (!destination) return '<p class="text-mute-block">No payment method selected.</p>';
                 const method = destination.method;
                 const instructions = destination.instructions ? `<p class="payment-instruction">${escape(destination.instructions)}</p>` : '';
-                if (method === 'mobile_money') {
+                if (method === 'mobile_money' || destination.lipa_number) {
                     /* Show the QR uploaded by the admin for THIS Lipa Number in
                        Global Settings (same payment_destinations row), so the
                        number and its code are always displayed together. */
