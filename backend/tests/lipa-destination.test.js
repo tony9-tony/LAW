@@ -9,8 +9,9 @@ import { config } from '../src/config.js';
 import { query } from '../src/db.js';
 
 const stamp = Date.now();
+let seq = 0;
 async function user(role) {
-    const r = await query(`INSERT INTO users (email, password_hash, full_name, role) VALUES ($1, $2, $3, $4) RETURNING id, email`, [`lipa-${role.toLowerCase()}-${stamp}@example.com`, await bcrypt.hash('StrongPassword123!', 4), `Lipa ${role}`, role]);
+    const r = await query(`INSERT INTO users (email, password_hash, full_name, role) VALUES ($1, $2, $3, $4) RETURNING id, email`, [`lipa-${role.toLowerCase()}-${stamp}-${++seq}@example.com`, await bcrypt.hash('StrongPassword123!', 4), `Lipa ${role}`, role]);
     return { ...r.rows[0], token: jwt.sign({ sub: r.rows[0].id, role, email: r.rows[0].email }, config.jwtSecret, { expiresIn: '1h' }) };
 }
 
@@ -67,4 +68,21 @@ test('a destination that carries a Lipa Namba is offered to clients even if save
     assert.equal(res.body.data[0].lipa_number, '777000');
     await query('DELETE FROM payment_destinations WHERE id = $1', [row.id]);
     await query('DELETE FROM users WHERE id = $1', [client.id]);
+});
+
+test('converting a destination to Lipa Namba refreshes unpaid invoices already issued', async () => {
+    const owner = await user('OWNER');
+    const client = await user('CLIENT');
+    await query('UPDATE payment_destinations SET is_active = FALSE');
+    const bank = (await query(`INSERT INTO payment_destinations (method, label, bank_name, bank_account_name, bank_account_number, is_active) VALUES ('bank', 'Bank', 'CRDB', 'Firm', '123', TRUE) RETURNING id`)).rows[0];
+    const created = await request(app).post('/api/v1/requests').set('Authorization', `Bearer ${client.token}`)
+        .send({ subject: 'Salary', description: 'I want my salary paid please', matterType: 'Employment', helpType: 'unsure', fullName: 'Test', email: 'a@b.co', phone: '1', preferredContact: 'phone' }).expect(201);
+    await request(app).post(`/api/v1/owner/requests/${created.body.data.id}/set-payment`).set('Authorization', `Bearer ${owner.token}`)
+        .send({ amount: 1000, description: 'Fee' }).expect(200);
+    await request(app).patch(`/api/v1/owner/payment-destinations/${bank.id}`).set('Authorization', `Bearer ${owner.token}`)
+        .send({ method: 'mobile_money', label: 'Lipa Namba', lipa_number: '5999111', is_active: true }).expect(200);
+    const inv = (await query('SELECT payment_destination_method, payment_lipa_number, payment_bank_name FROM invoices WHERE client_id = $1', [client.id])).rows[0];
+    assert.equal(inv.payment_destination_method, 'mobile_money');
+    assert.equal(inv.payment_lipa_number, '5999111');
+    assert.equal(inv.payment_bank_name, null);
 });
