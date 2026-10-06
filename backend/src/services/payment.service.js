@@ -93,6 +93,7 @@ export async function createPaymentDestination({ method, label, lipa_number, ban
         );
         return inserted.rows[0];
     });
+    await refreshUnpaidInvoiceDestinations();
     return result;
 }
 
@@ -134,7 +135,25 @@ export async function updatePaymentDestination(id, { method, label, lipa_number,
             [id]
         );
     }
+    await refreshUnpaidInvoiceDestinations();
     return getPaymentDestination(id);
+}
+
+
+/* Unpaid invoices carry a snapshot of the destination; keep it in step with
+   the currently active Lipa Namba destination so clients never see stale data. */
+export async function refreshUnpaidInvoiceDestinations() {
+    const active = (await listActiveDestinations('mobile_money'))[0]
+        || (await listActiveDestinations()).find((d) => d.lipa_number && String(d.lipa_number).trim());
+    if (!active) return;
+    await query(
+        `UPDATE invoices SET payment_destination_id = $1, payment_destination_method = 'mobile_money',
+                payment_destination_label = $2, payment_lipa_number = $3, payment_bank_name = NULL,
+                payment_bank_account_name = NULL, payment_bank_account_number = NULL,
+                payment_qr_storage_key = $4, payment_qr_content_type = $5, payment_instructions = $6
+         WHERE payment_status IN ('PAYMENT_REQUIRED','PAYMENT_REJECTED','UNPAID')`,
+        [active.id, active.label, active.lipa_number, active.qr_storage_key, active.qr_content_type, active.instructions]
+    );
 }
 
 const QR_TYPES = new Map([
@@ -198,6 +217,7 @@ export async function uploadPaymentDestinationQR(id, qrDataUrl) {
          WHERE id = $4`,
         [storageKey, parsed.mime, `qr${ext}`, id]
     );
+    await refreshUnpaidInvoiceDestinations();
     return getPaymentDestination(id);
 }
 
@@ -210,6 +230,7 @@ export async function removePaymentDestinationQR(id) {
         [id]
     );
     if (result.rowCount === 0) return null;
+    await refreshUnpaidInvoiceDestinations();
     return getPaymentDestination(id);
 }
 
