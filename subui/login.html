@@ -367,16 +367,18 @@
         .form-status:empty { display: none; }
         .panel { box-shadow: none; }
         @media (max-width: 760px) {
-            .login-shell { padding: 0; }
-            .auth-layout { height: 100%; border-radius: 0; border: 0; grid-template-columns: 34% 66%; }
-            .auth-visual { min-height: 0; padding: 0.9rem 0.6rem; border: 0; }
-            .brand-lockup .eyebrow, .brand-lockup .subhead, .mini-stat .label { display: none; }
-            .brand-lockup h1 { font-size: 1.2rem; }
-            .mini-grid { grid-template-columns: 1fr; gap: 0.4rem; }
-            .mini-stat { padding: 0.4rem 0.5rem; }
-            .mini-stat strong { font-size: 1rem; }
-            .auth-panel { align-items: flex-start; padding: 1rem 0.9rem; }
+            .login-shell { padding: 0.5rem; }
+            .auth-layout { height: 100%; border-radius: 12px; grid-template-columns: 0.42fr 1fr; grid-template-rows: none; }
+            .auth-visual { padding: 0.9rem 0.8rem; }
+            .brand-lockup .subhead, .visual-bottom { display: none; }
+            .brand-lockup h1 { font-size: 1.35rem; }
+            .auth-panel { align-items: flex-start; padding: 0.9rem 0.8rem; }
+            .login-brand { font-size: 1.3rem; }
+            .login-tagline { font-size: 0.5rem; letter-spacing: 0.1em; }
+            .field input { min-height: 38px; font-size: 0.88rem; }
+            .btn { letter-spacing: 0.06em; font-size: 0.66rem; }
         }
+
     </style>
 </head>
 <body>
@@ -386,7 +388,7 @@
                 <aside class="auth-visual" aria-label="Law firm branding panel">
                     <div class="brand-lockup">
                         <span class="eyebrow">LAW</span>
-                        <h1>Et Cetra <br>Advocates</h1>
+                        <h1>Et Cetra<br>Advocates</h1>
                         <p class="subhead">Owner workspace for client intake, legal operations, document flow, and chambers oversight.</p>
                     </div>
 
