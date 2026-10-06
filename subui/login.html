@@ -330,6 +330,51 @@
                 padding: 1rem;
             }
         }
+
+        /* ===== One-screen card: no page scroll, photo on the left panel ===== */
+        html, body { height: 100%; overflow: hidden; }
+        .login-shell { height: 100vh; height: 100dvh; min-height: 0; padding: 1rem; }
+        .auth-layout { width: min(1000px, 100%); height: min(640px, 100%); min-height: 0; border-radius: 14px; grid-template-columns: 0.95fr 1.05fr; }
+        .auth-visual {
+            padding: 1.6rem 1.8rem;
+            background:
+                linear-gradient(180deg, rgba(11, 28, 35, 0.35) 0%, rgba(14, 42, 37, 0.7) 100%),
+                url("auth-bg.jpg") 60% center / cover no-repeat,
+                #0f2a25;
+            text-shadow: 0 1px 8px rgba(5, 12, 20, 0.85);
+        }
+        .brand-lockup h1 { font-size: clamp(1.9rem, 3vw, 2.8rem); }
+        .brand-lockup .subhead { font-size: 0.88rem; line-height: 1.55; }
+        .mini-grid { gap: 0.6rem; }
+        .mini-stat { padding: 0.55rem 0.8rem; background: rgba(8, 20, 26, 0.45); }
+        .mini-stat strong { font-size: 1.2rem; }
+        .auth-panel { padding: 1.2rem 1.8rem; overflow-y: auto; }
+        .login-card { background: transparent; border: 0; box-shadow: none; padding: 0; width: min(100%, 420px); }
+        .login-header { margin-bottom: 0.9rem; }
+        .login-brand { font-size: clamp(1.5rem, 2.4vw, 2rem); }
+        .login-tagline { font-size: 0.62rem; margin-top: 0.4rem; }
+        .panel { border: 0; border-radius: 0; }
+        .panel-head { padding: 0 0 0.5rem; background: transparent; border: 0; }
+        .panel-body { padding: 0; }
+        .field { margin-bottom: 0.65rem; }
+        .field input { min-height: 40px; padding: 0.5rem 0.75rem; font-size: 0.93rem; border-radius: 8px; }
+        .form-status { margin-bottom: 0.6rem; padding: 0.5rem 0.75rem; font-size: 0.82rem; }
+        .btn { min-height: 42px; }
+        .login-actions { gap: 0.4rem; }
+        .login-actions .btn.ghost { min-height: 34px; background: transparent; border-color: transparent; text-decoration: underline; }
+        .field .error { display: none; color: #a64d3b; }
+        .field.invalid .error { display: block; }
+        .form-status:empty { display: none; }
+        .panel { box-shadow: none; }
+        @media (max-width: 760px) {
+            .login-shell { padding: 0; }
+            .auth-layout { height: 100%; border-radius: 0; border: 0; grid-template-columns: 1fr; grid-template-rows: auto 1fr; }
+            .auth-visual { min-height: 0; padding: 0.9rem 1.1rem; }
+            .brand-lockup .eyebrow, .brand-lockup .subhead, .visual-bottom { display: none; }
+            .brand-lockup h1 { font-size: 1.5rem; }
+            .brand-lockup h1 br { display: none; }
+            .auth-panel { align-items: flex-start; padding: 1rem 1.1rem; }
+        }
     </style>
 </head>
 <body>
@@ -339,7 +384,7 @@
                 <aside class="auth-visual" aria-label="Law firm branding panel">
                     <div class="brand-lockup">
                         <span class="eyebrow">LAW</span>
-                        <h1>Et Cetra<br>Advocates</h1>
+                        <h1>Et Cetra <br>Advocates</h1>
                         <p class="subhead">Owner workspace for client intake, legal operations, document flow, and chambers oversight.</p>
                     </div>
 
