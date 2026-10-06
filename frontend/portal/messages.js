@@ -43,7 +43,7 @@
         if (!convo || !msg) return loadInbox();
         convo.last_message_body = msg.body;
         convo.last_message_at = msg.created_at;
-        convo.unread_count = (Number(convo.unread_count) || 0) + 1;
+        if (data.conversationId !== conversationId) convo.unread_count = (Number(convo.unread_count) || 0) + 1;
         renderInbox();
     }
     function onInboxRealtimeRead(data) {
@@ -70,8 +70,15 @@
 
     async function loadThread(convoId, context) {
         stopChat();
-        unregisterInboxRealtimeHandlers();
         conversationId = convoId;
+        /* Two-pane layout: the conversation list stays beside the open thread. */
+        if (!inboxConversations.size) loadInbox();
+        const RTi = window.Site && window.Site.Realtime;
+        if (RTi && !inboxRealtimeHandlersRegistered) {
+            RTi.on('message.created', onInboxRealtimeMessage);
+            RTi.on('message.read', onInboxRealtimeRead);
+            inboxRealtimeHandlersRegistered = true;
+        }
         if (inboxEl) inboxEl.style.display = 'none';
         if (threadEl) threadEl.style.display = '';
         if (msgActions) msgActions.innerHTML = `<button class="btn ghost" id="btn-back-inbox2">← Back to conversations</button>`;
@@ -87,8 +94,12 @@
             const c = detail.data || {};
             if (threadContext) {
                 const parts = [];
-                if (c.request_subject) parts.push(`Request: ${escape(c.request_subject)}`);
-                if (c.reference) parts.push(`Matter: ${escape(c.reference)}${c.title ? ' — ' + escape(c.title) : ''}`);
+                const known = inboxConversations.get(convoId) || {};
+                const subject = c.request_subject || known.request_subject;
+                const reference = c.reference || known.reference;
+                const title = c.title || known.title;
+                if (subject) parts.push(`Request: ${escape(subject)}`);
+                if (reference) parts.push(`Matter: ${escape(reference)}${title ? ' — ' + escape(title) : ''}`);
                 threadContext.style.display = '';
                 threadContext.innerHTML = `<strong>Conversation context:</strong> ${parts.join(' · ') || 'General inquiry'}`;
             }
@@ -134,10 +145,10 @@
                 : (c.reference ? `${escape(c.reference)}${c.title ? ' — ' + escape(c.title) : ''}` : 'Conversation');
             const dot = isUnread ? '<span class="unread-dot" aria-hidden="true" title="Unread"></span>' : '';
             return `
-                <tr style="cursor:pointer;" data-conversation-id="${c.id}" data-request-id="${c.request_id || ''}" data-matter-id="${c.matter_id || ''}" ${isUnread ? 'data-unread="true"' : ''}>
+                <tr style="cursor:pointer;${c.id === conversationId ? 'box-shadow:inset 3px 0 0 var(--gold,#c4a15a);background:var(--bg-soft);' : ''}" data-conversation-id="${c.id}" data-request-id="${c.request_id || ''}" data-matter-id="${c.matter_id || ''}" ${isUnread ? 'data-unread="true"' : ''}>
                     <td class="subj">${dot}${label}</td>
                     <td class="last-msg-preview">${escape(c.last_message_body || '—')}</td>
-                    <td class="muted">${escape(c.last_message_at || c.created_at)}</td>
+                    <td class="muted">${escape(P.fmtDateShort ? P.fmtDateShort(c.last_message_at || c.created_at) : (c.last_message_at || c.created_at))}</td>
                     <td class="status-cell">${isUnread ? `<span class="pill status-new">${Number(c.unread_count) || 0} unread</span>` : '<span class="pill status-closed">Read</span>'}</td>
                 </tr>
             `;

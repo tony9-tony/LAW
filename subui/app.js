@@ -3951,7 +3951,7 @@
         es.onmessage = (evt) => {
             let data; try { data = JSON.parse(evt.data); } catch (e) { return; }
             if (data.type === 'document.created') {
-                showToast('New document: ' + ((data.document && data.document.original_name) || 'a client uploaded a file'));
+                showToast('New document: ' + ((data.document && data.document.original_name) || 'a client uploaded a file'), 'success');
                 const route = readRoute() || '';
                 if (route === 'documents' || /^matters\/[^/]+$/.test(route)) navigateFromLocation();
             }

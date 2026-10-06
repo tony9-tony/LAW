@@ -29,6 +29,8 @@ async function seed(tag) {
     const c = await query(`INSERT INTO conversations (matter_id) VALUES ($1),($2) RETURNING id`, [ma, mb]);
     const [ca, cb] = c.rows.map((r) => r.id);
     ids.convos.push(ca, cb);
+    /* The firm speaks first: a client can only reply once the firm has written. */
+    await query(`INSERT INTO messages (conversation_id, sender_id, body) VALUES ($1,$3,'Welcome'),($2,$3,'Welcome')`, [ca, cb, o]);
     return { a, b, o, ma, mb, ca, cb, A: tok('CLIENT', a), B: tok('CLIENT', b), O: tok('OWNER', o) };
 }
 
