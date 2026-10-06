@@ -5,7 +5,14 @@
 import { query } from '../backend/src/db.js';
 
 const email = (process.argv[2] || '').trim().toLowerCase();
-if (!email) { console.error('Usage: npm run owner:retire -- <email>'); process.exit(1); }
+if (!email) { console.error('Usage: npm run owner:retire -- <email> | --list'); process.exit(1); }
+
+if (email === '--list') {
+    const r = await query("SELECT email, full_name, created_at FROM users WHERE role = 'OWNER' AND is_active = TRUE ORDER BY created_at");
+    console.log(`${r.rows.length} active owner account(s):`);
+    r.rows.forEach((u) => console.log(`  ${u.email}  (${u.full_name || '-'})  created ${new Date(u.created_at).toISOString().slice(0, 10)}`));
+    process.exit(0);
+}
 
 const found = await query("SELECT id, email, role FROM users WHERE lower(email) = $1 AND role = 'OWNER'", [email]);
 if (!found.rows.length) {
