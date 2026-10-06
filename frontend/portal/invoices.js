@@ -143,7 +143,18 @@
                 <div class="detail-grid inv-detail">
                     <div class="inv-main">
                         <section class="panel">
-                            <div class="panel-head"><h2>Invoice</h2><span class="panel-meta">#${P.shortRef(inv.id)}</span></div>
+                            <div class="panel-head"><h2>Invoice</h2><div class="inv-head-right"><span class="panel-meta">#${P.shortRef(inv.id)}</span>
+                                <div class="inv-menu">
+                                    <button type="button" class="inv-menu-btn" id="inv-menu-btn" aria-haspopup="menu" aria-expanded="false" aria-label="Invoice actions">&#8943;</button>
+                                    <div class="inv-menu-list" id="inv-menu-list" role="menu" hidden>
+                                        ${!isPaid && !awaitingVerification && availableDestinations.length ? '<button type="button" role="menuitem" data-inv-action="pay">Pay now</button><button type="button" role="menuitem" data-inv-action="proof">Upload payment proof</button>' : ''}
+                                        ${!isPaid && availableDestinations.length ? '<button type="button" role="menuitem" data-inv-action="copy-lipa">Copy Lipa Namba</button>' : ''}
+                                        ${awaitingVerification ? '<button type="button" role="menuitem" disabled>Proof under review</button>' : ''}
+                                        <button type="button" role="menuitem" data-inv-action="copy-ref">Copy invoice number</button>
+                                        <button type="button" role="menuitem" data-inv-action="print">Print invoice</button>
+                                        <a role="menuitem" href="invoices.html">All invoices</a>
+                                    </div>
+                                </div></div></div>
                             <div class="panel-body">
                                 <dl class="detail-meta">
                                     <dt>Matter</dt><dd>${inv.matter_reference ? `<a class="link-bronze" href="${escape(matterHref)}">${escape(inv.matter_reference)}${inv.matter_title ? ' · ' + escape(inv.matter_title) : ''}</a>` : '<span class="text-soft">Opens once your payment is confirmed</span>'}</dd>
@@ -214,6 +225,7 @@
                     </aside>
                 </div>
             `;
+            initInvoiceMenu({ inv, destinations: availableDestinations });
             const outer = root.closest('.panel'); if (outer) outer.classList.add('panel-flat');
             const payForm = document.getElementById('pay-form');
             if (payForm || document.getElementById('pay-now')) initPaymentForm({ destinations: availableDestinations, renderDetails: destinationDetails });
@@ -230,6 +242,47 @@
         } else {
             await loadList();
         }
+    }
+
+    function initInvoiceMenu({ inv, destinations }) {
+        const btn = document.getElementById('inv-menu-btn');
+        const list = document.getElementById('inv-menu-list');
+        if (!btn || !list) return;
+        const close = () => { list.hidden = true; btn.setAttribute('aria-expanded', 'false'); };
+        const toast = (msg) => { const old = btn.title; btn.title = msg; setTimeout(() => { btn.title = old; }, 1500); };
+        const openCheckout = (focusProof) => {
+            const payNow = document.getElementById('pay-now');
+            if (payNow && !payNow.hidden) payNow.click();
+            const first = document.querySelector('#payment-method-choices .payment-method-choice');
+            const form = document.getElementById('pay-form');
+            if (first && form && form.hidden) first.click();
+            const section = document.getElementById('payment-section');
+            if (section) section.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            if (focusProof) setTimeout(() => document.getElementById('pay-receipt')?.focus(), 350);
+        };
+        btn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            const open = list.hidden;
+            list.hidden = !open;
+            btn.setAttribute('aria-expanded', String(open));
+            if (open) list.querySelector('[role=menuitem]:not([disabled])')?.focus();
+        });
+        document.addEventListener('click', (e) => { if (!list.contains(e.target) && e.target !== btn) close(); });
+        document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && !list.hidden) { close(); btn.focus(); } });
+        list.addEventListener('click', async (e) => {
+            const item = e.target.closest('[data-inv-action]');
+            if (!item) return;
+            const action = item.dataset.invAction;
+            close();
+            if (action === 'pay') openCheckout(false);
+            else if (action === 'proof') openCheckout(true);
+            else if (action === 'copy-lipa') {
+                const d = destinations[0];
+                try { await navigator.clipboard.writeText((d && d.lipa_number) || ''); toast('Lipa Namba copied'); } catch (err) { toast('Copy unavailable'); }
+            } else if (action === 'copy-ref') {
+                try { await navigator.clipboard.writeText('#' + P.shortRef(inv.id)); toast('Copied'); } catch (err) { toast('Copy unavailable'); }
+            } else if (action === 'print') window.print();
+        });
     }
 
     async function initPaymentForm({ destinations = [], renderDetails } = {}) {

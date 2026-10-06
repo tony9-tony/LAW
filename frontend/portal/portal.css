@@ -2029,3 +2029,17 @@ img { max-width: 100%; display: block; }
 .inv-items th, .inv-items td { padding: 0.8rem 1rem; }
 .inv-items td, .inv-items th { white-space: nowrap; }
 .inv-items td.subj { white-space: normal; }
+
+/* Invoice actions menu (...) */
+.inv-head-right { display: flex; align-items: center; gap: 0.75rem; }
+.inv-menu { position: relative; }
+.inv-menu-btn { width: 2.25rem; height: 2.25rem; border: 1px solid var(--line); background: var(--bg-elev, #fff); color: var(--ink); border-radius: 8px; font-size: 1.3rem; line-height: 1; cursor: pointer; display: grid; place-items: center; padding: 0 0 0.25rem; }
+.inv-menu-btn:hover, .inv-menu-btn[aria-expanded="true"] { border-color: var(--ink-soft); background: #fff; }
+.inv-menu-list { position: absolute; right: 0; top: calc(100% + 6px); min-width: 230px; background: #fff; border: 1px solid var(--line); border-radius: 10px; box-shadow: 0 14px 34px rgba(18,35,45,0.18); padding: 0.35rem; z-index: 30; display: grid; }
+.inv-menu-list[hidden] { display: none; }
+.inv-menu-list > button, .inv-menu-list > a { text-align: left; background: none; border: 0; padding: 0.65rem 0.8rem; font: inherit; font-size: 0.9rem; color: var(--ink); border-radius: 7px; cursor: pointer; text-decoration: none; letter-spacing: 0; text-transform: none; }
+.inv-menu-list > button:hover, .inv-menu-list > a:hover, .inv-menu-list > button:focus-visible, .inv-menu-list > a:focus-visible { background: var(--bg-elev, #f1ede4); outline: none; }
+.inv-menu-list > button[disabled] { color: var(--ink-mute); cursor: default; }
+.inv-detail .panel, .inv-detail .panel-head { overflow: visible; }
+@media print { .inv-menu, #payment-section, .portal-sidebar, header { display: none !important; } }
+#pay-now[hidden], #payment-checkout[hidden] { display: none !important; }
