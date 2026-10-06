@@ -532,3 +532,12 @@ html:has(.auth-page), .auth-page { height: 100%; }
     .auth-inline { flex-direction: row; align-items: center; }
     .auth-inline-grid { grid-template-columns: 1fr 1fr; }
 }
+
+/* Photo background on the blue panel: drop the picture at frontend/img/auth-bg.jpg.
+   A dark-blue overlay keeps the text readable; without the file the plain blue shows. */
+.auth-side {
+    background:
+        linear-gradient(180deg, rgba(15, 34, 57, 0.55) 0%, rgba(15, 34, 57, 0.78) 100%),
+        url("img/auth-bg.jpg") 55% center / cover no-repeat,
+        #0f2239;
+}
