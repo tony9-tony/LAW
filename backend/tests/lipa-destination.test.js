@@ -57,3 +57,14 @@ test('Set Payment on a request reaches the client: issued invoice and a notifica
     assert.equal(detail.body.data.invoice.total, '50000.00');
     await query('DELETE FROM users WHERE id = ANY($1)', [[owner.id, client.id]]).catch(() => {});
 });
+
+test('a destination that carries a Lipa Namba is offered to clients even if saved by an older server', async () => {
+    const client = await user('CLIENT');
+    await query('UPDATE payment_destinations SET is_active = FALSE');
+    const row = (await query(`INSERT INTO payment_destinations (method, label, lipa_number, is_active) VALUES ('bank', 'Edited on old server', '777000', TRUE) RETURNING id`)).rows[0];
+    const res = await request(app).get('/api/v1/payments/destinations').set('Authorization', `Bearer ${client.token}`).expect(200);
+    assert.equal(res.body.data.length, 1);
+    assert.equal(res.body.data[0].lipa_number, '777000');
+    await query('DELETE FROM payment_destinations WHERE id = $1', [row.id]);
+    await query('DELETE FROM users WHERE id = $1', [client.id]);
+});
