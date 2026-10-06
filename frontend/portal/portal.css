@@ -2073,3 +2073,8 @@ body .signout-btn, body .portal-theme-toggle { border-color: rgba(255,255,255,0.
 /* Same light content panels on every page (profile, notifications, practice were dark-on-dark). */
 body.notifications-page .panel, body.practice-page .panel, body.practice-areas-page .panel, body.profile-page .panel { background: var(--bg-elev, #fffdf8); border-radius: 12px; }
 body.notifications-page .panel-head, body.practice-page .panel-head, body.practice-areas-page .panel-head, body.profile-page .panel-head { background: var(--bg-soft, #f7f4ef); border-bottom-color: var(--line-soft, #e6dfd2); }
+
+/* Consent checkbox: a normal tick box beside readable sentence-case text (not a stretched field). */
+.field .checkbox-row, .phase4-page .field .checkbox-row { display: flex; align-items: flex-start; gap: 0.75rem; text-transform: none; letter-spacing: 0; font-size: 0.95rem; line-height: 1.5; color: var(--ink-soft); cursor: pointer; }
+.field .checkbox-row input[type="checkbox"], .phase4-page .field .checkbox-row input[type="checkbox"] { flex: 0 0 auto; width: 20px; height: 20px; min-width: 20px; padding: 0; margin: 0.15rem 0 0; accent-color: #123d68; cursor: pointer; }
+.field .checkbox-row span { text-transform: none; letter-spacing: 0; font-size: inherit; color: inherit; }
