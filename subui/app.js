@@ -163,6 +163,8 @@
                         
                         if (field.type === 'textarea') {
                             inputHtml = `<textarea id="${fieldId}" class="form-control" placeholder="${escape(field.placeholder || '')}" ${field.required ? 'required' : ''}>${escape(field.value || '')}</textarea>`;
+                        } else if (field.type === 'file') {
+                            inputHtml = `<input type="file" id="${fieldId}" class="form-control" accept="${escape(field.accept || '')}"><img class="modal-file-preview" alt="" hidden style="display:none;max-width:160px;max-height:160px;margin-top:8px;border:1px solid var(--line);border-radius:8px;background:#fff">${field.hint ? `<small class="modal-file-hint" style="display:block;margin-top:6px;color:var(--ink-mute)">${escape(field.hint)}</small>` : ''}`;
                         } else if (field.type === 'select') {
                             inputHtml = `<select id="${fieldId}" class="form-control" ${field.required ? 'required' : ''}>${field.options.map(opt => `<option value="${opt.value}" ${opt.value === field.value ? 'selected' : ''}>${escape(opt.label)}</option>`).join('')}</select>`;
                         } else {
@@ -191,6 +193,17 @@
         this.submitBtn = this.element.querySelector('.modal-submit-btn');
         this.cancelBtn = this.element.querySelector('.modal-cancel-btn');
         
+        this.element.querySelectorAll('input[type="file"]').forEach((input) => {
+            input.addEventListener('change', () => {
+                const img = input.parentElement.querySelector('.modal-file-preview');
+                const file = input.files && input.files[0];
+                if (!img) return;
+                if (!file || !file.type.startsWith('image/')) { img.style.display = 'none'; img.removeAttribute('src'); return; }
+                const reader = new FileReader();
+                reader.onload = (ev) => { img.src = ev.target.result; img.style.display = 'block'; };
+                reader.readAsDataURL(file);
+            });
+        });
         this.closeBtn.addEventListener('click', () => this.close());
         this.cancelBtn.addEventListener('click', () => this.close());
         this.overlay.addEventListener('click', (event) => {
@@ -247,7 +260,7 @@
             const fieldId = 'field-' + field.name;
             const element = this.element.querySelector('#' + fieldId);
             if (element) {
-                this.formData[field.name] = field.type === 'textarea' ? element.value : element.value;
+                this.formData[field.name] = field.type === 'file' ? ((element.files && element.files[0]) || null) : element.value;
             }
         });
         
@@ -3336,6 +3349,7 @@
             fields: [
                 { name: 'label', label: 'Label', type: 'text', required: true, value: existing ? existing.label || '' : 'Lipa Namba', placeholder: 'e.g. Lipa Namba' },
                 { name: 'lipa_number', label: 'Lipa Namba', type: 'text', required: true, value: existing ? existing.lipa_number || '' : '', placeholder: 'e.g. 5123456' },
+                { name: 'qr', label: 'QR code (optional)', type: 'file', accept: 'image/png,image/jpeg,image/webp,image/gif', hint: existing && existing.qr_storage_key ? 'A QR code is already saved. Choose a new image only to replace it.' : 'PNG, JPEG, WebP or GIF, up to 10 MB. Clients can scan it to pay.' },
                 { name: 'instructions', label: 'Instructions for clients', type: 'textarea', required: false, value: existing ? (existing.instructions || '') : 'Pay to the Lipa Namba above from any mobile network or any bank. Use the invoice number as the reference, then upload your payment proof in the portal.', placeholder: 'Reference number or notes for payers' }
             ],
             onSubmit: async (formData) => {
@@ -3363,12 +3377,28 @@
                     is_active: true
                 };
                 if (formData.instructions && formData.instructions.trim()) payload.instructions = formData.instructions.trim();
+                const qrFile = formData.qr || null;
+                if (qrFile) {
+                    if (!['image/png', 'image/jpeg', 'image/webp', 'image/gif'].includes(qrFile.type)) { const e = new Error('Only PNG, JPEG, WebP, and GIF QR images are allowed.'); showModalError(modal, e); throw e; }
+                    if (qrFile.size > 10 * 1024 * 1024) { const e = new Error('QR image must be under 10 MB.'); showModalError(modal, e); throw e; }
+                }
                 try {
+                    let saved;
                     if (existing) {
                         const { method: _m, ...patch } = payload;
-                        await api('/owner/payment-destinations/' + encodeURIComponent(destId), { method: 'PATCH', auth: true, body: patch });
+                        saved = await api('/owner/payment-destinations/' + encodeURIComponent(destId), { method: 'PATCH', auth: true, body: patch });
                     } else {
-                        await api('/owner/payment-destinations', { method: 'POST', auth: true, body: payload });
+                        saved = await api('/owner/payment-destinations', { method: 'POST', auth: true, body: payload });
+                    }
+                    if (qrFile) {
+                        const savedId = destId || (saved && saved.data && saved.data.id);
+                        const dataUrl = await new Promise((resolve, reject) => {
+                            const reader = new FileReader();
+                            reader.onload = (ev) => resolve(ev.target.result);
+                            reader.onerror = () => reject(new Error('Failed to read the QR image'));
+                            reader.readAsDataURL(qrFile);
+                        });
+                        await api('/owner/payment-destinations/' + encodeURIComponent(savedId) + '/qr', { method: 'POST', auth: true, body: { qr: dataUrl } });
                     }
                     showToast(existing ? 'Payment destination updated.' : 'Payment destination added.', 'success');
                     loadSettings();
