@@ -21,7 +21,38 @@
         consent: 'Consent'
     };
 
+    /* Warning shown (as a modal) whenever the client arrives at the final review step. */
+    function showPaymentNotice() {
+        if (document.getElementById('payment-notice')) return;
+        const overlay = document.createElement('div');
+        overlay.className = 'modal-overlay open';
+        overlay.id = 'payment-notice';
+        overlay.setAttribute('role', 'alertdialog');
+        overlay.setAttribute('aria-modal', 'true');
+        overlay.setAttribute('aria-labelledby', 'payment-notice-title');
+        overlay.setAttribute('aria-describedby', 'payment-notice-text');
+        overlay.innerHTML =
+            '<div class="modal-card" style="max-width:460px;background:var(--bg-elev,#fffdf9);color:var(--ink,#12232d)">' +
+            '<div class="modal-card-head"><h3 id="payment-notice-title">Payment required</h3></div>' +
+            '<div style="padding:1.4rem 1.25rem 1.25rem">' +
+            '<div style="display:flex;gap:0.9rem;align-items:flex-start">' +
+            '<span aria-hidden="true" style="flex:none;width:2.2rem;height:2.2rem;border-radius:50%;background:rgba(183,140,75,0.18);color:#b78c4b;display:inline-flex;align-items:center;justify-content:center;font-weight:700;font-size:1.2rem">!</span>' +
+            '<p id="payment-notice-text" style="margin:0;line-height:1.6"><strong>Your request will not be dealt with until payment is made.</strong><br>' +
+            'After you submit, an invoice appears in your portal. The firm starts work once the payment is received and approved.</p></div>' +
+            '<div style="display:flex;justify-content:flex-end;margin-top:1.25rem"><button type="button" class="button" id="payment-notice-ok">I understand</button></div>' +
+            '</div></div>';
+        const previous = document.activeElement;
+        const close = () => { overlay.remove(); document.removeEventListener('keydown', onKey); if (previous && previous.focus) previous.focus(); };
+        const onKey = (e) => { if (e.key === 'Escape' || e.key === 'Enter') { e.preventDefault(); close(); } };
+        overlay.addEventListener('click', (e) => { if (e.target === overlay) close(); });
+        document.addEventListener('keydown', onKey);
+        document.body.appendChild(overlay);
+        overlay.querySelector('#payment-notice-ok').addEventListener('click', close);
+        overlay.querySelector('#payment-notice-ok').focus();
+    }
+
     function showPane(n) {
+        const previous = current;
         panes.forEach((p) => p.classList.toggle('active', Number(p.dataset.pane) === n));
         steps.forEach((s) => {
             const sn = Number(s.dataset.step);
@@ -29,7 +60,7 @@
             s.classList.toggle('done', sn < n);
         });
         current = n;
-        if (n === 5) renderReview();
+        if (n === 5) { renderReview(); if (previous < 5) showPaymentNotice(); }
         window.scrollTo({ top: form.offsetTop - 80, behavior: 'smooth' });
     }
 
