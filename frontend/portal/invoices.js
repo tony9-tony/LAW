@@ -186,7 +186,7 @@
                             </div>
                         </section>
                         ${!isPaid ? `
-                        <section class="panel" id="payment-section">
+                        <section class="panel" id="payment-section"${!awaitingVerification && availableDestinations.length ? ' hidden' : ''}>
                             <div class="panel-head"><h2>Payment</h2><span class="panel-meta">Amount due ${fmtCurrency(inv.total, inv.currency)}</span></div>
                             <div class="panel-body">
                                 ${awaitingVerification ? '<div class="alert info"><strong>Payment proof received.</strong> The firm is checking it. You will get a notification as soon as it is confirmed, and your matter will open.</div>' : availableDestinations.length ? `<button type="button" class="btn primary" id="pay-now">Pay Now</button>
@@ -251,6 +251,8 @@
         const close = () => { list.hidden = true; btn.setAttribute('aria-expanded', 'false'); };
         const toast = (msg) => { const old = btn.title; btn.title = msg; setTimeout(() => { btn.title = old; }, 1500); };
         const openCheckout = (focusProof) => {
+            const sec = document.getElementById('payment-section');
+            if (sec) sec.hidden = false;
             const payNow = document.getElementById('pay-now');
             if (payNow && !payNow.hidden) payNow.click();
             const first = document.querySelector('#payment-method-choices .payment-method-choice');
