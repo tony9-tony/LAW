@@ -2043,3 +2043,4 @@ img { max-width: 100%; display: block; }
 .inv-detail .panel, .inv-detail .panel-head { overflow: visible; }
 @media print { .inv-menu, #payment-section, .portal-sidebar, header { display: none !important; } }
 #pay-now[hidden], #payment-checkout[hidden] { display: none !important; }
+#payment-section[hidden] { display: none !important; }
