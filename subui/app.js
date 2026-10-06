@@ -3153,7 +3153,7 @@
                 <div class="panel-head"><h2>Global Payment Settings</h2><span class="panel-meta">Payments are accepted by Lipa Namba only, which works with all mobile networks and all banks.</span></div>
                 <div class="panel-body">
                     <div style="margin-bottom:1rem;">
-                        <button class="btn primary" id="btn-add-destination">Add Lipa Namba</button>
+                        <button class="btn primary" id="btn-add-destination">Add Payment Destination</button>
                     </div>
                     <div id="destinations-list">
             `;
