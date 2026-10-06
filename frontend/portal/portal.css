@@ -95,7 +95,7 @@ img { max-width: 100%; display: block; }
     overflow-x: hidden;
 }
 
-/* 6. Navigation â€” Topbar */
+/* 6. Navigation — Topbar */
 .portal-topbar {
     background: #123d68;
     color: var(--ink-white);
@@ -184,7 +184,7 @@ img { max-width: 100%; display: block; }
 }
 .public-link:hover { color: var(--green-soft); border-color: var(--green-soft); }
 
-/* Hamburger toggle button â€” hidden on desktop, visible on mobile */
+/* Hamburger toggle button — hidden on desktop, visible on mobile */
 .nav-toggle {
     display: none;
     flex-direction: column;
@@ -214,7 +214,7 @@ img { max-width: 100%; display: block; }
 .nav-toggle[aria-expanded="true"] .nav-toggle-bar:nth-child(2) { background: var(--green); }
 .nav-toggle[aria-expanded="true"] .nav-toggle-bar:nth-child(3) { background: var(--green); }
 
-/* 5. Navigation â€” Sidebar */
+/* 5. Navigation — Sidebar */
 .portal-sidebar {
     background: #edf3fb;
     border-right: 1px solid rgba(18, 61, 104, 0.12);
@@ -1250,7 +1250,7 @@ img { max-width: 100%; display: block; }
 }
 .polling-indicator.error::before { background: var(--danger); }
 
-/* Request page â€” inline message composer */
+/* Request page — inline message composer */
 #message-section .panel-body {
     display: flex;
     flex-direction: column;
