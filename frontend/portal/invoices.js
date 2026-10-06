@@ -44,28 +44,28 @@
             }
             if (meta) meta.textContent = items.length + ' invoice' + (items.length === 1 ? '' : 's');
             root.innerHTML = `
-                <table class="requests-table">
+                <div class="inv-table-wrap"><table class="requests-table inv-table">
                     <thead>
                         <tr>
                             <th class="col-ref">Invoice</th>
-                            <th>Matter</th>
+                            <th class="inv-hide-sm">Matter</th>
                             <th class="col-status-140">Status</th>
-                            <th class="col-date-140">Issued</th>
-                            <th class="col-date-140">Due</th>
-                            <th style="text-align:right;">Total</th>
+                            <th class="inv-hide-sm">Payment</th>
+                            <th class="col-date-140 inv-hide-sm">Issued</th>
+                            <th class="inv-total">Total</th>
                         </tr>
                     </thead>
                     <tbody>${items.map((inv) => `
                         <tr class="row-link" data-href="invoices.html?id=${inv.id}">
                             <td><span class="ref">#${P.shortRef(inv.id)}</span></td>
-                            <td class="subj"><strong>${escape(inv.matter_reference || '—')}</strong>${inv.matter_title ? ' · ' + escape(inv.matter_title) : ''}</td>
+                            <td class="subj inv-hide-sm">${inv.matter_reference ? `<strong>${escape(inv.matter_reference)}</strong>${inv.matter_title ? ' · ' + escape(inv.matter_title) : ''}` : '<span class="muted">After payment</span>'}</td>
                             <td>${P.statusPill(inv.status)}</td>
-                            <td class="muted">${fmtDateShort(inv.issued_at)}</td>
-                            <td class="muted">${fmtDateShort(inv.due_at)}</td>
-                            <td style="text-align:right;font-family:var(--mono);font-size:0.88rem;">${fmtCurrency(inv.total, inv.currency)}</td>
+                            <td class="inv-hide-sm">${inv.payment_status ? `<span class="pill ${inv.payment_status === 'PAID' ? 'status-open' : 'status-new'}">${escape(String(inv.payment_status).replace(/_/g, ' ').toLowerCase().replace(/^./, (c) => c.toUpperCase()))}</span>` : '<span class="muted">—</span>'}</td>
+                            <td class="muted inv-hide-sm">${fmtDateShort(inv.issued_at || inv.created_at)}</td>
+                            <td class="inv-total">${fmtCurrency(inv.total, inv.currency)}</td>
                         </tr>
                     `).join('')}</tbody>
-                </table>`;
+                </table></div>`;
         } catch (err) {
             if (err && err.status === 401) { window.location.replace('../login.html'); return; }
             root.innerHTML = `<div class="empty-state"><span class="ico">!</span><strong>Could not load invoices.</strong><p>${escape(err.message || 'Please try again shortly.')}</p></div>`;
@@ -140,17 +140,17 @@
             }
             
             root.innerHTML = `
-                <div class="detail-grid">
-                    <div>
+                <div class="detail-grid inv-detail">
+                    <div class="inv-main">
                         <section class="panel">
                             <div class="panel-head"><h2>Invoice</h2><span class="panel-meta">#${P.shortRef(inv.id)}</span></div>
                             <div class="panel-body">
                                 <dl class="detail-meta">
                                     <dt>Matter</dt><dd>${inv.matter_reference ? `<a class="link-bronze" href="${escape(matterHref)}">${escape(inv.matter_reference)}${inv.matter_title ? ' · ' + escape(inv.matter_title) : ''}</a>` : '<span class="text-soft">Opens once your payment is confirmed</span>'}</dd>
                                     <dt>Payment</dt><dd><span class="pill ${isPaid ? 'status-open' : 'status-new'}">${escape(paymentStatusLabel)}</span></dd>
-                                    <dt>Issued</dt><dd>${fmtDate(inv.issued_at || inv.created_at)}</dd>
-                                    <dt>Due</dt><dd>${fmtDate(inv.due_at)}</dd>
-                                    <dt>Paid</dt><dd>${inv.paid_at ? fmtDate(inv.paid_at) : '—'}</dd>
+                                    <dt>Issued</dt><dd>${fmtDateShort(inv.issued_at || inv.created_at)}</dd>
+                                    <dt>Due</dt><dd>${fmtDateShort(inv.due_at)}</dd>
+                                    <dt>Paid</dt><dd>${inv.paid_at ? fmtDateShort(inv.paid_at) : '—'}</dd>
                                     <dt>Currency</dt><dd>${escape((inv.currency || 'TZS').toUpperCase())}</dd>
                                 </dl>
                             </div>
@@ -160,13 +160,13 @@
                             <div class="panel-body tight">
                                 ${items.length === 0
                                     ? '<div class="empty-state tight"><span class="ico">·</span><strong>No line items.</strong></div>'
-                                    : `<table class="requests-table">
-                                        <thead><tr><th>Description</th><th style="text-align:right;">Qty</th><th style="text-align:right;">Unit price</th><th style="text-align:right;">Amount</th></tr></thead>
+                                    : `<table class="requests-table inv-items">
+                                        <thead><tr><th>Description</th><th style="text-align:right;">Qty</th><th class="inv-hide-sm" style="text-align:right;">Unit price</th><th style="text-align:right;">Amount</th></tr></thead>
                                         <tbody>${items.map((it) => `
                                             <tr>
                                                 <td class="subj">${escape(it.description || '—')}</td>
                                                 <td style="text-align:right;font-family:var(--mono);font-size:0.88rem;">${escape(String(it.quantity || ''))}</td>
-                                                <td style="text-align:right;font-family:var(--mono);font-size:0.88rem;">${fmtCurrency(it.unit_price, inv.currency)}</td>
+                                                <td class="inv-hide-sm" style="text-align:right;font-family:var(--mono);font-size:0.88rem;">${fmtCurrency(it.unit_price, inv.currency)}</td>
                                                 <td style="text-align:right;font-family:var(--mono);font-size:0.88rem;">${fmtCurrency(it.amount, inv.currency)}</td>
                                             </tr>
                                         `).join('')}</tbody>
@@ -214,6 +214,7 @@
                     </aside>
                 </div>
             `;
+            const outer = root.closest('.panel'); if (outer) outer.classList.add('panel-flat');
             const payForm = document.getElementById('pay-form');
             if (payForm || document.getElementById('pay-now')) initPaymentForm({ destinations: availableDestinations, renderDetails: destinationDetails });
         } catch (err) {

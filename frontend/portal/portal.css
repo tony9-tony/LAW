@@ -1996,3 +1996,36 @@ img { max-width: 100%; display: block; }
 .side-meta { color: rgba(244, 240, 232, 0.85); }
 .side-meta strong { color: #f4f0e8; }
 .side-meta .link-bronze { color: #e6c88d; text-decoration: underline; }
+
+/* Invoices list: fill the panel, tidy columns, stay readable on phones */
+.inv-table-wrap { width: 100%; overflow-x: auto; }
+.requests-table.inv-table { width: 100%; min-width: 0; }
+.inv-table th, .inv-table td { white-space: nowrap; vertical-align: middle; }
+.inv-table .subj { white-space: normal; }
+.inv-table .inv-total { text-align: right; font-family: var(--mono); font-size: 0.88rem; white-space: nowrap; }
+@media (max-width: 760px) {
+    .inv-hide-sm { display: none; }
+    .inv-table .col-ref, .inv-table .col-status-140 { width: auto; }
+}
+.inv-table th.inv-total { font-family: inherit; font-size: inherit; text-align: right; }
+.inv-table td.muted, .inv-table td .muted { font-size: 0.85rem; white-space: nowrap; }
+.inv-table .pill { white-space: nowrap; }
+.inv-table th, .inv-table td { padding-left: 0.9rem; padding-right: 0.9rem; }
+
+/* Invoice detail: no panel-in-panel, summary stays inside the page */
+.panel-flat { border: 0; background: transparent; box-shadow: none; }
+.panel-flat > .panel-head { display: none; }
+.panel-flat > .panel-body { padding: 0; }
+.inv-detail { grid-template-columns: minmax(0, 1fr) 300px; gap: 1.5rem; }
+.inv-detail .inv-main { display: grid; gap: 1.25rem; min-width: 0; }
+.inv-detail .panel + .panel { margin-top: 0; }
+.inv-detail aside { position: sticky; top: 1rem; }
+.inv-detail .detail-meta dd { overflow-wrap: anywhere; }
+@media (max-width: 960px) { .inv-detail { grid-template-columns: 1fr; } .inv-detail aside { position: static; } }
+.panel.panel-flat { border: 0 !important; background: transparent !important; box-shadow: none !important; }
+.inv-detail .inv-main { gap: 1rem; }
+.inv-detail .inv-main > .panel { margin: 0; }
+.requests-table.inv-items { width: 100%; min-width: 0; }
+.inv-items th, .inv-items td { padding: 0.8rem 1rem; }
+.inv-items td, .inv-items th { white-space: nowrap; }
+.inv-items td.subj { white-space: normal; }
