@@ -1834,25 +1834,26 @@
         overlay.innerHTML = `
             <div class="modal-card">
                 <div class="modal-card-head">
-                    <h3>Upload Document</h3>
+                    <h3>Upload a document</h3>
                     <button class="modal-close-btn" aria-label="Close">&times;</button>
                 </div>
                 <form class="modal-form" id="admin-upload-form">
-                    <label>Matter
+                    <p class="muted modal-hint">Documents are attached to a matter that has been opened after payment.</p>
+                    <label>Type of matter
                         <select name="matter_id" required>
                             <option value="">Select matter…</option>
                             ${matters.map(m => `<option value="${escape(m.id)}">${escape(m.reference || m.id)} — ${escape(m.title || 'Untitled')}</option>`).join('')}
                         </select>
                     </label>
-                    <label>File
+                    <label>Document title
+                        <input type="text" name="original_name" required maxlength="160" placeholder="e.g. Signed lease agreement" />
+                    </label>
+                    <label>Your document
                         <input type="file" name="file" accept="*/*" required />
                     </label>
-                    <label>Original name (optional)
-                        <input type="text" name="original_name" placeholder="Defaults to uploaded file name" />
-                    </label>
                     <div class="modal-form-actions">
-                        <button type="submit" class="btn primary">Upload</button>
-                        <button type="button" class="btn ghost modal-cancel">Cancel</button>
+                        <button type="button" class="btn secondary modal-cancel">Close</button>
+                        <button type="submit" class="btn primary">Upload that document</button>
                     </div>
                 </form>
             </div>
@@ -1875,7 +1876,10 @@
             const fd = new FormData();
             fd.append('file', fileInput.files[0]);
             fd.append('matter_id', matterId);
-            if (originalName) fd.append('original_name', originalName);
+            if (!originalName) { showToast('Please enter a document title.', 'warning'); return; }
+            const picked = fileInput.files[0].name || '';
+            const ext = picked.includes('.') ? picked.slice(picked.lastIndexOf('.')) : '';
+            fd.append('original_name', ext && !originalName.toLowerCase().endsWith(ext.toLowerCase()) ? originalName + ext : originalName);
             const submitBtn = form.querySelector('button[type="submit"]');
             submitBtn.disabled = true;
             submitBtn.textContent = 'Uploading…';
@@ -1887,7 +1891,7 @@
                 showToast('Upload failed: ' + (err.message || 'Unknown error'), 'error');
             } finally {
                 submitBtn.disabled = false;
-                submitBtn.textContent = 'Upload';
+                submitBtn.textContent = 'Upload that document';
             }
         });
 

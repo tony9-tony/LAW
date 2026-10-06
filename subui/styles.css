@@ -945,3 +945,4 @@ button { cursor: pointer; background: transparent; border: 0; padding: 0; }
 .table-dest .row-actions { display: flex; gap: 0.4rem; flex-wrap: wrap; }
 .table-dest .row-actions .btn { white-space: nowrap; }
 .table-dest tr.is-inactive td { opacity: 0.6; }
+.modal-hint { font-size: 0.85rem; margin: 0 0 0.5rem; color: var(--ink-mute); }

@@ -2051,3 +2051,5 @@ img { max-width: 100%; display: block; }
 .portal-toast strong { font-size: 0.9rem; }
 .portal-toast span { font-size: 0.82rem; opacity: 0.85; }
 .portal-toast.out { opacity: 0; transform: translateY(8px); }
+.modal-hint { font-size: 0.85rem; margin: 0 0 0.5rem; }
+.modal-form-actions { display: flex; justify-content: flex-end; gap: 0.6rem; }
