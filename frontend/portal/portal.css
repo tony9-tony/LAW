@@ -1987,3 +1987,12 @@ img { max-width: 100%; display: block; }
     #payment-section input[type="file"] { max-width: 100%; }
     .selected-payment code, .detail-meta code { overflow-wrap: anywhere; }
 }
+
+/* Readable buttons on the dark portal top bar (every portal page) */
+.portal-topbar .signout-btn, .portal-topbar .public-link { color: #f4f0e8; border-color: rgba(255, 255, 255, 0.4); }
+.portal-topbar .public-link { border-bottom-color: transparent; }
+.portal-topbar .signout-btn:hover, .portal-topbar .public-link:hover { background: #f4f0e8; color: #123d68; border-color: #f4f0e8; }
+.signout-btn:hover { color: #fff; }
+.side-meta { color: rgba(244, 240, 232, 0.85); }
+.side-meta strong { color: #f4f0e8; }
+.side-meta .link-bronze { color: #e6c88d; text-decoration: underline; }
