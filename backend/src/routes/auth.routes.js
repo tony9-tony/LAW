@@ -3,7 +3,7 @@ import { z } from 'zod';
 import { loginUser, registerUser } from '../services/auth.service.js';
 import { query } from '../db.js';
 import { logAudit } from '../lib/audit.js';
-import { clearSessionCookie, setSessionCookie } from '../lib/session.js';
+import { clearSessionCookie, cookieNameFor, setSessionCookie } from '../lib/session.js';
 
 const credentials = z.object({ email: z.string().email(), password: z.string().min(12) });
 // Public sign-up always makes a CLIENT. A "role" sent by the browser is
@@ -34,14 +34,14 @@ authRouter.post('/login', async (request, response, next) => {
         const input = credentials.parse(request.body);
         const result = await loginUser(input);
         await logAudit({ actorId: result.user.id, action: 'LOGIN', entityType: 'user', entityId: result.user.id });
-        setSessionCookie(response, result.token);
+        setSessionCookie(response, result.token, cookieNameFor(request));
         response.json({ data: result });
     } catch (error) { next(error); }
 });
 
 // Signs the browser out: the session cookie is removed.
-authRouter.post('/logout', (_request, response) => {
-    clearSessionCookie(response);
+authRouter.post('/logout', (request, response) => {
+    clearSessionCookie(response, cookieNameFor(request));
     response.json({ data: { signedOut: true } });
 });
 

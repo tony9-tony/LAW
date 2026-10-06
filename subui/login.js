@@ -96,8 +96,8 @@
                     throw new Error(message);
                 }
                 if (result && result.data && result.data.token) {
-                    localStorage.setItem('auth_token', location.protocol === 'file:' ? result.data.token : 'session');
-                    localStorage.setItem('auth_user', JSON.stringify(result.data.user || {}));
+                    localStorage.setItem('owner_auth_token', location.protocol === 'file:' ? result.data.token : 'session');
+                    localStorage.setItem('owner_auth_user', JSON.stringify(result.data.user || {}));
                 }
                 status.className = 'form-status success';
                 status.innerHTML = '<strong>Owner account created.</strong>Redirecting to Admin Portal…';
@@ -137,14 +137,14 @@
                     throw new Error(message);
                 }
                 if (result && result.data && result.data.token) {
-                    localStorage.setItem('auth_token', location.protocol === 'file:' ? result.data.token : 'session');
-                    localStorage.setItem('auth_user', JSON.stringify(result.data.user || {}));
+                    localStorage.setItem('owner_auth_token', location.protocol === 'file:' ? result.data.token : 'session');
+                    localStorage.setItem('owner_auth_user', JSON.stringify(result.data.user || {}));
                 }
                 const user = result && result.data && result.data.user ? result.data.user : {};
                 if (user.role !== 'OWNER') {
                     fetch(API_BASE + '/auth/logout', { method: 'POST', credentials: 'include' }).catch(() => {});
-                    localStorage.removeItem('auth_token');
-                    localStorage.removeItem('auth_user');
+                    localStorage.removeItem('owner_auth_token');
+                    localStorage.removeItem('owner_auth_user');
                     status.className = 'form-status error';
                     status.innerHTML = '<strong>Access denied.</strong>This area is reserved for platform owners.';
                     return;
@@ -162,8 +162,8 @@
 
     function backToWebsite() {
         fetch(API_BASE + '/auth/logout', { method: 'POST', credentials: 'include' }).catch(() => {});
-        localStorage.removeItem('auth_token');
-        localStorage.removeItem('auth_user');
+        localStorage.removeItem('owner_auth_token');
+        localStorage.removeItem('owner_auth_user');
         window.location.href = '/';
     }
 

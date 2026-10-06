@@ -67,3 +67,23 @@ test.after(async () => {
     await query("DELETE FROM audit_logs WHERE actor_id IN (SELECT id FROM users WHERE email LIKE $1)", [`%-${stamp}@example.com`]).catch(() => {});
     await query('DELETE FROM users WHERE email LIKE $1', [`%-${stamp}@example.com`]).catch(() => {});
 });
+
+test('owner centre and client site keep separate sessions in one browser', async () => {
+    const ownerEmail = `owner-split-${stamp}@example.com`;
+    const { default: bcrypt } = await import('bcryptjs');
+    await query(`INSERT INTO users (email, password_hash, full_name, role) VALUES ($1, $2, 'Split Owner', 'OWNER')`, [ownerEmail, await bcrypt.hash(password, 4)]);
+    const ownerLogin = await request(app).post('/api/v1/auth/login').set('Referer', 'http://localhost:3000/subui/login.html').send({ email: ownerEmail, password }).expect(200);
+    const ownerCookie = (ownerLogin.headers['set-cookie'] || []).find((c) => c.startsWith('law_owner_session='));
+    assert.ok(ownerCookie, 'owner sign-in sets law_owner_session');
+    assert.ok(!(ownerLogin.headers['set-cookie'] || []).some((c) => c.startsWith('law_session=')), 'and not the client cookie');
+    const clientLogin = await request(app).post('/api/v1/auth/login').set('Referer', 'http://localhost:3000/frontend/login.html').send({ email, password }).expect(200);
+    const clientCookie = clientLogin.headers['set-cookie'].find((c) => c.startsWith('law_session=')).split(';')[0];
+    const both = `${ownerCookie.split(';')[0]}; ${clientCookie}`;
+    // Same browser (both cookies present): each area sees its own user.
+    const fromOwner = await request(app).get('/api/v1/profile').set('Cookie', both).set('Referer', 'http://localhost:3000/subui/index.html');
+    const fromClient = await request(app).get('/api/v1/profile').set('Cookie', both).set('Referer', 'http://localhost:3000/frontend/portal/dashboard.html');
+    assert.equal(fromOwner.status, 200); assert.equal(fromClient.status, 200);
+    assert.equal(fromOwner.body.data.email, ownerEmail);
+    assert.equal(fromClient.body.data.email, email);
+    await query('DELETE FROM users WHERE email = $1', [ownerEmail]);
+});

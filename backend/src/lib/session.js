@@ -14,6 +14,14 @@ import jwt from 'jsonwebtoken';
 import { config } from '../config.js';
 
 export const SESSION_COOKIE = 'law_session';
+/* The owner centre (/subui) has its own cookie, so a client signed in in another tab of the
+   same browser does not replace the owner's session (and the other way round). The page the
+   request comes from decides which one is used (same-origin Referer; helmet is set to send it). */
+export const OWNER_SESSION_COOKIE = 'law_owner_session';
+export function cookieNameFor(request) {
+    const referer = String(request.headers?.referer || request.headers?.referrer || '');
+    return /^https?:\/\/[^/]+\/subui(\/|$|\?|#)/i.test(referer) ? OWNER_SESSION_COOKIE : SESSION_COOKIE;
+}
 const SESSION_MARKER = 'session';
 const MAX_AGE_MS = 60 * 60 * 1000; // matches the token's 1 hour lifetime
 
@@ -35,7 +43,7 @@ const usable = (value) => (typeof value === 'string' && value && value !== SESSI
 export function requestToken(request) {
     const header = request.headers?.authorization;
     const bearer = header && header.startsWith('Bearer ') ? usable(header.slice(7).trim()) : null;
-    return bearer || usable(readCookie(request.headers?.cookie, SESSION_COOKIE)) || usable(request.query?.token);
+    return bearer || usable(readCookie(request.headers?.cookie, cookieNameFor(request))) || usable(request.query?.token);
 }
 
 /** The verified user of a request, or null. */
@@ -45,8 +53,8 @@ export function verifiedUser(request) {
     try { return jwt.verify(token, config.jwtSecret); } catch { return null; }
 }
 
-export function setSessionCookie(response, token) {
-    response.cookie(SESSION_COOKIE, token, {
+export function setSessionCookie(response, token, name = SESSION_COOKIE) {
+    response.cookie(name, token, {
         httpOnly: true,
         sameSite: 'lax',
         secure: config.nodeEnv === 'production',
@@ -55,6 +63,6 @@ export function setSessionCookie(response, token) {
     });
 }
 
-export function clearSessionCookie(response) {
-    response.clearCookie(SESSION_COOKIE, { httpOnly: true, sameSite: 'lax', secure: config.nodeEnv === 'production', path: '/' });
+export function clearSessionCookie(response, name = SESSION_COOKIE) {
+    response.clearCookie(name, { httpOnly: true, sameSite: 'lax', secure: config.nodeEnv === 'production', path: '/' });
 }
