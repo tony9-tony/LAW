@@ -921,3 +921,7 @@ button { cursor: pointer; background: transparent; border: 0; padding: 0; }
     border-radius: var(--radius-lg);
     display: block;
 }
+
+/* Readable sign-out button on the dark sidebar */
+.sidebar-foot .sign-out { color: #f4f0e8; border-color: rgba(255, 255, 255, 0.4); }
+.sidebar-foot .sign-out:hover { background: #f4f0e8; color: #0f1f2a; border-color: #f4f0e8; }

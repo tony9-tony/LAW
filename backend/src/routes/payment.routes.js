@@ -70,7 +70,7 @@ paymentRouter.post('/', async (request, response, next) => {
 
 paymentRouter.get('/destinations', async (_request, response, next) => {
     try {
-        const destinations = await listActiveDestinations();
+        const destinations = await listActiveDestinations('mobile_money'); /* Lipa Namba is the only payment method */
         response.json({ data: destinations });
     } catch (error) {
         next(error);
