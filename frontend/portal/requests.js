@@ -38,4 +38,5 @@
 
     window.retryRequests = load;
     load();
+    P.onLive(['request.created','request.status_changed','request.accepted','request.declined','request.more_info_required','matter.created','matter.status_changed','payment.requested','payment.verified','payment.rejected'], load);
 })();

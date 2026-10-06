@@ -2044,3 +2044,10 @@ img { max-width: 100%; display: block; }
 @media print { .inv-menu, #payment-section, .portal-sidebar, header { display: none !important; } }
 #pay-now[hidden], #payment-checkout[hidden] { display: none !important; }
 #payment-section[hidden] { display: none !important; }
+
+/* Live toasts */
+#portal-toasts { position: fixed; right: 1rem; bottom: 1rem; z-index: 90; display: grid; gap: 0.5rem; max-width: min(360px, calc(100vw - 2rem)); }
+.portal-toast { display: grid; gap: 0.15rem; padding: 0.8rem 1rem; background: var(--green, #14394a); color: #fff; border-radius: 10px; box-shadow: 0 12px 30px rgba(18,35,45,0.28); text-decoration: none; transition: opacity .3s, transform .3s; }
+.portal-toast strong { font-size: 0.9rem; }
+.portal-toast span { font-size: 0.82rem; opacity: 0.85; }
+.portal-toast.out { opacity: 0; transform: translateY(8px); }

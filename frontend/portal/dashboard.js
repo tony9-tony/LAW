@@ -170,4 +170,5 @@
         await Promise.allSettled(promises);
     }
     loadDashboardData();
+    window.Portal.onLive(['request.created','request.status_changed','request.accepted','request.declined','request.more_info_required','matter.created','matter.status_changed','payment.requested','payment.verified','payment.rejected'].concat(['appointment.created','appointment.updated','appointment.cancelled','appointment.completed','notification.created','message.created']), loadDashboardData);
 })();

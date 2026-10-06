@@ -41,4 +41,5 @@
 
     window.retryMatters = load;
     load();
+    P.onLive(['matter.created','matter.status_changed','request.accepted','payment.verified','message.created'], load);
 })();

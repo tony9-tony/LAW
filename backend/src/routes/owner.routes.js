@@ -537,20 +537,9 @@ ownerRouter.get('/requests/:id', async (request, response, next) => {
 /* GET /api/v1/owner/matters/:id/conversation — OWNER access to matter conversation */
 ownerRouter.get('/matters/:id/conversation', async (request, response, next) => {
     try {
-        const result = await query(
-            `INSERT INTO conversations (matter_id) VALUES ($1)
-             ON CONFLICT (matter_id) DO NOTHING
-             RETURNING id, matter_id, created_at`,
-            [request.params.id]
-        );
-        if (result.rowCount === 1) {
-            return response.json({ data: result.rows[0] });
-        }
-        const existing = await query(
-            `SELECT id, matter_id, created_at FROM conversations WHERE matter_id = $1 LIMIT 1`,
-            [request.params.id]
-        );
-        response.json({ data: existing.rows[0] });
+        const id = await conversationForMatter(request.params.id);
+        const row = await query(`SELECT id, matter_id, created_at FROM conversations WHERE id = $1`, [id]);
+        response.json({ data: row.rows[0] });
     } catch (error) {
         next(error);
     }
@@ -793,10 +782,14 @@ ownerRouter.post('/requests/:id/message', async (request, response, next) => {
         const requestId = r.rows[0].id;
         const clientId = r.rows[0].client_id;
 
-        let convo = await query(
-            `SELECT c.id FROM conversations c WHERE c.request_id = $1 LIMIT 1`,
-            [requestId]
-        );
+        /* Once a matter exists for this request, the matter conversation carries everything. */
+        const matterOfRequest = await query(`SELECT id FROM matters WHERE originating_request_id = $1 LIMIT 1`, [requestId]);
+        let convo = matterOfRequest.rowCount > 0
+            ? { rowCount: 1, rows: [{ id: await conversationForMatter(matterOfRequest.rows[0].id) }] }
+            : await query(
+                `SELECT c.id FROM conversations c WHERE c.request_id = $1 LIMIT 1`,
+                [requestId]
+            );
         if (convo.rowCount === 0) {
             convo = await query(
                 `INSERT INTO conversations (request_id, client_id, subject)

@@ -5,6 +5,7 @@ import { query, withTransaction } from '../db.js';
 import { notify } from './notification.service.js';
 import { createInvoiceForRequest, createInvoiceForAppointment, PAYMENT_STATUS } from './billing.service.js';
 import { getServiceCatalog } from './payment.service.js';
+import { conversationForMatter } from './chat.service.js';
 import { notifyMessageCreated, notifyRequestCreated, notifyRequestStatusChanged, notifyRequestMoreInfo, notifyRequestAccepted, notifyRequestDeclined, notifyMatterCreated, notifyMatterStatusChanged, notifyAppointmentCreated, notifyAppointmentUpdated, notifyAppointmentCancelled, notifyAppointmentCompleted, notifyDocumentRequested, notifyNotificationCreated } from './sse.js';
 
 function referenceForMatter() {
@@ -190,6 +191,9 @@ export async function createMatterForRequest({ requestId, actorId, title, matter
 
                 return matter;
             });
+
+            /* Carry the pre-matter chat over so the matter keeps the full history. */
+            await conversationForMatter(result.id).catch((e) => console.error('conversation merge failed', e.message));
 
             /* Side-effect notifications (after the transaction commits). */
             await notify(result.client_id, {

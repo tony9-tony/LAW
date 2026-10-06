@@ -137,6 +137,36 @@
             });
     }
 
+    /* Small live toast, so something new from the firm is noticed without a reload. */
+    function toast(title, body, href) {
+        try {
+            let host = document.getElementById('portal-toasts');
+            if (!host) {
+                host = document.createElement('div');
+                host.id = 'portal-toasts';
+                host.setAttribute('aria-live', 'polite');
+                document.body.appendChild(host);
+            }
+            const el = document.createElement(href ? 'a' : 'div');
+            el.className = 'portal-toast';
+            if (href) el.href = href;
+            el.innerHTML = '<strong></strong><span></span>';
+            el.firstChild.textContent = title;
+            el.lastChild.textContent = body || '';
+            host.appendChild(el);
+            setTimeout(() => { el.classList.add('out'); setTimeout(() => el.remove(), 300); }, 6000);
+        } catch (e) { /* toasts are a nicety */ }
+    }
+
+    /* Run fn (debounced) whenever any of these live events arrive. */
+    function onLive(types, fn) {
+        const rt = window.Site && window.Site.Realtime;
+        if (!rt) return;
+        let timer = null;
+        const run = () => { clearTimeout(timer); timer = setTimeout(fn, 250); };
+        (Array.isArray(types) ? types : [types]).forEach((t) => rt.on(t, run));
+    }
+
     function mount() {
         if (!guard()) return;
         const top = document.querySelector('[data-portal-topbar]');
@@ -162,9 +192,18 @@
 
         if (window.Site.Realtime) {
             const rt = window.Site.Realtime;
-            const onNewMsg = () => refreshUnreadIndicators();
+            const onNewMsg = (data) => {
+                refreshUnreadIndicators();
+                const m = data && data.message;
+                const me = window.Site.API.user() || {};
+                const onMessagesPage = /messages\.html$/i.test(location.pathname);
+                if (m && String(m.sender_id) !== String(me.id) && !onMessagesPage) {
+                    toast('New message from the firm', m.body ? String(m.body).slice(0, 90) : '', 'messages.html' + (data.conversationId ? '?conversation=' + encodeURIComponent(data.conversationId) : ''));
+                }
+            };
             rt.on('message.created', onNewMsg);
             rt.on('message.read', () => refreshUnreadIndicators());
+            rt.on('matter.created', (d) => toast('Your matter has been opened', d && d.reference ? 'Reference ' + d.reference : '', 'matter.html?id=' + encodeURIComponent(d.matterId)));
         }
 
         initMobileNav();
@@ -244,7 +283,7 @@
         return /^[0-9a-f]{8}-/i.test(v) ? v.slice(0, 8).toUpperCase() : v.padStart(5, '0');
     }
 
-    window.Portal = { mount, guard, fmtDate, fmtDateShort, statusPill, refreshUnreadIndicators, shortRef };
+    window.Portal = { mount, toast, onLive, guard, fmtDate, fmtDateShort, statusPill, refreshUnreadIndicators, shortRef };
 
     if (document.readyState === 'loading') {
         document.addEventListener('DOMContentLoaded', mount);

@@ -150,9 +150,21 @@ export async function postMessage({ user, convo, body, parentMessageId = null, k
     return message;
 }
 
-/* The conversation of a matter, created on first use. */
+/* The conversation of a matter, created on first use. Anything already said
+   about the originating request moves into it, so the matter keeps the whole
+   history (request chat + matter chat) even after the matter is closed. */
 export async function conversationForMatter(matterId) {
     await query(`INSERT INTO conversations (matter_id) VALUES ($1) ON CONFLICT (matter_id) DO NOTHING`, [matterId]);
     const result = await query(`SELECT id FROM conversations WHERE matter_id = $1 LIMIT 1`, [matterId]);
-    return result.rows[0].id;
+    const matterConvoId = result.rows[0].id;
+    await query(
+        `UPDATE messages SET conversation_id = $1
+         WHERE conversation_id IN (
+             SELECT c.id FROM conversations c
+             JOIN matters m ON m.originating_request_id = c.request_id
+             WHERE m.id = $2 AND c.id <> $1 AND c.matter_id IS NULL
+         )`,
+        [matterConvoId, matterId]
+    );
+    return matterConvoId;
 }

@@ -94,6 +94,11 @@
                         </div>
                     </section>
 
+                    <section class="panel" id="conversation-panel">
+                        <div class="panel-head"><h2>Conversation</h2><span class="panel-meta">Everything said about this matter, kept as your record</span></div>
+                        <div class="panel-body"><div id="matter-chat"><div class="empty-state tight"><span class="ico">·</span><strong>Loading conversation…</strong></div></div></div>
+                    </section>
+
                     <section class="panel">
                         <div class="panel-head"><h2>Timeline</h2></div>
                         <div class="panel-body"><ul class="timeline">${timeline}</ul></div>
@@ -122,7 +127,39 @@
                 </aside>
             </div>
         `;
+        mountConversation(matter);
+    }
+
+    let chat = null;
+    async function mountConversation(matter) {
+        const host = document.getElementById('matter-chat');
+        if (!host || !window.ChatWidget) return;
+        try {
+            if (chat) { chat.destroy(); chat = null; }
+            const convoRes = await API.getMatterConversation(matter.id);
+            const convoId = convoRes.data.id;
+            const detail = await API.request(`/conversations/${encodeURIComponent(convoId)}?limit=1`, { auth: true });
+            const me = API.user() || {};
+            const closed = ['CLOSED'].includes(String(matter.status || '').toUpperCase());
+            chat = window.ChatWidget.mount(host, {
+                conversationId: convoId,
+                selfId: me.id,
+                otherLabel: 'The firm',
+                firmFirst: true,
+                firmHasWritten: (detail.data || {}).firm_has_written !== false,
+                readOnly: closed,
+                apiBase: API.base(),
+                token: () => API.token(),
+                loginUrl: '../login.html',
+                http: (path, o) => API.request(path, { auth: true, method: (o && o.method) || 'GET', body: o && o.body }),
+                paths: { thread: `/conversations/${encodeURIComponent(convoId)}`, send: `/conversations/${encodeURIComponent(convoId)}/messages`, read: `/conversations/${encodeURIComponent(convoId)}/read` },
+                onActivity: () => { if (window.Portal && window.Portal.refreshUnreadIndicators) window.Portal.refreshUnreadIndicators(); }
+            });
+        } catch (err) {
+            host.innerHTML = `<div class="empty-state tight"><span class="ico">!</span><strong>Could not load the conversation.</strong><p>${escape(err.message || '')}</p></div>`;
+        }
     }
 
     load();
+    P.onLive(['matter.status_changed', 'document.created', 'appointment.created', 'appointment.updated', 'appointment.cancelled', 'appointment.completed'], load);
 })();

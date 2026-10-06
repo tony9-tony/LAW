@@ -135,7 +135,12 @@
             form.hidden = !ok;
             waitEl.hidden = ok;
         }
-        setCanWrite(!opts.firmFirst || opts.firmHasWritten !== false);
+        if (opts.readOnly) {
+            waitEl.innerHTML = opts.readOnlyNotice || '<strong>This conversation is closed.</strong> It stays here as your record.';
+            form.hidden = true; waitEl.hidden = false;
+        } else {
+            setCanWrite(!opts.firmFirst || opts.firmHasWritten !== false);
+        }
 
         const mineOf = (m) => String(m.sender_id) === selfId;
         const byId = (id) => state.messages.find((m) => m.id === id);
@@ -429,7 +434,7 @@
                 case 'message.created': {
                     const m = data.message; if (!m || byId(m.id)) return;
                     state.messages.push({ ...m, reactions: [], read_at: null });
-                    if (opts.firmFirst && String(m.sender_id) !== selfId) setCanWrite(true);
+                    if (!opts.readOnly && opts.firmFirst && String(m.sender_id) !== selfId) setCanWrite(true);
                     showTyping(null, false);
                     render(true);
                     markRead();

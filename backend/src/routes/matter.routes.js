@@ -3,6 +3,7 @@ import { authenticate } from '../middleware/auth.js';
 import { query } from '../db.js';
 import { ensureOwned } from '../lib/authorization.js';
 import { logAudit } from '../lib/audit.js';
+import { conversationForMatter } from '../services/chat.service.js';
 
 export const matterRouter = Router();
 matterRouter.use(authenticate);
@@ -77,20 +78,8 @@ matterRouter.get('/:id/conversation', async (request, response, next) => {
     try {
         await ensureOwned('matters', request.params.id, request.user.sub);
         await logAudit({ actorId: request.user.sub, action: 'CONVERSATION_ACCESSED', entityType: 'matter', entityId: request.params.id });
-        const result = await query(
-            `INSERT INTO conversations (matter_id) VALUES ($1)
-             ON CONFLICT (matter_id) DO NOTHING
-             RETURNING id, matter_id, created_at`,
-            [request.params.id]
-        );
-        if (result.rowCount === 1) {
-            return response.json({ data: result.rows[0] });
-        }
-        /* A row already existed — fetch it. */
-        const existing = await query(
-            `SELECT id, matter_id, created_at FROM conversations WHERE matter_id = $1 LIMIT 1`,
-            [request.params.id]
-        );
-        response.json({ data: existing.rows[0] });
+        const id = await conversationForMatter(request.params.id);
+        const row = await query(`SELECT id, matter_id, created_at FROM conversations WHERE id = $1`, [id]);
+        response.json({ data: row.rows[0] });
     } catch (error) { next(error); }
 });
