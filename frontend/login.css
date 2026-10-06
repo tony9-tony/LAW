@@ -522,19 +522,26 @@ html:has(.auth-page), .auth-page { height: 100%; }
 .auth-inline-grid { gap: 0.6rem; }
 
 @media (max-width: 760px) {
-    .auth-site-shell { padding: 0; }
-    .auth-shell { grid-template-columns: 34% 66%; height: 100%; border: 0; border-radius: 0; box-shadow: none; }
-    .auth-side-inner { padding: 0.9rem 0.6rem; }
-    .auth-brand-block { flex-direction: column; align-items: flex-start; gap: 0.5rem; margin: 0; padding: 0; border: 0; }
-    .auth-brand-copy small, .auth-side-meta, .auth-side h1, .auth-side p, .auth-trust-card, .auth-side-footer span:first-child { display: none; }
-    .auth-brand-copy span { font-size: 1rem; }
-    .auth-side-footer { padding: 0.7rem 0.6rem; border: 0; position: absolute; bottom: 0; left: 0; right: 0; font-size: 0.55rem; letter-spacing: 0.06em; }
-    .auth-main { padding: 1rem 0.9rem; align-items: flex-start; }
-    .auth-card h2 { font-size: 1.35rem; }
-    .auth-subhead { font-size: 0.8rem; }
+    /* Phone keeps the same side-by-side card as desktop (photo left, form right). */
+    .auth-site-shell { padding: 0.5rem; }
+    .auth-shell { grid-template-columns: 0.42fr 1fr; grid-template-rows: none; height: 100%; border-radius: 12px; }
+    .auth-side-inner { padding: 0.9rem 0.8rem; }
+    .auth-brand-block { flex-direction: column; align-items: flex-start; gap: 0.4rem; padding: 0; margin: 0 0 0.8rem; border: 0; }
+    .auth-brand-copy span { font-size: 1.1rem; }
+    .auth-brand-copy small { font-size: 0.48rem; letter-spacing: 0.1em; }
+    .auth-side-meta, .auth-side p, .auth-trust-card { display: none; }
+    .auth-side h1 { display: block; font-size: 1.25rem; line-height: 1.1; margin: 0; }
+    .auth-side-footer { padding: 0.6rem 0.8rem; font-size: 0.56rem; letter-spacing: 0.08em; flex-direction: column; gap: 0.3rem; }
+    .auth-main { padding: 0.9rem 0.8rem; align-items: flex-start; }
+    .auth-card h2 { font-size: 1.3rem; }
+    .auth-subhead { font-size: 0.78rem; }
     .auth-inline { flex-direction: column; align-items: flex-start; gap: 0.4rem; }
     .auth-inline-grid { grid-template-columns: 1fr; }
-    .remember-box-large { font-size: 0.72rem; }
+    .auth-field input { min-height: 38px; font-size: 0.88rem; padding: 0.4rem 0.6rem; }
+    .auth-field label { font-size: 0.6rem; letter-spacing: 0.08em; }
+    .auth-card .button { letter-spacing: 0.08em; font-size: 0.68rem; padding: 0.5rem 0.6rem; }
+    .remember-box-large { font-size: 0.7rem; padding: 0.45rem 0.55rem; }
+    .auth-success-banner { font-size: 0.72rem; }
 }
 
 /* Photo background on the blue panel: drop the picture at frontend/img/auth-bg.jpg.
