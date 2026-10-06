@@ -309,4 +309,14 @@
     }
 
     load();
+    /* Live: when the firm requests payment, the invoice appears (or updates) without a refresh,
+       unless the client is in the middle of paying. */
+    const RT = window.Site && window.Site.Realtime;
+    if (RT) {
+        const refresh = () => {
+            const paying = document.getElementById('payment-checkout') && !document.getElementById('payment-checkout').hidden;
+            if (!paying) load();
+        };
+        ['payment.requested', 'payment.verified', 'payment.rejected'].forEach((t) => RT.on(t, refresh));
+    }
 })();

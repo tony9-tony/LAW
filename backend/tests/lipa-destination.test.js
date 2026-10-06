@@ -39,3 +39,21 @@ test('old bank destination is hidden from clients until converted to Lipa Namba'
     await query('DELETE FROM payment_destinations WHERE id = $1', [bank.id]);
     await query('DELETE FROM users WHERE id = ANY($1)', [[owner.id, client.id]]);
 });
+
+test('Set Payment on a request reaches the client: issued invoice and a notification', async () => {
+    const owner = await user('OWNER');
+    const client = await user('CLIENT');
+    const created = await request(app).post('/api/v1/requests').set('Authorization', `Bearer ${client.token}`)
+        .send({ subject: 'Salary', description: 'I want my salary paid please', matterType: 'Employment', helpType: 'unsure', fullName: 'Test', email: 'a@b.co', phone: '1', preferredContact: 'phone' }).expect(201);
+    await request(app).post(`/api/v1/owner/requests/${created.body.data.id}/set-payment`).set('Authorization', `Bearer ${owner.token}`)
+        .send({ amount: 50000, description: 'Initial consultation' }).expect(200);
+    const invoices = await request(app).get('/api/v1/invoices').set('Authorization', `Bearer ${client.token}`).expect(200);
+    assert.equal(invoices.body.data.length, 1);
+    assert.equal(invoices.body.data[0].status, 'ISSUED');
+    assert.equal(invoices.body.data[0].payment_status, 'PAYMENT_REQUIRED');
+    const notes = await request(app).get('/api/v1/notifications').set('Authorization', `Bearer ${client.token}`).expect(200);
+    assert.ok(notes.body.data.some((n) => n.title === 'Payment requested'), 'the client is notified');
+    const detail = await request(app).get(`/api/v1/requests/${created.body.data.id}`).set('Authorization', `Bearer ${client.token}`).expect(200);
+    assert.equal(detail.body.data.invoice.total, '50000.00');
+    await query('DELETE FROM users WHERE id = ANY($1)', [[owner.id, client.id]]).catch(() => {});
+});
