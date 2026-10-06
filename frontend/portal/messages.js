@@ -1,5 +1,6 @@
-/* Portal — messages. Supports inbox list and thread views with near-real-time polling.
-   Handles request-scoped conversations (created by owner) and matter-scoped conversations. */
+/* Portal — messages. Inbox of conversations, and the thread itself (reply,
+   reactions, delete for me / everyone, delivery status, typing, documents),
+   which is the shared chat widget in ../js/chat-widget.js. */
 (function () {
     'use strict';
     if (!window.Site || !window.Portal || !window.Portal.guard()) return;
@@ -13,38 +14,21 @@
     let requestId = params.get('request');
     const inboxEl = document.getElementById('messages-inbox');
     const threadEl = document.getElementById('messages-thread');
-    const thread = document.getElementById('thread');
+    const chatRoot = document.getElementById('chat-root');
     const threadContext = document.getElementById('thread-context');
     const meta = document.getElementById('thread-meta');
     const inboxList = document.getElementById('inbox-list');
     const inboxMeta = document.getElementById('inbox-meta');
-    const form = document.getElementById('compose-form');
     const notice = document.getElementById('compose-notice');
     const msgActions = document.getElementById('msg-actions');
+    const thread = chatRoot;
+    const form = null;
     let conversationId = null;
-    let currentConvoRequestId = null;
-    let currentConvoMatterId = null;
-
-    const displayedMessageIds = new Set();
-    let pollTimer = null;
-    let lastKnownMessageId = null;
-    let isPollingPaused = false;
-    const POLL_INTERVAL_MS = 5000;
-    const POLL_INTERVAL_HIDDEN_MS = 15000;
-    let realtimeHandlersRegistered = false;
+    let chat = null;
     let inboxRealtimeHandlersRegistered = false;
     const inboxConversations = new Map();
 
-    function unregisterRealtimeHandlers() {
-        const RT = window.Site && window.Site.Realtime;
-        if (!RT || !realtimeHandlersRegistered) return;
-        RT.off('message.created', onRealtimeMessage);
-        RT.off('message.read', onRealtimeRead);
-        RT.off('message.typing', onRealtimeTyping);
-        RT.off('message.reaction_added', onRealtimeReaction);
-        RT.off('message.reaction_removed', onRealtimeReaction);
-        realtimeHandlersRegistered = false;
-    }
+    function stopChat() { if (chat) { chat.destroy(); chat = null; } }
 
     function unregisterInboxRealtimeHandlers() {
         const RT = window.Site && window.Site.Realtime;
@@ -53,156 +37,25 @@
         RT.off('message.read', onInboxRealtimeRead);
         inboxRealtimeHandlersRegistered = false;
     }
-
     function onInboxRealtimeMessage(data) {
-        const cid = data.conversationId;
+        const convo = inboxConversations.get(data.conversationId);
         const msg = data.message;
-        if (!cid || !msg) return;
-        const convo = inboxConversations.get(cid);
-        if (convo) {
-            convo.last_message_body = msg.body;
-            convo.last_message_at = msg.created_at;
-            if ((Number(convo.unread_count) || 0) > 0) {
-                convo.unread_count = (Number(convo.unread_count) || 0) + 1;
-            } else {
-                convo.unread_count = 1;
-            }
-        }
+        if (!convo || !msg) return loadInbox();
+        convo.last_message_body = msg.body;
+        convo.last_message_at = msg.created_at;
+        convo.unread_count = (Number(convo.unread_count) || 0) + 1;
         renderInbox();
     }
-
     function onInboxRealtimeRead(data) {
-        const cid = data.conversationId;
-        const convo = inboxConversations.get(cid);
-        if (convo) {
-            convo.unread_count = 0;
-        }
+        const convo = inboxConversations.get(data.conversationId);
+        if (convo) convo.unread_count = 0;
         renderInbox();
-    }
-
-    function showThread() {
-        unregisterRealtimeHandlers();
-        unregisterInboxRealtimeHandlers();
-        if (inboxEl) inboxEl.style.display = 'none';
-        if (threadEl) threadEl.style.display = '';
-        if (msgActions) msgActions.innerHTML = `<button class="btn ghost" id="btn-back-inbox2">← Back to conversations</button>`;
-        document.getElementById('btn-back-inbox2')?.addEventListener('click', showInbox);
-        if (conversationId) {
-            const RT = window.Site && window.Site.Realtime;
-            if (RT) {
-                RT.on('message.created', onRealtimeMessage);
-                RT.on('message.read', onRealtimeRead);
-                RT.on('message.typing', onRealtimeTyping);
-                RT.on('message.reaction_added', onRealtimeReaction);
-                RT.on('message.reaction_removed', onRealtimeReaction);
-                realtimeHandlersRegistered = true;
-            }
-        }
-    }
-
-    /* The firm speaks first: the reply box opens only after someone from
-       the firm has written in this conversation. */
-    function setComposeOpen(open) {
-        if (!form) return;
-        let wait = document.getElementById('compose-wait');
-        if (!wait) {
-            wait = document.createElement('div');
-            wait.id = 'compose-wait';
-            wait.className = 'alert info';
-            wait.setAttribute('role', 'status');
-            wait.innerHTML = '<strong>The firm will message you first.</strong> As soon as your advocate writes to you here, you can reply. You will also get a notification.';
-            form.parentNode.insertBefore(wait, form);
-        }
-        wait.style.display = open ? 'none' : '';
-        form.style.display = open ? '' : 'none';
-    }
-
-    function isFirmMessage(m) {
-        if (m && m.sender_role) return m.sender_role !== 'CLIENT';
-        return !(m && String(m.sender_id) === String(API.user() && API.user().id));
-    }
-
-    function onRealtimeMessage(data) {
-        if (data.conversationId !== conversationId) return;
-        const msg = data.message;
-        if (!msg || displayedMessageIds.has(msg.id)) return;
-        displayedMessageIds.add(msg.id);
-        const fromClient = String(msg.sender_id) === String(API.user() && API.user().id);
-        if (isFirmMessage(msg)) setComposeOpen(true);
-        const name = msg.sender_name || (fromClient ? 'You' : 'Firm');
-        const html = `
-            <div class="msg ${fromClient ? 'from-client' : ''}" data-msg-id="${msg.id}">
-                <div class="meta">${P.fmtDate(msg.created_at)} · ${escape(name)}</div>
-                <div class="body">${escape(msg.body)}</div>
-            </div>
-        `;
-        thread.insertAdjacentHTML('beforeend', html);
-        const wasNearBottom = isNearBottom();
-        if (lastKnownMessageId) lastKnownMessageId = msg.id;
-        const count = thread.querySelectorAll('.msg').length;
-        if (meta) meta.textContent = `${count} message${count === 1 ? '' : 's'}`;
-        if (wasNearBottom) scrollToBottom();
-    }
-
-    function onRealtimeRead(data) {
-        if (data.conversationId !== conversationId) return;
-        const msg = thread.querySelector(`.msg[data-msg-id="${data.messageId}"]`);
-        if (msg) msg.classList.add('read-by-peer');
-        const readerEl = document.getElementById('thread-meta-read');
-        if (readerEl) readerEl.textContent = 'Read';
-    }
-
-    function onRealtimeTyping(data) {
-        if (data.conversationId !== conversationId) return;
-        if (data.isTyping) {
-            let el = document.getElementById('typing-indicator');
-            if (!el) {
-                el = document.createElement('div');
-                el.id = 'typing-indicator';
-                el.className = 'msg';
-                el.style.opacity = '0.7';
-                el.style.fontStyle = 'italic';
-                thread.appendChild(el);
-            }
-            el.innerHTML = `<div class="meta">${escape(data.userName || 'Someone')} is typing…</div>`;
-            if (isNearBottom()) scrollToBottom();
-        } else {
-            const el = document.getElementById('typing-indicator');
-            if (el) el.remove();
-        }
-    }
-
-    function onRealtimeReaction(data) {
-        if (data.conversationId !== conversationId) return;
-        if (data.messageId) loadReactions(data.messageId);
-    }
-
-    async function loadReactions(messageId) {
-        try {
-            const res = await API.request(`/messages/${messageId}/reactions`, { auth: true });
-            const reactions = (res && res.data) || [];
-            const msg = thread.querySelector(`.msg[data-msg-id="${messageId}"]`);
-            if (msg && reactions.length > 0) {
-                const existing = msg.querySelector('.reactions');
-                if (existing) existing.remove();
-                const html = reactions.reduce((acc, r) => acc + r.emoji, '');
-                const el = document.createElement('span');
-                el.className = 'reactions';
-                el.textContent = html;
-                msg.appendChild(el);
-            }
-        } catch (e) { /* ignore */ }
     }
 
     function showInbox() {
-        unregisterRealtimeHandlers();
+        stopChat();
         unregisterInboxRealtimeHandlers();
-        stopPolling();
         conversationId = null;
-        lastKnownMessageId = null;
-        displayedMessageIds.clear();
-        currentConvoRequestId = null;
-        currentConvoMatterId = null;
         if (threadEl) threadEl.style.display = 'none';
         if (inboxEl) inboxEl.style.display = '';
         if (msgActions) msgActions.innerHTML = `<a class="btn secondary" href="requests.html">← Back to requests</a>`;
@@ -215,157 +68,48 @@
         }
     }
 
-    function isNearBottom() {
-        const threshold = 120;
-        const appMain = document.querySelector('.portal-content');
-        if (appMain) {
-            return (appMain.clientHeight + appMain.scrollTop) >= (appMain.scrollHeight - threshold);
-        }
-        return (window.innerHeight + window.scrollY) >= (document.body.scrollHeight - threshold);
-    }
-
-    function scrollToBottom() {
-        const appMain = document.querySelector('.portal-content');
-        if (appMain) {
-            appMain.scrollTop = appMain.scrollHeight;
-        } else {
-            window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' });
-        }
-    }
-
-    function renderThread(items, convoContext) {
-        if (!items.length) {
-            thread.innerHTML = `<div class="empty-state tight"><span class="ico">·</span><strong>No messages yet.</strong><p>Send a message below to start the conversation.</p></div>`;
-            lastKnownMessageId = null;
-            displayedMessageIds.clear();
-            return;
-        }
-        displayedMessageIds.clear();
-        thread.innerHTML = items.map((m) => {
-            displayedMessageIds.add(m.id);
-            const fromClient = String(m.sender_id) === String(API.user() && API.user().id);
-            const name = m.sender_name || (fromClient ? 'You' : 'Firm');
-            return `
-                <div class="msg ${fromClient ? 'from-client' : ''}" data-msg-id="${m.id}">
-                    <div class="meta">${P.fmtDate(m.created_at)} · ${escape(name)}</div>
-                    <div class="body">${escape(m.body)}</div>
-                </div>
-            `;
-        }).join('');
-        const last = items[items.length - 1];
-        if (last && last.id) lastKnownMessageId = last.id;
-        meta.textContent = `${items.length} message${items.length === 1 ? '' : 's'}`;
-        if (convoContext && threadContext) {
-            threadContext.style.display = '';
-            const parts = [];
-            if (convoContext.request_subject) parts.push(`Request: ${escape(convoContext.request_subject)}`);
-            else if (convoContext.requestId) parts.push(`Request #${String(convoContext.requestId).padStart(5, '0')}`);
-            if (convoContext.matter_reference) parts.push(`Matter: ${escape(convoContext.matter_reference)}`);
-            else if (convoContext.matterId) parts.push(`Matter #${String(convoContext.matterId).padStart(5, '0')}`);
-            threadContext.innerHTML = `<strong>Conversation context:</strong> ${parts.join(' · ') || 'General inquiry'}`;
-        }
-    }
-
-    function appendMessages(newItems) {
-        if (!newItems.length) return;
-        const emptyState = thread.querySelector('.empty-state');
-        if (emptyState) emptyState.remove();
-
-        const wasNearBottom = isNearBottom();
-
-        const html = newItems.map((m) => {
-            displayedMessageIds.add(m.id);
-            const fromClient = String(m.sender_id) === String(API.user() && API.user().id);
-            const name = m.sender_name || (fromClient ? 'You' : 'Firm');
-            return `
-                <div class="msg ${fromClient ? 'from-client' : ''}" data-msg-id="${m.id}">
-                    <div class="meta">${P.fmtDate(m.created_at)} · ${escape(name)}</div>
-                    <div class="body">${escape(m.body)}</div>
-                </div>
-            `;
-        }).join('');
-
-        thread.insertAdjacentHTML('beforeend', html);
-        if (newItems.some(isFirmMessage)) setComposeOpen(true);
-
-        const last = newItems[newItems.length - 1];
-        if (last && last.id) lastKnownMessageId = last.id;
-
-        const count = thread.querySelectorAll('.msg').length;
-        meta.textContent = `${count} message${count === 1 ? '' : 's'}`;
-
-        if (wasNearBottom) scrollToBottom();
-    }
-
-    function getPollInterval() {
-        return document.visibilityState === 'visible' ? POLL_INTERVAL_MS : POLL_INTERVAL_HIDDEN_MS;
-    }
-
-    function startPolling() {
-        stopPolling();
-        if (!conversationId) return;
-        isPollingPaused = false;
-        pollTimer = setInterval(pollConversation, getPollInterval());
-    }
-
-    function stopPolling() {
-        if (pollTimer) { clearInterval(pollTimer); pollTimer = null; }
-        isPollingPaused = false;
-    }
-
-    function pausePolling() {
-        if (pollTimer) { clearInterval(pollTimer); pollTimer = null; }
-        isPollingPaused = true;
-    }
-
-    let pollErrorCount = 0;
-
-    async function pollConversation() {
-        if (!conversationId || isPollingPaused) return;
-
-        try {
-            const opts = lastKnownMessageId ? { after: lastKnownMessageId } : {};
-            const res = await API.getConversation(conversationId, opts);
-            const messages = (res && res.data && res.data.messages) || [];
-
-            const newMessages = messages.filter(m => !displayedMessageIds.has(m.id));
-            if (newMessages.length > 0) {
-                appendMessages(newMessages);
-            }
-            pollErrorCount = 0;
-        } catch (err) {
-            if (err && err.status === 401) { window.location.replace('../login.html'); return; }
-            pollErrorCount += 1;
-            if (pollErrorCount >= 3) {
-                isPollingPaused = true;
-                if (pollTimer) { clearInterval(pollTimer); pollTimer = null; }
-                console.warn('Messages polling paused after repeated failures.');
-            }
-        }
-    }
-
     async function loadThread(convoId, context) {
-        showThread();
+        stopChat();
+        unregisterInboxRealtimeHandlers();
         conversationId = convoId;
-        currentConvoRequestId = context && context.requestId ? context.requestId : null;
-        currentConvoMatterId = context && context.matterId ? context.matterId : null;
-        thread.innerHTML = `<div class="empty-state tight"><span class="ico">·</span><strong>Loading conversation…</strong></div>`;
-        meta.textContent = 'Loading…';
+        if (inboxEl) inboxEl.style.display = 'none';
+        if (threadEl) threadEl.style.display = '';
+        if (msgActions) msgActions.innerHTML = `<button class="btn ghost" id="btn-back-inbox2">← Back to conversations</button>`;
+        document.getElementById('btn-back-inbox2')?.addEventListener('click', () => {
+            const href = new URL(location); href.searchParams.delete('conversation'); history.pushState({}, '', href); showInbox();
+        });
+        if (notice) notice.style.display = 'none';
         if (threadContext) { threadContext.style.display = 'none'; threadContext.innerHTML = ''; }
+        meta.textContent = '';
+        chatRoot.innerHTML = '<div class="empty-state tight"><span class="ico">·</span><strong>Loading conversation…</strong></div>';
         try {
-            const detail = await API.getConversation(convoId);
-            renderThread(detail.data.messages || [], detail.data);
-            setComposeOpen(detail.data.firm_has_written !== undefined ? !!detail.data.firm_has_written : (detail.data.messages || []).some(isFirmMessage));
-            meta.textContent = `${(detail.data.messages || []).length} message${(detail.data.messages || []).length === 1 ? '' : 's'}`;
-            await API.markConversationRead(convoId).catch(() => {});
-            if (window.Portal && window.Portal.refreshUnreadIndicators) {
-                window.Portal.refreshUnreadIndicators();
+            const detail = await API.request(`/conversations/${encodeURIComponent(convoId)}?limit=1`, { auth: true });
+            const c = detail.data || {};
+            if (threadContext) {
+                const parts = [];
+                if (c.request_subject) parts.push(`Request: ${escape(c.request_subject)}`);
+                if (c.reference) parts.push(`Matter: ${escape(c.reference)}${c.title ? ' — ' + escape(c.title) : ''}`);
+                threadContext.style.display = '';
+                threadContext.innerHTML = `<strong>Conversation context:</strong> ${parts.join(' · ') || 'General inquiry'}`;
             }
-            startPolling();
+            const me = API.user() || {};
+            chat = window.ChatWidget.mount(chatRoot, {
+                conversationId: convoId,
+                selfId: me.id,
+                otherLabel: 'The firm',
+                firmFirst: true,
+                firmHasWritten: c.firm_has_written !== false,
+                apiBase: API.base(),
+                token: () => API.token(),
+                loginUrl: '../login.html',
+                http: (path, o) => API.request(path, { auth: true, method: (o && o.method) || 'GET', body: o && o.body }),
+                paths: { thread: `/conversations/${encodeURIComponent(convoId)}`, send: `/conversations/${encodeURIComponent(convoId)}/messages`, read: `/conversations/${encodeURIComponent(convoId)}/read` },
+                onActivity: () => { if (window.Portal && window.Portal.refreshUnreadIndicators) window.Portal.refreshUnreadIndicators(); }
+            });
         } catch (err) {
             if (err && err.status === 401) { window.location.replace('../login.html'); return; }
-            thread.innerHTML = `<div class="empty-state tight"><span class="ico">!</span><strong>Could not load this conversation.</strong><p>${escape(err.message || 'Please try again.')}</p><button class="btn" type="button" id="retry-thread">Retry</button></div>`;
-            document.getElementById('retry-thread')?.addEventListener('click', () => loadThread(convoId, { requestId: currentConvoRequestId, matterId: currentConvoMatterId }));
+            chatRoot.innerHTML = `<div class="empty-state tight"><span class="ico">!</span><strong>Could not load this conversation.</strong><p>${escape(err.message || 'Please try again.')}</p><button class="btn" type="button" id="retry-thread">Retry</button></div>`;
+            document.getElementById('retry-thread')?.addEventListener('click', () => loadThread(convoId, context));
         }
     }
 
@@ -468,7 +212,6 @@
                 notice.innerHTML = '<strong>No conversation available yet.</strong> Submit a request and the firm will start a conversation once they review it.';
                 notice.style.display = '';
             }
-            if (form) form.style.display = 'none';
             thread.innerHTML = `
                 <div class="empty-state tight">
                     <span class="ico">·</span>
@@ -479,7 +222,8 @@
                         <a class="btn secondary" href="request.html?id=${requestId || ''}">Request details</a>
                     </div>
                 </div>`;
-            showThread();
+            if (inboxEl) inboxEl.style.display = 'none';
+            if (threadEl) threadEl.style.display = '';
             return;
         }
         try {
@@ -491,7 +235,8 @@
         } catch (err) {
             if (err && err.status === 401) { window.location.replace('../login.html'); return; }
             thread.innerHTML = `<div class="empty-state tight"><span class="ico">·</span><strong>No conversation available for this matter.</strong><p>Please select a different matter or check back later.</p></div>`;
-            showThread();
+            if (inboxEl) inboxEl.style.display = 'none';
+            if (threadEl) threadEl.style.display = '';
         }
     }
 
@@ -505,69 +250,11 @@
     window.addEventListener('popstate', () => {
         const p = new URLSearchParams(location.search);
         const cid = p.get('conversation');
-        const mid = p.get('matter');
-        const rid = p.get('request');
-        matterId = mid;
-        requestId = rid;
-        if (cid) {
-            loadThread(cid, { requestId: rid, matterId: mid });
-        } else if (mid || rid) {
-            loadMatterThread();
-        } else {
-            showInbox();
-        }
-    });
-
-    if (form) {
-        form.addEventListener('submit', async (e) => {
-            e.preventDefault();
-            const body = form.querySelector('#msg-body').value.trim();
-            if (!body || !conversationId) return;
-
-            const submitBtn = form.querySelector('button[type="submit"]');
-            const originalText = submitBtn.innerHTML;
-            submitBtn.disabled = true;
-            submitBtn.innerHTML = 'Sending…';
-
-            const statusEl = document.getElementById('compose-status');
-            if (statusEl) {
-                statusEl.className = 'form-status';
-                statusEl.textContent = 'Sending…';
-            }
-
-            try {
-                await API.sendMessage(conversationId, body);
-                form.querySelector('#msg-body').value = '';
-                if (statusEl) {
-                    statusEl.className = 'form-status success';
-                    statusEl.textContent = 'Message sent.';
-                    setTimeout(() => { statusEl.className = 'form-status'; statusEl.textContent = ''; }, 2500);
-                }
-                loadThread(conversationId, { requestId: currentConvoRequestId, matterId: currentConvoMatterId });
-            } catch (err) {
-                if (err && err.code === 'WAIT_FOR_FIRM') setComposeOpen(false);
-                if (statusEl) {
-                    statusEl.className = 'form-status error';
-                    statusEl.innerHTML = '<strong>Failed to send.</strong> ' + escape(err && err.message ? err.message : 'Please try again.');
-                }
-            } finally {
-                submitBtn.disabled = false;
-                submitBtn.innerHTML = originalText;
-            }
-        });
-    }
-
-    document.addEventListener('visibilitychange', () => {
-        if (document.visibilityState === 'visible') {
-            if (conversationId) {
-                const bodyInput = document.getElementById('msg-body');
-                const hasDraft = bodyInput && bodyInput.value.trim().length > 0;
-                if (hasDraft) { startPolling(); }
-                else { loadThread(conversationId, { requestId: currentConvoRequestId, matterId: currentConvoMatterId }); }
-            }
-        } else {
-            pausePolling();
-        }
+        matterId = p.get('matter');
+        requestId = p.get('request');
+        if (cid) loadThread(cid, { requestId, matterId });
+        else if (matterId || requestId) loadMatterThread();
+        else showInbox();
     });
 
     (async function init() {
@@ -575,12 +262,8 @@
         const cid = p.get('conversation');
         matterId = p.get('matter');
         requestId = p.get('request');
-        if (cid) {
-            await loadThread(cid, { requestId: requestId, matterId: matterId });
-        } else if (matterId || requestId) {
-            await loadMatterThread();
-        } else {
-            showInbox();
-        }
+        if (cid) await loadThread(cid, { requestId, matterId });
+        else if (matterId || requestId) await loadMatterThread();
+        else showInbox();
     })();
 })();

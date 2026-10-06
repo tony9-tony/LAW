@@ -3,7 +3,7 @@ import { z } from 'zod';
 import { authenticate } from '../middleware/auth.js';
 import { query } from '../db.js';
 import { ensureOwned } from '../lib/authorization.js';
-import { notify } from '../services/notification.service.js';
+import { findConversationFor, listMessages, postMessage } from '../services/chat.service.js';
 import { logAudit } from '../lib/audit.js';
 
 export const conversationRouter = Router();
@@ -29,7 +29,7 @@ conversationRouter.get('/', async (request, response, next) => {
                     r.subject AS request_subject,
                     c.created_at,
                     (SELECT COUNT(*)::int FROM messages WHERE conversation_id = c.id AND sender_id <> $2 AND read_at IS NULL) AS unread_count,
-                    (SELECT body FROM messages WHERE conversation_id = c.id ORDER BY created_at DESC LIMIT 1) AS last_message_body,
+                    (SELECT CASE WHEN deleted_at IS NOT NULL THEN 'This message was deleted' ELSE body END FROM messages WHERE conversation_id = c.id AND NOT EXISTS (SELECT 1 FROM message_hidden h WHERE h.message_id = messages.id AND h.user_id = $2) ORDER BY created_at DESC LIMIT 1) AS last_message_body,
                     (SELECT created_at FROM messages WHERE conversation_id = c.id ORDER BY created_at DESC LIMIT 1) AS last_message_at
              FROM conversations c
              LEFT JOIN matters m ON m.id = c.matter_id
@@ -49,34 +49,13 @@ conversationRouter.get('/:id', async (request, response, next) => {
         const q = messageListSchema.parse(request.query);
         const convo = await ensureOwned('conversations', request.params.id, request.user.sub);
         await logAudit({ actorId: request.user.sub, action: 'CONVERSATION_VIEWED', entityType: 'conversation', entityId: convo.id });
-
-        let messagesQuery = `
-            SELECT m.id, m.sender_id, m.body, m.created_at, m.read_at,
-                    u.role AS sender_role, u.full_name AS sender_name
-            FROM messages m
-            JOIN users u ON u.id = m.sender_id
-            WHERE m.conversation_id = $1
-        `;
-        const params = [convo.id];
-
-        if (q.before) {
-            messagesQuery += ` AND m.created_at < (SELECT created_at FROM messages WHERE id = $${params.length + 1})`;
-            params.push(q.before);
-        } else if (q.after) {
-            messagesQuery += ` AND m.created_at > (SELECT created_at FROM messages WHERE id = $${params.length + 1})`;
-            params.push(q.after);
-        }
-
-        messagesQuery += ` ORDER BY m.created_at ASC LIMIT $${params.length + 1}`;
-        params.push(q.limit);
-
-        const messages = await query(messagesQuery, params);
+        const messages = await listMessages(request.user, convo.id, q);
         const firm = await query(
             `SELECT 1 FROM messages m JOIN users u ON u.id = m.sender_id
              WHERE m.conversation_id = $1 AND u.role <> 'CLIENT' LIMIT 1`,
             [convo.id]
         );
-        response.json({ data: { ...convo, firm_has_written: firm.rowCount > 0, messages: messages.rows } });
+        response.json({ data: { ...convo, firm_has_written: firm.rowCount > 0, messages } });
     } catch (error) { next(error); }
 });
 
@@ -87,8 +66,9 @@ const sendInput = z.object({
 
 conversationRouter.post('/:id/messages', async (request, response, next) => {
     try {
-        const convo = await ensureOwned('conversations', request.params.id, request.user.sub);
+        const convoRow = await ensureOwned('conversations', request.params.id, request.user.sub);
         const input = sendInput.parse(request.body);
+        const convo = await findConversationFor(request.user, convoRow.id);
 
         /* The firm speaks first: a client can only reply once someone from
            the firm (owner, lawyer or staff) has written in this conversation. */
@@ -103,68 +83,9 @@ conversationRouter.post('/:id/messages', async (request, response, next) => {
             }
         }
 
-         // Validate parent message ownership if provided
-         if (input.parentMessageId) {
-             const parentCheck = await query(
-                 `SELECT m.id FROM messages m
-                  JOIN conversations pc ON pc.id = m.conversation_id
-                  LEFT JOIN matters pm ON pm.id = pc.matter_id
-                  LEFT JOIN requests pr ON pr.id = pc.request_id
-                  WHERE m.id = $1
-                    AND m.conversation_id = $2
-                    AND ($3 = 'OWNER' OR pm.client_id = $4 OR pc.client_id = $4 OR pr.client_id = $4)`,
-                 [input.parentMessageId, convo.id, request.user.role, request.user.sub]
-             );
-             if (parentCheck.rowCount === 0) {
-                 return response.status(403).json({ error: { code: 'FORBIDDEN', message: 'Cannot reference this message' } });
-             }
-         }
-
-        const inserted = await query(
-            `INSERT INTO messages (conversation_id, sender_id, body, parent_message_id)
-             VALUES ($1, $2, $3, $4)
-             RETURNING id, sender_id, body, created_at, parent_message_id`,
-            [convo.id, request.user.sub, input.body, input.parentMessageId || null]
-        );
-
-        /* Resolve participants across matter / request / client scoping. */
-        const info = await query(
-            `SELECT c.matter_id, c.client_id AS convo_client, c.request_id,
-                    m.client_id AS matter_client, m.assigned_to,
-                    r.client_id AS request_client
-             FROM conversations c
-             LEFT JOIN matters m ON m.id = c.matter_id
-             LEFT JOIN requests r ON r.id = c.request_id
-             WHERE c.id = $1 LIMIT 1`,
-            [convo.id]
-        );
-        const row = info.rows[0] || {};
-        const recipients = new Set();
-        if (row.matter_client) recipients.add(row.matter_client);
-        if (row.convo_client) recipients.add(row.convo_client);
-        if (row.request_client) recipients.add(row.request_client);
-        if (row.assigned_to) recipients.add(row.assigned_to);
-        const owners = await query(`SELECT id FROM users WHERE role = 'OWNER' AND is_active = TRUE`);
-        for (const o of owners.rows) recipients.add(o.id);
-        recipients.delete(request.user.sub);
-
-        for (const recipientId of recipients) {
-            await notify(recipientId, {
-                kind: 'NEW_MESSAGE',
-                title: 'New message',
-                body: input.body.slice(0, 120),
-                entityType: 'conversation',
-                entityId: convo.id
-            });
-        }
-
-        // Real-time notification via SSE
-        const { notifyMessageCreated } = await import('../services/sse.js');
-        const senderUser = await query('SELECT full_name FROM users WHERE id = $1', [request.user.sub]);
-        notifyMessageCreated(convo.id, inserted.rows[0].id, request.user.sub, input.body, request.user.role, senderUser.rows[0]?.full_name || null).catch(() => {});
-        await logAudit({ actorId: request.user.sub, action: 'MESSAGE_SENT', entityType: 'conversation', entityId: convo.id, metadata: { message_id: inserted.rows[0].id, body_length: input.body.length } });
-
-        response.status(201).json({ data: inserted.rows[0] });
+        const message = await postMessage({ user: request.user, convo, body: input.body, parentMessageId: input.parentMessageId || null });
+        await logAudit({ actorId: request.user.sub, action: 'MESSAGE_SENT', entityType: 'conversation', entityId: convo.id, metadata: { message_id: message.id, body_length: input.body.length } });
+        response.status(201).json({ data: message });
     } catch (error) { next(error); }
 });
 
@@ -172,7 +93,7 @@ conversationRouter.post('/:id/read', async (request, response, next) => {
     try {
         const convo = await ensureOwned('conversations', request.params.id, request.user.sub);
         await query(
-            `UPDATE messages SET read_at = NOW()
+            `UPDATE messages SET read_at = NOW(), delivered_at = COALESCE(delivered_at, NOW())
              WHERE conversation_id = $1 AND sender_id <> $2 AND read_at IS NULL`,
             [convo.id, request.user.sub]
         );

@@ -46,9 +46,11 @@ matterRouter.get('/:id/documents', async (request, response, next) => {
     try {
         await ensureOwned('matters', request.params.id, request.user.sub);
         const result = await query(
-            `SELECT id, original_name, content_type, size_bytes, status, created_at, updated_at
-             FROM documents WHERE matter_id = $1 AND status <> 'DELETED'
-             ORDER BY created_at DESC`,
+            `SELECT d.id, d.original_name, d.content_type, d.size_bytes, d.status, d.created_at, d.updated_at,
+                    uu.role AS uploaded_by_role, uu.full_name AS uploaded_by_name
+             FROM documents d JOIN users uu ON uu.id = d.uploaded_by
+             WHERE d.matter_id = $1 AND d.status <> 'DELETED'
+             ORDER BY d.created_at DESC`,
             [request.params.id]
         );
         response.json({ data: result.rows });

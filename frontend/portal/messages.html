@@ -43,20 +43,8 @@
                             </div>
                             <div class="panel-body">
                                 <div id="thread-context" class="alert info"></div>
-                                <div class="thread" id="thread"></div>
-                                <div class="compose">
-                                    <form id="compose-form">
-                                        <div class="field">
-                                            <label class="sr-only" for="msg-body">Write a message</label>
-                                            <textarea id="msg-body" name="body" placeholder="Write a message..." required></textarea>
-                                        </div>
-                                        <div class="form-status" id="compose-status" role="status" aria-live="polite"></div>
-                                        <div class="page-actions">
-                                            <button type="button" class="btn ghost" id="btn-back-inbox">Back</button>
-                                            <button type="submit" class="btn primary">Send<span class="arrow" aria-hidden="true"></span></button>
-                                        </div>
-                                    </form>
-                                </div>
+                                <div id="chat-root"></div>
+                                <div class="alert info" id="compose-notice" style="display:none"></div>
                             </div>
                         </section>
                     </div>
@@ -66,6 +54,7 @@
     </div>
     <script src="../js/site.js"></script>
     <script src="../js/realtime.js"></script>
+    <script src="../js/chat-widget.js"></script>
     <script src="portal.js"></script>
     <script src="messages.js"></script>
 </body>

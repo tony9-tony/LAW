@@ -12,8 +12,10 @@ import { saveUploadedFile, storageFilePath, deleteStoredFile } from '../services
 import { acceptRequest, declineRequest, updateRequestStatus, requestMoreInfo, processClientResponse, updateMatterStatus, addInternalNote, scheduleAppointment, rescheduleAppointment, changeAppointmentStatus, recordMatterEvent, createMatterForRequest, isConsultationRequest } from '../services/workflow.service.js';
 import { verifyPayment, rejectPayment, listPaymentsForOwner, getPaymentById, getPaymentDestinations, createPaymentDestination, updatePaymentDestination, getServiceCatalog, receiptPath, uploadPaymentDestinationQR, removePaymentDestinationQR } from '../services/payment.service.js';
 import { setPaymentForRequest, PAYMENT_STATUS } from '../services/billing.service.js';
-import { notifyPaymentVerified, notifyPaymentRejected } from '../services/sse.js';
+import { notifyPaymentVerified, notifyPaymentRejected, notifyDocumentRequested } from '../services/sse.js';
 import { logAudit } from '../lib/audit.js';
+import { storeDocument, removeDocument } from '../services/document.service.js';
+import { findConversationFor, listMessages, postMessage, conversationForMatter } from '../services/chat.service.js';
 
 export const ownerRouter = Router();
 ownerRouter.use(authenticate, requireRole('OWNER'));
@@ -581,11 +583,14 @@ ownerRouter.get('/documents', async (request, response, next) => {
         const result = await query(
             `SELECT d.id, d.matter_id, d.original_name, d.content_type, d.size_bytes,
                     d.status, d.created_at, d.updated_at,
+                    d.uploaded_by, uu.role AS uploaded_by_role, uu.full_name AS uploaded_by_name, dr.description AS request_description,
                     m.reference AS matter_reference, m.title AS matter_title,
                     c.email AS client_email, c.full_name AS client_name
              FROM documents d
              JOIN matters m ON m.id = d.matter_id
              JOIN users c ON c.id = m.client_id
+             JOIN users uu ON uu.id = d.uploaded_by
+             LEFT JOIN document_requests dr ON dr.id = d.document_request_id
              WHERE d.status <> 'DELETED'
              ORDER BY d.created_at DESC`
         );
@@ -599,26 +604,22 @@ ownerRouter.get('/documents', async (request, response, next) => {
 const ownerUpload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 20 * 1024 * 1024 } });
 ownerRouter.post('/documents', ownerUpload.single('file'), async (request, response, next) => {
     try {
-        if (!request.file) {
-            return response.status(400).json({ error: { code: 'VALIDATION_ERROR', message: 'File is required. Attach it as "file" in a multipart/form-data request.' } });
-        }
-        const { matter_id, original_name } = request.body;
-        if (!matter_id) {
-            return response.status(400).json({ error: { code: 'VALIDATION_ERROR', message: 'matter_id is required.' } });
-        }
-        const matterCheck = await query(`SELECT id, client_id FROM matters WHERE id = $1 LIMIT 1`, [matter_id]);
-        if (matterCheck.rowCount === 0) {
-            return response.status(404).json({ error: { code: 'NOT_FOUND', message: 'Matter not found.' } });
-        }
-        const fileInfo = await saveUploadedFile(request.file.buffer, original_name || request.file.originalname, request.file.mimetype);
-        const inserted = await query(
-            `INSERT INTO documents (matter_id, uploaded_by, storage_key, original_name, content_type, size_bytes, status, created_at, updated_at)
-             VALUES ($1, $2, $3, $4, $5, $6, 'AVAILABLE', NOW(), NOW())
-             RETURNING id, matter_id, uploaded_by, storage_key, original_name, content_type, size_bytes, status, created_at, updated_at`,
-            [matter_id, request.user.sub, fileInfo.storageKey, fileInfo.originalName, fileInfo.contentType, fileInfo.sizeBytes]
-        );
-        await logAudit({ actorId: request.user.sub, action: 'DOCUMENT_UPLOADED', entityType: 'document', entityId: inserted.rows[0].id, metadata: { matter_id, original_name: fileInfo.originalName, size_bytes: fileInfo.sizeBytes } });
-        response.status(201).json({ data: inserted.rows[0] });
+        const document = await storeDocument({
+            user: request.user,
+            matterId: request.body.matter_id,
+            file: request.file,
+            originalName: request.body.original_name || null,
+            requestId: request.body.request_id || null
+        });
+        response.status(201).json({ data: document });
+    } catch (error) { next(error); }
+});
+
+/* DELETE /api/v1/owner/documents/:id — remove a document (it stays in the audit trail). */
+ownerRouter.delete('/documents/:id', async (request, response, next) => {
+    try {
+        await removeDocument({ user: request.user, documentId: request.params.id });
+        response.json({ data: { id: request.params.id, deleted: true } });
     } catch (error) { next(error); }
 });
 
@@ -650,7 +651,7 @@ ownerRouter.get('/documents/:id/download', async (request, response, next) => {
 });
 
 /* --- Conversations (management view) --- */
-const ownerMessageSchema = z.object({ body: z.string().trim().min(1).max(4000) });
+const ownerMessageSchema = z.object({ body: z.string().trim().min(1).max(4000), parentMessageId: z.string().uuid().optional() });
 const ownerConversationListSchema = z.object({
     limit: z.coerce.number().int().min(1).max(100).default(20),
     offset: z.coerce.number().int().min(0).default(0)
@@ -670,7 +671,7 @@ ownerRouter.get('/conversations', async (request, response, next) => {
                     c.created_at,
                     (SELECT COUNT(*)::int FROM messages mm JOIN users su ON su.id = mm.sender_id
                       WHERE mm.conversation_id = c.id AND mm.read_at IS NULL AND su.role = 'CLIENT') AS unread_count,
-                    (SELECT body FROM messages WHERE conversation_id = c.id ORDER BY created_at DESC LIMIT 1) AS last_message_body,
+                    (SELECT CASE WHEN deleted_at IS NOT NULL THEN 'This message was deleted' ELSE body END FROM messages WHERE conversation_id = c.id ORDER BY created_at DESC LIMIT 1) AS last_message_body,
                     (SELECT created_at FROM messages WHERE conversation_id = c.id ORDER BY created_at DESC LIMIT 1) AS last_message_at,
                     u.email AS client_email, u.full_name AS client_name
              FROM conversations c
@@ -706,68 +707,21 @@ ownerRouter.get('/conversations/:id', async (request, response, next) => {
         }
         const convo = result.rows[0];
 
-        let messagesQuery = `
-            SELECT m.id, m.sender_id, m.body, m.created_at, m.read_at,
-                    u.role AS sender_role, u.full_name AS sender_name
-            FROM messages m
-            JOIN users u ON u.id = m.sender_id
-            WHERE m.conversation_id = $1
-        `;
-        const params = [convo.id];
-
-        if (q.before) {
-            messagesQuery += ` AND m.created_at < (SELECT created_at FROM messages WHERE id = $${params.length + 1})`;
-            params.push(q.before);
-        } else if (q.after) {
-            messagesQuery += ` AND m.created_at > (SELECT created_at FROM messages WHERE id = $${params.length + 1})`;
-            params.push(q.after);
-        }
-
-        messagesQuery += ` ORDER BY m.created_at ASC LIMIT $${params.length + 1}`;
-        params.push(q.limit);
-
-        const messages = await query(messagesQuery, params);
-        response.json({ data: { ...convo, messages: messages.rows } });
+        const messages = await listMessages(request.user, convo.id, q);
+        response.json({ data: { ...convo, messages } });
     } catch (error) { next(error); }
 });
 
 ownerRouter.post('/conversations/:id/messages', async (request, response, next) => {
     try {
         const input = ownerMessageSchema.parse(request.body);
-        const convoResult = await query(
-            `SELECT c.id, c.matter_id, c.request_id,
-                   COALESCE(m.client_id, r.client_id, c.client_id) AS client_id
-            FROM conversations c
-            LEFT JOIN matters m ON m.id = c.matter_id
-            LEFT JOIN requests r ON r.id = c.request_id
-            WHERE c.id = $1 LIMIT 1`,
-            [request.params.id]
-        );
-        if (convoResult.rowCount === 0) {
+        const convo = await findConversationFor(request.user, request.params.id);
+        if (!convo) {
             return response.status(404).json({ error: { code: 'NOT_FOUND', message: 'Conversation not found' } });
         }
-        const convo = convoResult.rows[0];
-        const clientId = convo.client_id;
-
-        const inserted = await query(
-            `INSERT INTO messages (conversation_id, sender_id, body)
-             VALUES ($1, $2, $3)
-             RETURNING id, sender_id, body, created_at`,
-            [convo.id, request.user.sub, input.body]
-        );
-
-        await notify(clientId, {
-            kind: 'NEW_MESSAGE',
-            title: 'New message from the firm',
-            body: input.body.slice(0, 120),
-            entityType: 'conversation',
-            entityId: convo.id
-        });
-        const { notifyMessageCreated } = await import('../services/sse.js');
-        notifyMessageCreated(convo.id, inserted.rows[0].id, request.user.sub, input.body, request.user.role, (await query('SELECT full_name FROM users WHERE id = $1', [request.user.sub])).rows[0]?.full_name || null).catch(() => {});
-        await logAudit({ actorId: request.user.sub, action: 'OWNER_MESSAGE_SENT', entityType: 'conversation', entityId: convo.id, metadata: { message_id: inserted.rows[0].id, body_length: input.body.length } });
-
-        response.status(201).json({ data: inserted.rows[0] });
+        const message = await postMessage({ user: request.user, convo, body: input.body, parentMessageId: input.parentMessageId || null });
+        await logAudit({ actorId: request.user.sub, action: 'OWNER_MESSAGE_SENT', entityType: 'conversation', entityId: convo.id, metadata: { message_id: message.id, body_length: input.body.length } });
+        response.status(201).json({ data: message });
     } catch (error) { next(error); }
 });
 
@@ -782,7 +736,7 @@ ownerRouter.post('/conversations/:id/read', async (request, response, next) => {
         }
         const convo = convoResult.rows[0];
         await query(
-            `UPDATE messages SET read_at = NOW()
+            `UPDATE messages SET read_at = NOW(), delivered_at = COALESCE(delivered_at, NOW())
              WHERE conversation_id = $1 AND sender_id <> $2 AND read_at IS NULL`,
             [convo.id, request.user.sub]
         );
@@ -810,7 +764,7 @@ ownerRouter.get('/messages', async (request, response, next) => {
              LEFT JOIN requests r ON r.id = c.request_id
              LEFT JOIN users u ON u.id = COALESCE(c.client_id, m.client_id, r.client_id)
              LEFT JOIN LATERAL (
-                 SELECT m.body, m.created_at, m.read_at, m.sender_id
+                 SELECT CASE WHEN m.deleted_at IS NOT NULL THEN 'This message was deleted' ELSE m.body END AS body, m.created_at, m.read_at, m.sender_id
                  FROM messages m
                  WHERE m.conversation_id = c.id
                  ORDER BY m.created_at DESC
@@ -852,26 +806,11 @@ ownerRouter.post('/requests/:id/message', async (request, response, next) => {
             );
         }
         const convoId = convo.rows[0].id;
+        const convoRow = await findConversationFor(request.user, convoId);
+        const message = await postMessage({ user: request.user, convo: convoRow, body: input.body });
+        await logAudit({ actorId: request.user.sub, action: 'OWNER_MESSAGE_SENT', entityType: 'conversation', entityId: convoId, metadata: { message_id: message.id, body_length: input.body.length, request_id: requestId } });
 
-        const inserted = await query(
-            `INSERT INTO messages (conversation_id, sender_id, body)
-             VALUES ($1, $2, $3)
-             RETURNING id, sender_id, body, created_at`,
-            [convoId, request.user.sub, input.body]
-        );
-
-        await notify(clientId, {
-            kind: 'NEW_MESSAGE',
-            title: 'New message from the firm',
-            body: input.body.slice(0, 120),
-            entityType: 'conversation',
-            entityId: convoId
-        });
-        const { notifyMessageCreated } = await import('../services/sse.js');
-        notifyMessageCreated(convoId, inserted.rows[0].id, request.user.sub, input.body, request.user.role, (await query('SELECT full_name FROM users WHERE id = $1', [request.user.sub])).rows[0]?.full_name || null).catch(() => {});
-        await logAudit({ actorId: request.user.sub, action: 'OWNER_MESSAGE_SENT', entityType: 'conversation', entityId: convoId, metadata: { message_id: inserted.rows[0].id, body_length: input.body.length, request_id: requestId } });
-
-        response.status(201).json({ data: { conversation_id: convoId, message: inserted.rows[0] } });
+        response.status(201).json({ data: { conversation_id: convoId, message } });
     } catch (error) { next(error); }
 });
 
@@ -1009,7 +948,7 @@ ownerRouter.get('/clients/:id', async (request, response, next) => {
                         c.created_at,
                         (SELECT COUNT(*)::int FROM messages mm JOIN users su ON su.id = mm.sender_id
                       WHERE mm.conversation_id = c.id AND mm.read_at IS NULL AND su.role = 'CLIENT') AS unread_count,
-                        (SELECT body FROM messages WHERE conversation_id = c.id ORDER BY created_at DESC LIMIT 1) AS last_message_body,
+                        (SELECT CASE WHEN deleted_at IS NOT NULL THEN 'This message was deleted' ELSE body END FROM messages WHERE conversation_id = c.id ORDER BY created_at DESC LIMIT 1) AS last_message_body,
                         (SELECT created_at FROM messages WHERE conversation_id = c.id ORDER BY created_at DESC LIMIT 1) AS last_message_at
                  FROM conversations c
                  LEFT JOIN matters m ON m.id = c.matter_id
@@ -1051,7 +990,7 @@ ownerRouter.get('/matters/:id', async (request, response, next) => {
         }
         const matter = matterRes.rows[0];
 
-        const [eventsRes, documentsRes, appointmentsRes, conversationRes] = await Promise.all([
+        const [eventsRes, documentsRes, appointmentsRes, conversationRes, docRequestsRes] = await Promise.all([
             query(
                 `SELECT id, event_type, title, note, actor_id, created_at
                  FROM matter_events
@@ -1061,8 +1000,8 @@ ownerRouter.get('/matters/:id', async (request, response, next) => {
             ),
             query(
                 `SELECT d.id, d.original_name, d.content_type, d.size_bytes,
-                        d.status, d.created_at, d.updated_at
-                 FROM documents d
+                        d.status, d.created_at, d.updated_at, uu.role AS uploaded_by_role, uu.full_name AS uploaded_by_name
+                 FROM documents d JOIN users uu ON uu.id = d.uploaded_by
                  WHERE d.matter_id = $1 AND d.status <> 'DELETED'
                  ORDER BY d.created_at DESC`,
                 [matter.id]
@@ -1076,6 +1015,12 @@ ownerRouter.get('/matters/:id', async (request, response, next) => {
             ),
             query(
                 `SELECT id, created_at FROM conversations WHERE matter_id = $1 LIMIT 1`,
+                [matter.id]
+            )
+            ,query(
+                `SELECT r.id, r.description, r.note, r.due_date, r.status, r.created_at, r.fulfilled_at, d.original_name AS fulfilled_document_name
+                 FROM document_requests r LEFT JOIN documents d ON d.id = r.fulfilled_document_id
+                 WHERE r.matter_id = $1 ORDER BY r.created_at DESC`,
                 [matter.id]
             )
         ]);
@@ -1096,7 +1041,8 @@ ownerRouter.get('/matters/:id', async (request, response, next) => {
             events: eventsRes.rows,
             documents: documentsRes.rows,
             appointments: appointmentsRes.rows,
-            conversation: conversationRes.rows[0] || null
+            conversation: conversationRes.rows[0] || null,
+            document_requests: docRequestsRes.rows
         });
     } catch (error) { next(error); }
 });
@@ -1402,28 +1348,51 @@ ownerRouter.post('/matters/:id/document-request', async (request, response, next
             return response.status(404).json({ error: { code: 'NOT_FOUND', message: 'Matter not found' } });
         }
         const matter = matterRes.rows[0];
-        const convoRes = await query(
-            `INSERT INTO conversations (matter_id) VALUES ($1)
-             ON CONFLICT (matter_id) DO NOTHING
-             RETURNING id`,
-            [matter.id]
+        const created = await query(
+            `INSERT INTO document_requests (matter_id, requested_by, description, note, due_date)
+             VALUES ($1, $2, $3, $4, $5) RETURNING id`,
+            [matter.id, request.user.sub, input.description, input.message || null, input.dueDate || null]
         );
-        const convoId = convoRes.rowCount === 1 ? convoRes.rows[0].id :
-            (await query(`SELECT id FROM conversations WHERE matter_id = $1 LIMIT 1`, [matter.id])).rows[0].id;
-        await query(
-            `INSERT INTO messages (conversation_id, sender_id, body)
-             VALUES ($1, $2, $3)`,
-            [convoId, request.user.sub, `Document request: ${input.description}${input.message ? ' — ' + input.message : ''}`]
+        const convoId = await conversationForMatter(matter.id);
+        const convo = await findConversationFor(request.user, convoId);
+        await postMessage({ user: request.user, convo, body: `Document request: ${input.description}${input.message ? ' — ' + input.message : ''}`, kind: 'DOCUMENT_REQUEST', notifyTitle: 'Document requested' });
+        await notify(matter.client_id, {
+            kind: 'DOCUMENT_REQUESTED',
+            title: 'Document requested',
+            body: input.description.slice(0, 160),
+            entityType: 'matter',
+            entityId: matter.id
+        });
+        notifyDocumentRequested(matter.id, matter.client_id, input.description).catch(() => {});
+        await recordMatterEvent(matter.id, request.user.sub, 'DOCUMENT_REQUESTED', 'Document requested', input.description);
+        await logAudit({ actorId: request.user.sub, action: 'DOCUMENT_REQUEST_SENT', entityType: 'matter', entityId: matter.id, metadata: { conversation_id: convoId, document_request_id: created.rows[0].id, has_message: !!input.message } });
+        response.status(201).json({ data: { id: created.rows[0].id, matterId: matter.id, reference: matter.reference, conversationId: convoId } });
+    } catch (error) { next(error); }
+});
+
+/* GET /api/v1/owner/matters/:id/document-requests — what was asked and whether it arrived. */
+ownerRouter.get('/matters/:id/document-requests', async (request, response, next) => {
+    try {
+        const result = await query(
+            `SELECT r.id, r.description, r.note, r.due_date, r.status, r.created_at, r.fulfilled_at, r.fulfilled_document_id,
+                    d.original_name AS fulfilled_document_name
+             FROM document_requests r LEFT JOIN documents d ON d.id = r.fulfilled_document_id
+             WHERE r.matter_id = $1 ORDER BY r.created_at DESC`,
+            [request.params.id]
         );
-         await notify(matter.client_id, {
-             kind: 'DOCUMENT_REQUESTED',
-             title: 'Document requested',
-             body: input.description.slice(0, 160),
-             entityType: 'matter',
-             entityId: matter.id
-         });
-         await logAudit({ actorId: request.user.sub, action: 'DOCUMENT_REQUEST_SENT', entityType: 'matter', entityId: matter.id, metadata: { conversation_id: convoId, has_message: !!input.message } });
-         response.status(201).json({ data: { matterId: matter.id, reference: matter.reference, conversationId: convoId } });
+        response.json({ data: result.rows });
+    } catch (error) { next(error); }
+});
+
+/* POST /api/v1/owner/document-requests/:id/cancel — no longer needed. */
+ownerRouter.post('/document-requests/:id/cancel', async (request, response, next) => {
+    try {
+        const result = await query(
+            `UPDATE document_requests SET status = 'CANCELLED', updated_at = NOW() WHERE id = $1 AND status = 'OPEN' RETURNING id`,
+            [request.params.id]
+        );
+        if (result.rowCount === 0) return response.status(404).json({ error: { code: 'NOT_FOUND', message: 'No open document request found' } });
+        response.json({ data: { id: result.rows[0].id, status: 'CANCELLED' } });
     } catch (error) { next(error); }
 });
 
