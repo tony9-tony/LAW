@@ -112,7 +112,7 @@
         <nav class="side-nav">${items}</nav>
         <div class="side-meta">
             <strong>Need help?</strong>
-            Call or WhatsApp the firm on <a class="link-bronze" href="tel:+255714840951">+255 714 840 951</a> or <a class="link-bronze" href="tel:+255657259584">+255 657 259 584</a>.
+            See the <a class="link-bronze" href="../how-it-works.html#faq">questions and answers</a>, or call or WhatsApp the firm on <a class="link-bronze" href="tel:+255714840951">+255 714 840 951</a> or <a class="link-bronze" href="tel:+255657259584">+255 657 259 584</a>.
         </div>
     </div>
 </aside>`;

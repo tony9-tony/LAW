@@ -5,7 +5,7 @@
     var API = '/api/v1/support';
     var state = { open: false, lang: 'en', greeted: false };
     var els = {};
-    var ACTION_LINK = { book: 'login.html?next=consultation.html', request: 'login.html?next=custom-matter.html', contact: 'contact.html', faq: 'index.html#ai-faq', payments: 'how-it-works.html' };
+    var ACTION_LINK = { book: 'login.html?next=consultation.html', request: 'login.html?next=custom-matter.html', contact: 'contact.html', faq: 'how-it-works.html#faq', payments: 'how-it-works.html' };
     function build() {
         var host = document.createElement('div');
         host.id = 'ai-support';

@@ -2536,3 +2536,12 @@ a.matter-update { color: inherit; text-decoration: underline; text-underline-off
 /* Keep the firm name on two lines next to the menu. */
 .site-header .brand-name { white-space: normal; max-width: 20ch; display: block; }
 .site-header .brand { flex-shrink: 0; }
+/* FAQ on How it works: grouped questions. */
+.faq-group { font-family: var(--sans); font-size: 0.75rem; letter-spacing: 0.16em; text-transform: uppercase; color: var(--green); margin: 2.25rem 0 0.9rem; }
+.section-head + .faq-group { margin-top: 0.5rem; }
+.faq-more { margin: 1.75rem 0 0; }
+/* FAQ: a drawn chevron instead of the browser's black triangle. */
+.faq-item summary { list-style: none; display: flex; justify-content: space-between; align-items: center; gap: 1rem; }
+.faq-item summary::-webkit-details-marker { display: none; }
+.faq-item summary::after { content: ''; flex: 0 0 auto; width: 8px; height: 8px; border: solid var(--green); border-width: 0 2px 2px 0; transform: rotate(45deg); margin-top: -4px; transition: transform .2s ease; }
+.faq-item[open] summary::after { transform: rotate(-135deg); margin-top: 4px; }
