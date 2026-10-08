@@ -16,7 +16,7 @@ The backend is the only thing that talks to PostgreSQL. The two front-ends never
 
 ## Authentication & authorization
 
-- JWT (1 hour, HS256). `JWT_SECRET` must be set in production.
+- JWT (8 hours, HS256). `JWT_SECRET` must be set in production.
 - The middleware `authenticate` parses the bearer token, verifies it, and attaches `{ sub, role, email }` to `request.user`.
 - For staff routes, `requireRole('LAWYER','STAFF')` enforces a role check after authentication.
 - Every client-facing route additionally uses `ensureOwned(table, id, userId)` to verify the resource belongs to the authenticated user before returning it.

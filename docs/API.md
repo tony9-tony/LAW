@@ -1,7 +1,7 @@
 # API reference
 
 Base URL: `/api/v1`. All authenticated endpoints expect `Authorization: Bearer <jwt>`.
-The JWT carries `{ sub: <user-id-uuid>, role: 'CLIENT'|'LAWYER'|'STAFF', email }` and is signed with `JWT_SECRET` (1 hour expiry).
+The JWT carries `{ sub: <user-id-uuid>, role: 'CLIENT'|'LAWYER'|'STAFF', email }` and is signed with `JWT_SECRET` (8 hour expiry).
 
 ## Domain model
 

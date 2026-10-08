@@ -977,3 +977,4 @@ button { cursor: pointer; background: transparent; border: 0; padding: 0; }
     .sidebar-nav a { padding: 0.4rem 0.8rem; }
     .sidebar-nav a.active { padding-left: calc(0.8rem - 2px); }
 }
+.form-status:empty { display: none; }

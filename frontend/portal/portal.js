@@ -112,7 +112,7 @@
         <nav class="side-nav">${items}</nav>
         <div class="side-meta">
             <strong>Need help?</strong>
-            If you have any trouble accessing the portal or submitting a request, please use the <a class="link-bronze" href="../contact.html">contact page</a>.
+            Call or WhatsApp the firm on <a class="link-bronze" href="tel:+255714840951">+255 714 840 951</a> or <a class="link-bronze" href="tel:+255657259584">+255 657 259 584</a>.
         </div>
     </div>
 </aside>`;

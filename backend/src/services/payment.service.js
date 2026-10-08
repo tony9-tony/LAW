@@ -455,12 +455,13 @@ export async function rejectPayment({ paymentId, actorId, reason }) {
     });
 }
 
-export async function listPaymentsForOwner({ method, status, page = 1, limit = 50 }) {
+export async function listPaymentsForOwner({ method, status, invoiceId, page = 1, limit = 50 }) {
     const params = [];
     const conditions = [];
     let i = 1;
     if (method) { conditions.push(`p.method = $${i}`); params.push(method); i++; }
     if (status) { conditions.push(`p.status = $${i}`); params.push(status); i++; }
+    if (invoiceId) { conditions.push(`p.invoice_id = $${i}`); params.push(invoiceId); i++; }
     const whereClause = conditions.length ? 'WHERE ' + conditions.join(' AND ') : '';
     const offset = (page - 1) * limit;
     const result = await query(

@@ -8,6 +8,11 @@
         role: 'Advocates & Legal Counsel',
         location: 'Posta, Kisutu, Tanzania',
         experience: 'Office visits by appointment',
+        /* Both numbers take calls and WhatsApp. */
+        phones: [
+            { label: '+255 714 840 951', tel: '+255714840951', wa: '255714840951' },
+            { label: '+255 657 259 584', tel: '+255657259584', wa: '255657259584' }
+        ],
         year: new Date().getFullYear()
     };
 
@@ -61,6 +66,9 @@
                     ${FIRM.role}<br>
                     ${FIRM.location}<br>
                     ${FIRM.experience}
+                </p>
+                <p class="footer-meta footer-phones">
+                    ${FIRM.phones.map((p) => `<a href="tel:${p.tel}">${p.label}</a> · <a href="https://wa.me/${p.wa}" target="_blank" rel="noopener">WhatsApp</a>`).join('<br>')}
                 </p>
             </div>
             <div>

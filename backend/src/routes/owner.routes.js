@@ -4,6 +4,7 @@
 import { Router } from 'express';
 import { z } from 'zod';
 import fs from 'node:fs/promises';
+import { existsSync, createReadStream } from 'node:fs';
 import { authenticate, requireRole } from '../middleware/auth.js';
 import { query } from '../db.js';
 import { notify } from '../services/notification.service.js';
@@ -1904,10 +1905,11 @@ ownerRouter.get('/payments', async (request, response, next) => {
         const q = z.object({
             method: z.enum(['mobile_money', 'bank', 'qr']).optional(),
             status: z.enum(['PENDING', 'VERIFIED', 'REJECTED']).optional(),
+            invoice_id: z.string().uuid().optional(),
             page: z.coerce.number().min(1).default(1),
             limit: z.coerce.number().min(1).max(200).default(50)
         }).parse(request.query);
-        const result = await listPaymentsForOwner({ method: q.method, status: q.status, page: q.page, limit: q.limit });
+        const result = await listPaymentsForOwner({ method: q.method, status: q.status, invoiceId: q.invoice_id, page: q.page, limit: q.limit });
         response.json(result);
     } catch (error) { next(error); }
 });
@@ -1934,7 +1936,7 @@ ownerRouter.get('/payments/:id/receipt', async (request, response, next) => {
             return response.status(404).json({ error: { code: 'NOT_FOUND', message: 'Receipt not found' } });
         }
         const filePath = receiptPath(payment.receipt_storage_key);
-        if (!fs.existsSync(filePath)) {
+        if (!existsSync(filePath)) {
             return response.status(404).json({ error: { code: 'NOT_FOUND', message: 'Receipt file not found' } });
         }
         response.writeHead(200, {
@@ -1943,7 +1945,7 @@ ownerRouter.get('/payments/:id/receipt', async (request, response, next) => {
             'Content-Length': payment.receipt_size_bytes || undefined,
             'Cache-Control': 'private, max-age=3600'
         });
-        const stream = fs.createReadStream(filePath);
+        const stream = createReadStream(filePath);
         stream.on('error', () => response.status(500).json({ error: { code: 'INTERNAL_ERROR', message: 'Failed to read receipt' } }));
         stream.pipe(response);
     } catch (error) { next(error); }

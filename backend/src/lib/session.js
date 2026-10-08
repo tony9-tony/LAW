@@ -23,7 +23,10 @@ export function cookieNameFor(request) {
     return /^https?:\/\/[^/]+\/subui(\/|$|\?|#)/i.test(referer) ? OWNER_SESSION_COOKIE : SESSION_COOKIE;
 }
 const SESSION_MARKER = 'session';
-const MAX_AGE_MS = 60 * 60 * 1000; // matches the token's 1 hour lifetime
+/* One working day: a client is not signed out in the middle of a long session.
+   The token (auth.service.js) uses the same lifetime. */
+export const SESSION_HOURS = 8;
+const MAX_AGE_MS = SESSION_HOURS * 60 * 60 * 1000;
 
 function readCookie(header, name) {
     if (!header) return null;
