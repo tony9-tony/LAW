@@ -21,7 +21,7 @@
             const res = await API.listNotifications();
             const items = (res && res.data) || [];
             if (!items.length) {
-                root.innerHTML = `<div class="empty-state"><span class="ico">·</span><strong>No notifications.</strong><p>Updates from the firm will appear here.</p></div>`;
+                root.innerHTML = `<div class="empty-state"><strong>No notifications.</strong><p>Updates from the firm will appear here.</p></div>`;
                 meta.textContent = '0 notifications';
                 return;
             }
@@ -30,7 +30,7 @@
                 const href = linkFor(n);
                 return `
                     <a class="doc-row" href="${escape(href)}" data-notif="${n.id}" data-read="${unread ? 'false' : 'true'}">
-                        <span class="doc-icon">${unread ? '●' : '○'}</span>
+                        <span class="doc-icon notif-dot${unread ? ' is-unread' : ''}" aria-label="${unread ? 'Unread' : 'Read'}"></span>
                         <div>
                             <div class="doc-name">${escape(n.title)}</div>
                             <div class="doc-meta">${escape(n.kind.replace(/_/g, ' '))} · ${P.fmtDate(n.created_at)}</div>
@@ -51,7 +51,7 @@
             });
         } catch (err) {
             if (err && err.status === 401) { window.location.replace('../login.html'); return; }
-            root.innerHTML = `<div class="empty-state"><span class="ico">!</span><strong>Could not load notifications.</strong><p>${escape(err.message || 'Please try again.')}</p></div>`;
+            root.innerHTML = `<div class="empty-state"><span class="ico"><svg viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7.5v5.5M12 16.5h.01"/></svg></span><strong>Could not load notifications.</strong><p>${escape(err.message || 'Please try again.')}</p></div>`;
             meta.textContent = 'Error';
         }
     }

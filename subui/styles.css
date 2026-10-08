@@ -946,3 +946,34 @@ button { cursor: pointer; background: transparent; border: 0; padding: 0; }
 .table-dest .row-actions .btn { white-space: nowrap; }
 .table-dest tr.is-inactive td { opacity: 0.6; }
 .modal-hint { font-size: 0.85rem; margin: 0 0 0.5rem; color: var(--ink-mute); }
+
+/* ---------------------------------------------------------------------------
+   Handover polish
+   --------------------------------------------------------------------------- */
+.owner-steps { margin-bottom: 1.5rem; }
+.owner-journey { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 1rem; counter-reset: oj; }
+.owner-journey li { counter-increment: oj; display: grid; gap: 0.3rem; align-content: start; }
+.owner-journey li::before { content: counter(oj); width: 28px; height: 28px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; background: var(--ink, #12212a); color: #fff; font-size: 0.85rem; font-weight: 600; }
+.owner-journey strong { font-size: 0.95rem; }
+.owner-journey span { font-size: 0.85rem; line-height: 1.5; color: var(--muted, #5a6670); }
+@media (max-width: 1100px) { .owner-journey { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (max-width: 560px) { .owner-journey { grid-template-columns: 1fr; } }
+.nowrap { white-space: nowrap; }
+.table td .pill { white-space: nowrap; }
+/* The menu scrolls on short screens instead of pushing Sign out off the page. */
+.sidebar-nav { flex: 1 1 auto; min-height: 0; overflow-y: auto; scrollbar-width: thin; }
+.sidebar-nav .group-label:first-child { margin-top: 0; }
+/* Phones: wide tables scroll sideways inside their panel, so Status and Actions stay reachable. */
+@media (max-width: 860px) {
+    .panel-body.tight, .panel-body:has(> .table) { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+    .panel-body .table { min-width: 680px; }
+    .topbar .user #subui-user-name { display: none; }
+}
+/* Compact menu: all four groups fit on a normal laptop screen without scrolling. */
+@media (min-width: 861px) {
+    .sidebar-head { padding: 1.1rem 1.3rem 0.9rem; }
+    .sidebar-nav { padding: 0.6rem 0.75rem; }
+    .sidebar-nav .group-label { padding: 0.75rem 0.75rem 0.3rem; }
+    .sidebar-nav a { padding: 0.4rem 0.8rem; }
+    .sidebar-nav a.active { padding-left: calc(0.8rem - 2px); }
+}

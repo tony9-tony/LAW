@@ -7,7 +7,7 @@
   "scripts": {
     "dev": "node backend/src/server.js",
     "start": "node backend/src/server.js",
-    "test": "node --test backend/tests/**/*.test.js",
+    "test": "node --test --test-concurrency=1 \"backend/tests/*.test.js\"",
     "db:migrate": "node database/migrate.js",
     "owner:reset": "node scripts/reset-owner-password.js",
     "owner:retire": "node scripts/retire-owner.js"

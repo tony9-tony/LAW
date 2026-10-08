@@ -32,7 +32,7 @@
 
     function renderList(container, items, metaEl) {
         if (!items.length) {
-            container.innerHTML = '<div class="empty-state"><span class="ico">·</span><strong>No appointments.</strong></div>';
+            container.innerHTML = '<div class="empty-state"><strong>No appointments.</strong></div>';
             metaEl.textContent = '0';
             return;
         }
@@ -51,7 +51,7 @@
                         ${a.notes ? `<div class="doc-meta">${escape(a.notes)}</div>` : ''}
                         ${paymentBlock(a)}
                     </div>
-                    <span class="pill">${escape((a.status || 'scheduled').toUpperCase())}</span>
+                    ${window.Portal.statusPill(a.status || 'scheduled')}
                 </div>
             `;
         }).join('');
@@ -74,7 +74,7 @@
             renderList(pastRoot, past, pastMeta);
         } catch (err) {
             if (err && err.status === 401) { window.location.replace('../login.html'); return; }
-            upcomingRoot.innerHTML = '<div class="empty-state"><span class="ico">!</span><strong>Could not load appointments.</strong><p>' + escape(err.message || 'Please try again shortly.') + '</p></div>';
+            upcomingRoot.innerHTML = '<div class="empty-state"><span class="ico"><svg viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7.5v5.5M12 16.5h.01"/></svg></span><strong>Could not load appointments.</strong><p>' + escape(err.message || 'Please try again shortly.') + '</p></div>';
             pastRoot.innerHTML = '';
             upcomingMeta.textContent = 'Error';
             pastMeta.textContent = 'Error';
@@ -139,7 +139,7 @@
                 const ref = res && res.data && res.data.id;
                 status.className = 'form-status success';
                 status.innerHTML = '<strong>Request submitted — under review.</strong>The firm has received your consultation request and will confirm an appointment.' +
-                    (ref ? ` Your reference is <strong>#${String(ref).padStart(5,'0')}</strong>.` : '') +
+                    (ref ? ` Your reference is <strong>#${window.Portal.shortRef(ref)}</strong>.` : '') +
                     ' Refreshing…';
                 form.reset();
                 setTimeout(() => {

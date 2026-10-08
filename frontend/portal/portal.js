@@ -21,19 +21,20 @@
         return icons[name] || '';
     }
 
+    /* In the order a client uses them: start something, follow it, pay, keep the record. */
     const NAV = [
         { href: 'dashboard.html',  label: 'Dashboard',  icon: 'dashboard' },
-        { href: 'requests.html',   label: 'Requests',    icon: 'requests' },
-        { href: 'matters.html',    label: 'My Matters',  icon: 'matters' },
+        { href: 'custom-matter.html', label: 'New request', icon: 'requests' },
+        { href: 'consultation.html', label: 'Book consultation', icon: 'appointments' },
+        { href: 'requests.html',   label: 'My requests', icon: 'requests' },
+        { href: 'matters.html',    label: 'My matters',  icon: 'matters' },
         { href: 'messages.html',   label: 'Messages',    icon: 'messages' },
         { href: 'appointments.html', label: 'Appointments', icon: 'appointments' },
-        { href: 'consultation.html', label: 'Consultation', icon: 'appointments' },
         { href: 'documents.html', label: 'Documents',     icon: 'documents' },
         { href: 'invoices.html', label: 'Invoices',       icon: 'invoices' },
         { href: 'payments.html', label: 'Payments',       icon: 'payments' },
         { href: 'notifications.html', label: 'Notifications', icon: 'notifications' },
-        { href: 'practice.html',  label: 'Practice',     icon: 'practice' },
-        { href: 'practice-areas.html', label: 'Practice Areas', icon: 'practice' },
+        { href: 'practice.html',  label: 'Practice areas', icon: 'practice' },
         { href: 'profile.html',   label: 'Profile',       icon: 'profile' }
     ];
 
@@ -58,11 +59,10 @@
             }
             return true;
         }).catch(() => {
+            /* A network hiccup, or the check being cut short because the person
+               already moved to another page, is not a sign-out: only a 401 above is. */
             document.body.classList.remove('portal-loading');
-            window.Site.logout();
-            const target = encodeURIComponent(location.pathname.split('/').pop() || 'dashboard.html');
-            window.location.replace('../login.html?next=' + target);
-            return false;
+            return true;
         });
         return true;
     }
@@ -263,18 +263,33 @@
         });
     }
 
+    /* "8 Oct 2026, 10:14": the same readable form on every page. */
     function fmtDate(s) {
         if (!s) return '—';
-        try { return new Date(s).toLocaleString(); } catch (e) { return s; }
+        const d = new Date(s);
+        if (isNaN(d.getTime())) return String(s);
+        return d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }) + ', ' + d.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
     }
     function fmtDateShort(s) {
         if (!s) return '—';
         try { return new Date(s).toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' }); } catch (e) { return s; }
     }
+    /* Plain words for the status codes the server uses. */
+    const STATUS_LABELS = {
+        submitted: 'Submitted', under_review: 'Under review', action_required: 'Action required', accepted: 'Accepted',
+        declined: 'Declined', scheduled: 'Scheduled', completed: 'Completed', closed: 'Closed', open: 'Open', active: 'Active',
+        on_hold: 'On hold', resolved: 'Resolved', confirmed: 'Confirmed', cancelled: 'Cancelled', no_show: 'Missed',
+        draft: 'Draft', issued: 'Issued', paid: 'Paid', overdue: 'Overdue', unpaid: 'Not paid', payment_required: 'Payment required',
+        payment_pending_verification: 'Pending verification', payment_rejected: 'Rejected', pending: 'Pending verification',
+        verified: 'Confirmed', rejected: 'Rejected', new: 'New'
+    };
+    function statusLabel(status) {
+        const key = String(status || 'new').toLowerCase().replace(/\s+/g, '_');
+        return STATUS_LABELS[key] || String(status || '').replace(/_/g, ' ').toLowerCase().replace(/^\w/, (c) => c.toUpperCase());
+    }
     function statusPill(status) {
         const s = (status || 'new').toLowerCase().replace(/\s+/g, '_');
-        const label = (status || 'new').replace(/_/g, ' ');
-        return `<span class="pill status-${s}">${label}</span>`;
+        return `<span class="pill status-${s}">${statusLabel(status)}</span>`;
     }
 
     /* Short, readable reference for an id (ids are long UUIDs): "B29FE05C". */
@@ -283,7 +298,7 @@
         return /^[0-9a-f]{8}-/i.test(v) ? v.slice(0, 8).toUpperCase() : v.padStart(5, '0');
     }
 
-    window.Portal = { mount, toast, onLive, guard, fmtDate, fmtDateShort, statusPill, refreshUnreadIndicators, shortRef };
+    window.Portal = { mount, toast, onLive, guard, fmtDate, fmtDateShort, statusPill, statusLabel, refreshUnreadIndicators, shortRef };
 
     if (document.readyState === 'loading') {
         document.addEventListener('DOMContentLoaded', mount);

@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="description" content="Admin portal for platform owners.">
-    <title>Admin Portal</title>
+    <title>Owner sign in | ET CETRA ADVOCATES</title>
     <link rel="stylesheet" href="styles.css">
     <style>
         :root {
@@ -379,6 +379,8 @@
             .btn { letter-spacing: 0.06em; font-size: 0.66rem; }
         }
 
+            /* The four owner steps (they replace sample numbers). */
+        .mini-stat strong { font-size: 1.05rem !important; letter-spacing: 0 !important; line-height: 1.25; }
     </style>
 </head>
 <body>
@@ -387,29 +389,17 @@
             <div class="auth-layout">
                 <aside class="auth-visual" aria-label="Law firm branding panel">
                     <div class="brand-lockup">
-                        <span class="eyebrow">LAW</span>
-                        <h1>Et Cetra<br>Advocates</h1>
-                        <p class="subhead">Owner workspace for client intake, legal operations, document flow, and chambers oversight.</p>
+                        <span class="eyebrow">Owner workspace</span>
+                        <h1>ET CETRA<br>Advocates</h1>
+                        <p class="subhead">Requests, matters, invoices, payments, messages and documents for the whole firm.</p>
                     </div>
 
                     <div class="visual-bottom">
                         <div class="mini-grid">
-                            <div class="mini-stat">
-                                <span class="label">Matters</span>
-                                <strong>24</strong>
-                            </div>
-                            <div class="mini-stat">
-                                <span class="label">Clients</span>
-                                <strong>142</strong>
-                            </div>
-                            <div class="mini-stat">
-                                <span class="label">Invoices</span>
-                                <strong>08</strong>
-                            </div>
-                            <div class="mini-stat">
-                                <span class="label">Alerts</span>
-                                <strong>04</strong>
-                            </div>
+                            <div class="mini-stat"><span class="label">Step 1</span><strong>Review requests</strong></div>
+                            <div class="mini-stat"><span class="label">Step 2</span><strong>Set payment</strong></div>
+                            <div class="mini-stat"><span class="label">Step 3</span><strong>Verify receipts</strong></div>
+                            <div class="mini-stat"><span class="label">Step 4</span><strong>Run the matter</strong></div>
                         </div>
                     </div>
                 </aside>
@@ -418,7 +408,7 @@
                     <div class="login-card">
                         <div class="login-header">
                             <span class="login-brand">Owner Access</span>
-                            <span class="login-tagline">Admin Portal — Chambers Command Center</span>
+                            <span class="login-tagline">Owner Command Center</span>
                         </div>
 
                         <div id="setup-panel" class="panel" style="display:none;">
@@ -472,7 +462,7 @@
                                     <div class="login-actions">
                                         <button type="submit" class="btn primary">Sign in to Admin Portal</button>
                                         <button type="button" class="btn ghost" id="back-to-website">Back to Website</button>
-                                        <button type="button" class="btn ghost" id="show-create-account">Create account</button>
+                                        <button type="button" class="btn ghost" id="show-create-account" hidden>First-time setup</button>
                                     </div>
                                 </form>
                             </div>
@@ -502,3 +492,4 @@
     <script src="/subui/login.js"></script>
 </body>
 </html>
+

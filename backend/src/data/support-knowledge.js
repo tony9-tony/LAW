@@ -123,11 +123,11 @@ export const SUPPORT_FAQ = [
         topics: ['contact', 'wasiliana', 'office', 'ofisi', 'phone', 'simu', 'email', 'barua', 'hours', 'muda', 'location', 'mahali'],
         en: {
             q: 'How do I contact the office?',
-            a: 'The office is in Posta, Kisutu, Tanzania, and visits are by appointment only. Telephone, email and office hours are published on the Contact page once confirmed by the firm — until then the most reliable route is the consultation or matter intake. Signed-in clients can also message the firm from the portal.'
+            a: 'The office is in Posta, Kisutu, Tanzania, and visits are by appointment only. The quickest way to reach the firm is to send a request or book a consultation in the client portal. Signed-in clients can also message the firm from their matter.'
         },
         sw: {
             q: 'Ninawezaje kuwasiliana na ofisi?',
-            a: 'Ofisi iko Posta, Kisutu, Tanzania, na ziara ni kwa miadi tu. Simu, barua pepe na muda wa ofisi huchapishwa kwenye ukurasa wa Mawasiliano kampuni ikithibitisha — hadi wakati huo njia ya kuaminika ni fomu ya ushauri au ombi.'
+            a: 'Ofisi iko Posta, Kisutu, Tanzania, na ziara ni kwa miadi tu. Njia ya haraka ya kuwasiliana na kampuni ni kutuma ombi au kuweka miadi ya ushauri kwenye portal ya mteja. Wateja walioingia wanaweza pia kutuma ujumbe kwenye shauri lao.'
         }
     },
     {
@@ -135,11 +135,11 @@ export const SUPPORT_FAQ = [
         topics: ['account', 'akaunti', 'register', 'jisajili', 'sign', 'ingia', 'login', 'password', 'nywila'],
         en: {
             q: 'Do I need an account?',
-            a: 'You can chat with me and read these answers without an account. To book, submit a request, pay, message the firm, or view documents, you will be sent to sign in or create a client account first.'
+            a: 'You can chat with me and read these answers without an account. To book, submit a request, pay, message the firm, or view documents, sign in or create a free client account first. Forgot your password? The portal sends no e-mails: contact the firm, who will set a temporary password, then change it under Profile.'
         },
         sw: {
             q: 'Je, nahitaji akaunti?',
-            a: 'Unaweza kuzungumza nami na kusoma majibu haya bila akaunti. Kuweka miadi, kuwasilisha ombi, kulipa, kutuma ujumbe, au kuangalia nyaraka, utaelekezwa kuingia au kufungua akaunti ya mteja kwanza.'
+            a: 'Unaweza kuzungumza nami na kusoma majibu haya bila akaunti. Kuweka miadi, kuwasilisha ombi, kulipa, kutuma ujumbe, au kuangalia nyaraka, ingia au fungua akaunti ya mteja bure kwanza. Umesahau nenosiri? Portal haitumi barua pepe: wasiliana na kampuni, itakuwekea nenosiri la muda, kisha ulibadilishe kwenye Profile.'
         }
     },
     {

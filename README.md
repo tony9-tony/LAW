@@ -44,7 +44,17 @@ npm run dev
 
 Open http://localhost:3000 — the website is at `/frontend/`, the owner command centre at `/subui/` (or `/admin`). The API is at `/api/v1`; its health check is `GET /api/v1/health`.
 
-The first owner account is created once from the command centre's setup screen (`/auth/setup-owner`). After that, staff, lawyers and owners are added by the owner; public sign-up always creates a **client**.
+The first owner account is created once from the command centre's setup screen (`/auth/setup-owner`). After that, the owner adds clients and other owners under **Users & passwords**; public sign-up always creates a **client**.
+
+## Who uses what
+
+- **Client**: the public website and the client portal (`/frontend/portal/`). The portal's Dashboard and the public **How it works** page show the steps from request to service.
+- **Owner** (the advocate / administrator): the Owner Command Center (`/subui/`). Its Dashboard shows the owner's steps: review the request, set the payment, verify the receipt, run the matter.
+- **Lawyer / Staff** roles exist in the database and API, but have no browser workspace yet; signing in with one shows a clear message instead of an empty client portal.
+
+## Forgotten passwords
+
+The system sends no e-mail. A client who forgot their password contacts the firm (the *Forgot password?* page explains this). The owner opens **Users & passwords**, presses **Set temporary password** and gives it to the client directly (`POST /api/v1/owner/users/:id/password`, audited as `PASSWORD_SET_BY_OWNER`). The client signs in and chooses their own under **Profile, Change password** (`POST /api/v1/profile/password`, needs the current password).
 
 ## Security
 
@@ -62,7 +72,7 @@ See [docs/SECURITY.md](docs/SECURITY.md) for more.
 npm test
 ```
 
-Runs the API tests against the database in `DATABASE_URL` (use a test database). The browser tests need the server running with `NODE_ENV=test` (they create users through the test helpers):
+Runs the API tests against the database in `DATABASE_URL` (use a test database, never the live one: set `DATABASE_URL` to a separate database such as `law_test` for that window, then `npm run db:migrate` and `npm test`). The browser tests need the server running with `NODE_ENV=test` (they create users through the test helpers):
 
 ```powershell
 $env:NODE_ENV="test"; npm run dev      # in one window

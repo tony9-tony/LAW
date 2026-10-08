@@ -34,7 +34,7 @@
         if (actionsEl) {
             actionsEl.innerHTML = `
                 <a class="btn primary" id="msg-link" href="messages.html?matter=${matter.id}">Message the firm <span class="arrow" aria-hidden="true">→</span></a>
-                ${matter.originating_request_id ? `<a class="btn secondary" href="request.html?id=${matter.originating_request_id}">View originating request</a>` : ''}
+                ${matter.originating_request_id ? `<a class="btn secondary" href="request.html?id=${matter.originating_request_id}">View the original request</a>` : ''}
             `;
         }
 
@@ -57,7 +57,7 @@
                 <div class="dot"></div>
                 <div class="body">
                     <div class="ts">${P.fmtDate(a.starts_at)} — ${a.ends_at ? P.fmtDate(a.ends_at) : ''}</div>
-                    <div class="lead"><strong>${escape((a.status || '').replace(/_/g,' '))}</strong>${a.notes ? ' · ' + escape(a.notes) : ''}</div>
+                    <div class="lead"><strong>${escape(P.statusLabel(a.status))}</strong>${a.notes ? ' · ' + escape(a.notes) : ''}</div>
                 </div>
             </div>
         `).join('') || '<p class="text-mute-block">No appointments scheduled yet.</p>';
@@ -67,13 +67,13 @@
                 <span class="doc-icon">DOC</span>
                 <div>
                     <div class="doc-name">${escape(d.original_name)}</div>
-                    <div class="doc-meta">${P.fmtDateShort(d.created_at)} · ${escape((d.status || 'AVAILABLE').toUpperCase())}</div>
+                    <div class="doc-meta">${P.fmtDateShort(d.created_at)} · ${escape(P.statusLabel(d.status || 'available'))}</div>
                 </div>
             </div>
-         `).join('') || '<p class="text-mute-block">No documents on this matter yet.</p>';
+         `).join('') || '<p class="empty-line">No documents on this matter yet. Documents the firm shares, and the ones you upload, appear here.</p>';
 
         const requestLink = matter.originating_request_id
-            ? `<a class="link-bronze" href="request.html?id=${matter.originating_request_id}">View originating request #${String(matter.originating_request_id).padStart(5, '0')}</a>`
+            ? `<a class="link-bronze" href="request.html?id=${matter.originating_request_id}">Request #${P.shortRef(matter.originating_request_id)}</a>`
             : '<span class="muted">Not linked</span>';
 
         root.innerHTML = `
@@ -88,7 +88,7 @@
                                 <dt>Type</dt><dd>${escape(matter.matter_type || '—')}</dd>
                                 <dt>Opened</dt><dd>${P.fmtDate(matter.created_at)}</dd>
                                 <dt>Last update</dt><dd>${P.fmtDate(matter.updated_at || matter.created_at)}</dd>
-                                <dt>Originating request</dt><dd>${requestLink}</dd>
+                                <dt>From request</dt><dd>${requestLink}</dd>
                             </dl>
                             ${matter.description ? `<div class="section-divider">${escape(matter.description)}</div>` : ''}
                         </div>
@@ -96,7 +96,7 @@
 
                     <section class="panel" id="conversation-panel">
                         <div class="panel-head"><h2>Conversation</h2><span class="panel-meta">Everything said about this matter, kept as your record</span></div>
-                        <div class="panel-body"><div id="matter-chat"><div class="empty-state tight"><span class="ico">·</span><strong>Loading conversation…</strong></div></div></div>
+                        <div class="panel-body"><div id="matter-chat"><div class="empty-state tight"><strong>Loading conversation…</strong></div></div></div>
                     </section>
 
                     <section class="panel">
@@ -120,7 +120,7 @@
                         <div class="panel-head"><h2>Quick actions</h2></div>
                         <div class="panel-body">
                             <a class="btn primary" href="messages.html?matter=${matter.id}">Message the firm <span class="arrow" aria-hidden="true">→</span></a>
-                            ${matter.originating_request_id ? `<a class="btn secondary spacer-2" href="request.html?id=${matter.originating_request_id}">View originating request</a>` : ''}
+                            ${matter.originating_request_id ? `<a class="btn secondary spacer-2" href="request.html?id=${matter.originating_request_id}">View the original request</a>` : ''}
                             <a class="btn secondary spacer-2" href="appointments.html">Appointments</a>
                         </div>
                     </section>
@@ -156,7 +156,7 @@
                 onActivity: () => { if (window.Portal && window.Portal.refreshUnreadIndicators) window.Portal.refreshUnreadIndicators(); }
             });
         } catch (err) {
-            host.innerHTML = `<div class="empty-state tight"><span class="ico">!</span><strong>Could not load the conversation.</strong><p>${escape(err.message || '')}</p></div>`;
+            host.innerHTML = `<div class="empty-state tight"><span class="ico"><svg viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7.5v5.5M12 16.5h.01"/></svg></span><strong>Could not load the conversation.</strong><p>${escape(err.message || '')}</p></div>`;
         }
     }
 

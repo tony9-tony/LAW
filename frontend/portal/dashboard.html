@@ -18,11 +18,11 @@
                     <div>
                         <span class="kicker" id="dashboard-date">Client workspace</span>
                         <h1 id="welcome-title">Welcome back.</h1>
-                        <p class="head-meta">Your matters, requests, and next steps in one considered view.</p>
+                        <p class="head-meta">Your requests, matters, invoices and next steps in one place.</p>
                     </div>
                     <div class="page-actions">
                         <a class="btn primary" href="custom-matter.html">+ New request</a>
-                        <a class="dashboard-search" href="matters.html" aria-label="Search matters and documents">Search matters, documents <span aria-hidden="true">⌕</span></a>
+                        <a class="btn secondary" href="consultation.html">Book a consultation</a>
                     </div>
                 </div>
 
@@ -46,6 +46,22 @@
                     <div class="dashboard-stat"><span>Unread notices</span><strong id="kpi-notif">—</strong><small id="kpi-notif-meta">Loading…</small></div>
                 </section>
 
+                <section class="panel dashboard-howto" aria-labelledby="howto-head">
+                    <div class="panel-head">
+                        <h2 id="howto-head">How it works</h2>
+                        <a class="btn small secondary" href="../how-it-works.html">Full guide</a>
+                    </div>
+                    <div class="panel-body">
+                        <ol class="journey-mini">
+                            <li><strong>Send a request</strong><span>Press New request and describe your matter. Attach documents if you have them.</span></li>
+                            <li><strong>The firm reviews</strong><span>You may be asked for more details. Watch Notifications.</span></li>
+                            <li><strong>Pay the invoice</strong><span>Once accepted, open Invoices, pay by Lipa Namba and upload the receipt.</span></li>
+                            <li><strong>Matter opens</strong><span>After the payment is confirmed your matter starts under My matters.</span></li>
+                            <li><strong>Follow the work</strong><span>Use Messages, Documents and Appointments until the matter is closed.</span></li>
+                        </ol>
+                    </div>
+                </section>
+
                 <section class="dashboard-grid" aria-label="Workspace activity">
                 <section class="panel dashboard-panel dashboard-panel--wide" aria-labelledby="req-head">
                     <div class="panel-head">
@@ -59,12 +75,10 @@
                                     <th class="col-ref">Reference</th>
                                     <th>Subject</th>
                                     <th class="col-status-140">Status</th>
-                                    <th class="col-date-140">Submitted</th>
-                                    <th class="col-date-140">Last update</th>
                                 </tr>
                             </thead>
                             <tbody id="recent-body">
-                                <tr><td colspan="5" class="empty-state tight"><span class="ico">·</span><strong>Loading your requests…</strong></td></tr>
+                                <tr><td colspan="3" class="empty-state tight"><strong>Loading your requests…</strong></td></tr>
                             </tbody>
                         </table>
                     </div>
@@ -76,7 +90,7 @@
                         <span class="panel-meta">Accepted by the firm</span>
                     </div>
                     <div class="panel-body tight" id="matters-body">
-                        <div class="empty-state tight"><span class="ico">·</span><strong>Loading…</strong></div>
+                        <div class="empty-state tight"><strong>Loading…</strong></div>
                     </div>
                 </section>
 

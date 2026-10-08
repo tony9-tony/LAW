@@ -170,6 +170,26 @@ ownerRouter.post('/users', async (request, response, next) => {
     } catch (error) { next(error); }
 });
 
+/* POST /api/v1/owner/users/:id/password — the owner sets a temporary password for
+   someone who forgot theirs. There is no e-mail in this system, so this is how a
+   forgotten password is recovered; the person then changes it under Profile. */
+ownerRouter.post('/users/:id/password', async (request, response, next) => {
+    try {
+        const userId = z.string().uuid().parse(request.params.id);
+        const input = z.object({ password: z.string().min(12).max(200) }).parse(request.body || {});
+        const { default: bcrypt } = await import('bcryptjs');
+        const result = await query(
+            `UPDATE users SET password_hash = $1, updated_at = NOW() WHERE id = $2 RETURNING id, email, role`,
+            [await bcrypt.hash(input.password, 12), userId]
+        );
+        if (result.rowCount === 0) {
+            return response.status(404).json({ error: { code: 'NOT_FOUND', message: 'User not found' } });
+        }
+        await logAudit({ actorId: request.user.sub, action: 'PASSWORD_SET_BY_OWNER', entityType: 'user', entityId: userId, metadata: { target_id: userId, role: result.rows[0].role } });
+        response.json({ data: { id: result.rows[0].id, passwordSet: true } });
+    } catch (error) { next(error); }
+});
+
 /* PATCH /api/v1/owner/users/:id - update role, status, name */
 const updateUserSchema = z.object({
     fullName: z.string().trim().min(2).max(160).optional(),

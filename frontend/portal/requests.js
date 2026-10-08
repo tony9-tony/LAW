@@ -14,7 +14,7 @@
             const res = await API.listRequests();
             const rows = (res && res.data) || [];
             if (!rows.length) {
-                tbody.innerHTML = `<tr><td colspan="5" class="empty-state"><span class="ico">·</span><strong>You haven't submitted any requests yet.</strong><p>Use the custom matter intake or book a consultation to begin.</p><div class="empty-actions"><a class="btn" href="custom-matter.html">Submit a matter <span class="arrow">→</span></a><a class="btn secondary" href="consultation.html">Book consultation</a></div></td></tr>`;
+                tbody.innerHTML = `<tr><td colspan="5" class="empty-state"><strong>You haven't submitted any requests yet.</strong><p>Use the custom matter intake or book a consultation to begin.</p><div class="empty-actions"><a class="btn" href="custom-matter.html">Submit a matter <span class="arrow">→</span></a><a class="btn secondary" href="consultation.html">Book consultation</a></div></td></tr>`;
                 if (meta) meta.textContent = '0 requests';
                 return;
             }
@@ -30,7 +30,7 @@
             if (meta) meta.textContent = rows.length + ' request' + (rows.length === 1 ? '' : 's');
         } catch (err) {
             if (err && err.status === 401) { window.location.replace('../login.html'); return; }
-            tbody.innerHTML = `<tr><td colspan="5" class="empty-state"><span class="ico">!</span><strong>Could not load your requests.</strong><p>${escape(err.message || 'Please try again shortly.')}</p><button class="btn" type="button" id="retry-requests">Retry</button></td></tr>`;
+            tbody.innerHTML = `<tr><td colspan="5" class="empty-state"><span class="ico"><svg viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7.5v5.5M12 16.5h.01"/></svg></span><strong>Could not load your requests.</strong><p>${escape(err.message || 'Please try again shortly.')}</p><button class="btn" type="button" id="retry-requests">Retry</button></td></tr>`;
             if (meta) meta.textContent = 'Error';
             document.getElementById('retry-requests')?.addEventListener('click', load);
         }

@@ -39,8 +39,16 @@ function makeDefaultImpl() {
 export function setDbImpl(nextImpl) { impl = nextImpl; }
 export function resetDbImpl() { impl = makeDefaultImpl(); }
 
+/* Methods are bound to the real pool: called through the proxy, `this` would
+   otherwise be the proxy and pg's internal state would be lost (the migration
+   runner hung on pool.connect() for that reason). */
 export const pool = new Proxy({}, {
-    get(_t, prop) { return impl.pool ? impl.pool[prop] : undefined; }
+    get(_t, prop) {
+        const real = impl.pool;
+        if (!real) return undefined;
+        const value = real[prop];
+        return typeof value === 'function' ? value.bind(real) : value;
+    }
 });
 
 export async function query(text, values) { return impl.query(text, values); }

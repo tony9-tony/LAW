@@ -145,7 +145,7 @@
 
     function renderThread(items) {
         if (!items || !items.length) {
-            threadEl.innerHTML = `<div class="empty-state tight"><span class="ico">·</span><strong>No messages yet.</strong><p>The firm will write to you here.</p></div>`;
+            threadEl.innerHTML = `<div class="empty-state tight"><strong>No messages yet.</strong><p>The firm will write to you here.</p></div>`;
             lastKnownMessageId = null;
             displayedMessageIds.clear();
             return;
@@ -248,7 +248,7 @@
         if (!msgSection || !threadEl) return;
         msgSection.style.display = '';
         if (msgMetaEl) msgMetaEl.textContent = 'Starting conversation…';
-        threadEl.innerHTML = `<div class="empty-state tight"><span class="ico">·</span><strong>Loading conversation…</strong></div>`;
+        threadEl.innerHTML = `<div class="empty-state tight"><strong>Loading conversation…</strong></div>`;
 
         try {
             let convo;
@@ -272,7 +272,7 @@
             startPolling();
         } catch (err) {
             if (err && err.status === 401) { window.location.replace('../login.html'); return; }
-            threadEl.innerHTML = `<div class="empty-state tight"><span class="ico">!</span><strong>Could not load conversation.</strong><p>${escape(err.message || 'Please try again.')}</p></div>`;
+            threadEl.innerHTML = `<div class="empty-state tight"><span class="ico"><svg viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7.5v5.5M12 16.5h.01"/></svg></span><strong>Could not load conversation.</strong><p>${escape(err.message || 'Please try again.')}</p></div>`;
             if (msgMetaEl) msgMetaEl.textContent = 'Error';
         }
     }

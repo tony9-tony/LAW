@@ -23,7 +23,8 @@
         toast.className = 'portal-toast portal-toast-' + (type || 'info');
         toast.setAttribute('role', 'alert');
         toast.setAttribute('aria-live', 'polite');
-        const icon = type === 'success' ? '✓' : type === 'error' ? '!' : type === 'warning' ? '⚠' : 'ℹ';
+        const svg = (d) => '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' + d + '</svg>';
+        const icon = type === 'success' ? svg('<path d="M20 6 9 17l-5-5"/>') : type === 'error' || type === 'warning' ? svg('<path d="M12 8v5M12 17h.01"/><circle cx="12" cy="12" r="9"/>') : svg('<circle cx="12" cy="12" r="9"/><path d="M12 11v5M12 8h.01"/>');
         toast.innerHTML = '<span class="portal-toast-icon">' + icon + '</span><span class="portal-toast-message">' + escape(message) + '</span>';
         container.appendChild(toast);
         requestAnimationFrame(() => toast.classList.add('portal-toast-show'));
@@ -105,7 +106,7 @@
                 reqRoot.querySelectorAll('button[data-answer]').forEach((btn) => btn.addEventListener('click', () => openUploadModal({ matterId: btn.dataset.matter, requestId: btn.dataset.answer, description: btn.dataset.desc })));
             }
             if (!items.length) {
-                root.innerHTML = `<div class="empty-state"><span class="ico">·</span><strong>No documents yet.</strong><p>Documents you upload, and those the firm shares with you, appear here.</p></div>`;
+                root.innerHTML = `<div class="empty-state"><strong>No documents yet.</strong><p>Documents you upload, and those the firm shares with you, appear here.</p></div>`;
                 meta.textContent = '0 documents';
                 return;
             }
@@ -132,7 +133,7 @@
             bindActions();
         } catch (err) {
             if (err && err.status === 401) { window.location.replace('../login.html'); return; }
-            root.innerHTML = `<div class="empty-state"><span class="ico">!</span><strong>Could not load documents.</strong><p>${escape(err.message || 'Please try again shortly.')}</p></div>`;
+            root.innerHTML = `<div class="empty-state"><span class="ico"><svg viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7.5v5.5M12 16.5h.01"/></svg></span><strong>Could not load documents.</strong><p>${escape(err.message || 'Please try again shortly.')}</p></div>`;
             meta.textContent = 'Error';
         }
     }
@@ -140,7 +141,7 @@
     async function loadDocumentDetail(docId) {
         const root = document.getElementById('docs-root');
         const meta = document.getElementById('docs-meta');
-        root.innerHTML = '<div class="empty-state"><span class="ico">·</span><strong>Loading document…</strong></div>';
+        root.innerHTML = '<div class="empty-state"><strong>Loading document…</strong></div>';
         meta.textContent = 'Loading…';
         try {
             const res = await API.request(`/documents/${encodeURIComponent(docId)}`, { auth: true });
@@ -182,7 +183,7 @@
             document.getElementById('btn-back-docs')?.addEventListener('click', load);
             bindDownloads();
         } catch (err) {
-            root.innerHTML = `<div class="empty-state"><span class="ico">!</span><strong>Could not load document.</strong><p>${escape(err.message || 'Please try again shortly.')}</p></div>`;
+            root.innerHTML = `<div class="empty-state"><span class="ico"><svg viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7.5v5.5M12 16.5h.01"/></svg></span><strong>Could not load document.</strong><p>${escape(err.message || 'Please try again shortly.')}</p></div>`;
             meta.textContent = 'Error';
         }
     }

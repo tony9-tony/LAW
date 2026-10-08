@@ -10,7 +10,7 @@
         const input = field.querySelector('input, textarea, select');
         if (!input) return true;
 
-        const value = (input.value || '').trim();
+        const value = input.type === 'checkbox' ? (input.checked ? 'on' : '') : (input.value || '').trim();
         let valid = true;
 
         if (input.required && !value) valid = false;
@@ -90,6 +90,14 @@
                     }
 
                     const userRole = (res && res.data && res.data.user && res.data.user.role) || '';
+                    /* Lawyer and staff accounts have no workspace in the browser yet: the
+                       client portal would show them an empty client file. */
+                    if (userRole === 'LAWYER' || userRole === 'STAFF') {
+                        window.Site.logout();
+                        status.className = 'form-status error';
+                        status.innerHTML = '<strong>This is a firm staff account.</strong>The client portal is for clients. Please ask the owner for access.';
+                        return;
+                    }
                     status.className = 'form-status success';
                     status.innerHTML = userRole === 'OWNER'
                         ? '<strong>Signed in.</strong>Redirecting to the admin sign-in…'
@@ -106,23 +114,6 @@
                     return;
                 }
 
-                if (mode === 'forgot') {
-                    status.className = 'form-status success';
-                    status.innerHTML = '<strong>Recovery link sent.</strong>Check your inbox for the secure reset instructions.';
-                    form.reset();
-                    return;
-                }
-
-                if (mode === 'reset') {
-                    if (data.password !== data.confirmPassword) {
-                        status.className = 'form-status error';
-                        status.innerHTML = '<strong>Password mismatch.</strong>Please confirm the new password and try again.';
-                        return;
-                    }
-                    status.className = 'form-status success';
-                    status.innerHTML = '<strong>Password updated.</strong>You can sign in with your new workspace key.';
-                    setTimeout(() => { window.location.href = 'login.html'; }, 800);
-                }
             } catch (err) {
                 status.className = 'form-status error';
                 const msg = err && err.message ? escapeHtml(String(err.message)) : 'The request could not be completed.';

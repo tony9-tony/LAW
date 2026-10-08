@@ -3,6 +3,7 @@ import { z } from 'zod';
 import fs from 'node:fs';
 import path from 'node:path';
 import crypto from 'node:crypto';
+import bcrypt from 'bcryptjs';
 import { authenticate } from '../middleware/auth.js';
 import { query } from '../db.js';
 import { config } from '../config.js';
@@ -71,6 +72,26 @@ profileRouter.patch('/', async (request, response, next) => {
         );
         await logAudit({ actorId: request.user.sub, action: 'PROFILE_UPDATED', entityType: 'user', entityId: request.user.sub, metadata: { fields: updates.map(u => u.replace(/ .*/,'').replace(/"/g,'')) } });
         response.json({ data: result.rows[0] });
+    } catch (error) { next(error); }
+});
+
+/* POST /api/v1/profile/password — change your own password (the current one is required). */
+profileRouter.post('/password', async (request, response, next) => {
+    try {
+        const input = z.object({
+            currentPassword: z.string().min(1).max(200),
+            newPassword: z.string().min(12).max(200)
+        }).parse(request.body || {});
+        const row = await query('SELECT password_hash FROM users WHERE id = $1 LIMIT 1', [request.user.sub]);
+        if (row.rowCount === 0 || !(await bcrypt.compare(input.currentPassword, row.rows[0].password_hash))) {
+            return response.status(400).json({ error: { code: 'WRONG_PASSWORD', message: 'Your current password is not correct.' } });
+        }
+        if (input.currentPassword === input.newPassword) {
+            return response.status(400).json({ error: { code: 'SAME_PASSWORD', message: 'Choose a password different from the current one.' } });
+        }
+        await query('UPDATE users SET password_hash = $1, updated_at = NOW() WHERE id = $2', [await bcrypt.hash(input.newPassword, 12), request.user.sub]);
+        await logAudit({ actorId: request.user.sub, action: 'PASSWORD_CHANGED', entityType: 'user', entityId: request.user.sub, metadata: {} });
+        response.json({ data: { changed: true } });
     } catch (error) { next(error); }
 });
 

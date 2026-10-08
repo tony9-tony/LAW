@@ -24,15 +24,13 @@
             const rows = (res && res.data) || [];
             const tbody = document.getElementById('recent-body');
             if (!rows.length) {
-                tbody.innerHTML = `<tr><td colspan="5" class="empty-state tight"><span class="ico">·</span><strong>No requests yet.</strong><p>Submit a request to begin working with the firm. Your request will be reviewed and you will receive a response here.</p><div class="empty-actions"><a class="btn" href="custom-matter.html">Submit a request <span class="arrow">→</span></a><a class="btn secondary" href="consultation.html">Book consultation</a></div></td></tr>`;
+                tbody.innerHTML = `<tr><td colspan="3" class="empty-state tight"><strong>No requests yet.</strong><p>Submit a request to begin working with the firm. Your request will be reviewed and you will receive a response here.</p><div class="empty-actions"><a class="btn" href="custom-matter.html">Submit a request <span class="arrow">→</span></a><a class="btn secondary" href="consultation.html">Book consultation</a></div></td></tr>`;
             } else {
                 tbody.innerHTML = rows.slice(0, 6).map((r) => `
                     <tr class="row-link" data-href="request.html?id=${r.id}">
-                        <td><span class="ref">#${String(r.id).padStart(5, '0')}</span></td>
+                        <td><span class="ref">#${P.shortRef(r.id)}</span></td>
                         <td class="subj"><strong>${escape(r.subject || '—')}</strong></td>
                         <td>${P.statusPill(r.status)}</td>
-                        <td class="muted">${P.fmtDateShort(r.created_at)}</td>
-                        <td class="muted">${P.fmtDateShort(r.updated_at || r.created_at)}</td>
                     </tr>
                 `).join('');
             }
@@ -48,7 +46,7 @@
                     next.innerHTML = '<strong>Get started</strong>Submit a request to begin working with the firm.';
                 } else if (review > 0) {
                     const top = rows.find((r) => (r.status || '').toLowerCase() !== 'closed') || rows[0];
-                    next.innerHTML = `<strong>Awaiting review</strong>Reference <a class="link-bronze" href="request.html?id=${top.id}">#${String(top.id).padStart(5,'0')}</a> is being reviewed by the firm.`;
+                    next.innerHTML = `<strong>Awaiting review.</strong> Request <a class="link-bronze" href="request.html?id=${top.id}">#${P.shortRef(top.id)}</a> is being reviewed by the firm.`;
                 } else {
                     next.innerHTML = '<strong>All caught up</strong>No requests are currently awaiting review.';
                 }
@@ -76,7 +74,7 @@
         } catch (err) {
             if (err && err.status === 401) { window.location.replace('../login.html'); return; }
             const tbody = document.getElementById('recent-body');
-            if (tbody) tbody.innerHTML = `<tr><td colspan="5" class="empty-state tight"><span class="ico">!</span><strong>Could not load requests.</strong><p>${escape(err.message || 'Please try again shortly.')}</p><button class="btn" type="button" id="retry-requests">Retry</button></td></tr>`;
+            if (tbody) tbody.innerHTML = `<tr><td colspan="3" class="empty-state tight"><span class="ico"><svg viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7.5v5.5M12 16.5h.01"/></svg></span><strong>Could not load requests.</strong><p>${escape(err.message || 'Please try again shortly.')}</p><button class="btn" type="button" id="retry-requests">Retry</button></td></tr>`;
             document.getElementById('retry-requests')?.addEventListener('click', loadRequests);
         }
     }
@@ -115,7 +113,7 @@
             document.getElementById('kpi-matters') && (document.getElementById('kpi-matters').textContent = String(active));
             document.getElementById('kpi-matters-meta') && (document.getElementById('kpi-matters-meta').textContent = items.length + ' total');
             if (!items.length) {
-                body.innerHTML = `<div class="empty-state tight"><span class="ico">·</span><strong>No matters yet.</strong><p>Matters are created only after the firm accepts a request. Until then, your requests appear under <a class="link-bronze" href="requests.html">Requests</a>.</p></div>`;
+                body.innerHTML = `<div class="empty-state tight"><strong>No matters yet.</strong><p>Matters are created only after the firm accepts a request. Until then, your requests appear under <a class="link-bronze" href="requests.html">Requests</a>.</p></div>`;
                 return;
             }
             body.innerHTML = items.map((m) => `
@@ -131,7 +129,7 @@
             `).join('');
         } catch (err) {
             if (err && err.status === 401) { window.location.replace('../login.html'); return; }
-            if (body) body.innerHTML = `<div class="empty-state tight"><span class="ico">!</span><strong>Could not load matters.</strong><p>${escape(err.message || 'Please try again.')}</p></div>`;
+            if (body) body.innerHTML = `<div class="empty-state tight"><span class="ico"><svg viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7.5v5.5M12 16.5h.01"/></svg></span><strong>Could not load matters.</strong><p>${escape(err.message || 'Please try again.')}</p></div>`;
         }
     }
 

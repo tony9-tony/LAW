@@ -19,7 +19,7 @@
                     <div>
                         <span class="kicker">Account</span>
                         <h1>Profile.</h1>
-                        <p class="head-meta">Your account information. Only what is required to identify you and contact you about your matters.</p>
+                        <p class="head-meta">Your account details, your name and your password.</p>
                     </div>
                 </div>
 
@@ -36,6 +36,43 @@
                         </div>
                     </section>
 
+                    <section class="panel">
+                        <div class="panel-head"><h2>Your name</h2></div>
+                        <div class="panel-body">
+                            <form id="name-form" class="stack-form" novalidate>
+                                <div class="field">
+                                    <label for="pf-name">Full name</label>
+                                    <input id="pf-name" name="full_name" type="text" autocomplete="name" minlength="2" maxlength="160" required>
+                                </div>
+                                <button class="btn" type="submit">Save name</button>
+                                <div class="form-status" id="name-status" role="status" aria-live="polite"></div>
+                            </form>
+                        </div>
+                    </section>
+
+                    <section class="panel">
+                        <div class="panel-head"><h2>Change password</h2></div>
+                        <div class="panel-body">
+                            <form id="password-form" class="stack-form" novalidate>
+                                <div class="field">
+                                    <label for="pf-current">Current password</label>
+                                    <input id="pf-current" name="currentPassword" type="password" autocomplete="current-password" required>
+                                </div>
+                                <div class="field">
+                                    <label for="pf-new">New password</label>
+                                    <input id="pf-new" name="newPassword" type="password" autocomplete="new-password" minlength="12" required>
+                                    <span class="help">At least 12 characters.</span>
+                                </div>
+                                <div class="field">
+                                    <label for="pf-confirm">Confirm new password</label>
+                                    <input id="pf-confirm" name="confirm" type="password" autocomplete="new-password" minlength="12" required>
+                                </div>
+                                <button class="btn" type="submit">Change password</button>
+                                <div class="form-status" id="password-status" role="status" aria-live="polite"></div>
+                            </form>
+                        </div>
+                    </section>
+
                     <aside>
                         <section class="panel">
                             <div class="panel-head"><h2>Session</h2></div>
@@ -45,8 +82,8 @@
                             </div>
                         </section>
                         <div class="alert info mt-1-5">
-                            <strong>Profile editing.</strong>
-                            Updating contact details through the portal is being prepared. Until that is available, please notify the firm by email if your details change.
+                            <strong>Changing your email?</strong>
+                            Your email is how you sign in. Send the firm a message and they will update it for you.
                         </div>
                     </aside>
                 </div>

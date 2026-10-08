@@ -16,14 +16,36 @@
             .replace(/'/g, '&#39;');
     }
 
+    /* Plain words for the server's status codes, the same as in the client portal. */
+    const STATUS_LABELS = {
+        submitted: 'New', under_review: 'Under review', action_required: 'Waiting for client', accepted: 'Accepted',
+        declined: 'Declined', scheduled: 'Scheduled', completed: 'Completed', closed: 'Closed', open: 'Open', active: 'Active',
+        on_hold: 'On hold', resolved: 'Resolved', confirmed: 'Confirmed', cancelled: 'Cancelled', no_show: 'No-show',
+        draft: 'Draft', issued: 'Issued', paid: 'Paid', overdue: 'Overdue', unpaid: 'Not paid', payment_required: 'Awaiting payment',
+        payment_pending_verification: 'Proof to check', payment_rejected: 'Proof rejected', pending: 'To verify',
+        verified: 'Verified', rejected: 'Rejected', new: 'New'
+    };
+    function statusLabel(status) {
+        const key = String(status || 'new').toLowerCase().replace(/\s+/g, '_');
+        return STATUS_LABELS[key] || String(status || '').replace(/_/g, ' ').toLowerCase().replace(/^\w/, (c) => c.toUpperCase());
+    }
     function statusPill(status) {
         const s = (status || 'new').toLowerCase().replace(/\s+/g, '_');
-        const label = (status || 'new').replace(/_/g, ' ');
-        return `<span class="pill status-${s}">${escape(label)}</span>`;
+        return `<span class="pill status-${s}">${escape(statusLabel(status))}</span>`;
+    }
+    const ROLE_LABELS = { CLIENT: 'Client', OWNER: 'Owner (administrator)', LAWYER: 'Lawyer', STAFF: 'Staff' };
+    function roleLabel(role) { return ROLE_LABELS[String(role || '').toUpperCase()] || String(role || ''); }
+
+    /* "8 Oct 2026, 10:14" everywhere; an empty value stays empty. */
+    function fmtWhen(d) {
+        if (!d) return '';
+        const v = new Date(d);
+        if (isNaN(v.getTime())) return String(d);
+        return v.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }) + ', ' + v.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
     }
 
     const P = {
-        fmtDate: (d) => (d ? new Date(d).toLocaleDateString() : '')
+        fmtDate: (d) => fmtWhen(d)
     };
 
     function api(path, opts) {
@@ -57,7 +79,7 @@
             return;
         }
         const container = document.getElementById('main-content');
-        container.innerHTML = '<div class="empty-state"><span class="ico">·</span><strong>Loading...</strong></div>';
+        container.innerHTML = '<div class="empty-state"><strong>Loading...</strong></div>';
         if (ownerChat && section !== 'messages') { ownerChat.destroy(); ownerChat = null; }
         try {
             switch (section) {
@@ -90,7 +112,7 @@
                 window.location.href = 'login.html';
                 return;
             }
-            container.innerHTML = `<div class="empty-state"><span class="ico">!</span><strong>Error loading section.</strong><p>${escape(error.message)}</p></div>`;
+            container.innerHTML = `<div class="empty-state"><span class="ico"><svg viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7.5v5.5M12 16.5h.01"/></svg></span><strong>Error loading section.</strong><p>${escape(error.message)}</p></div>`;
         }
     }
 
@@ -697,7 +719,19 @@
                 <div class="kpi kpi-clickable" data-nav="requests"><div class="kpi-label">Open Requests</div><div class="kpi-value" id="dash-requests">—</div><div class="kpi-trend" id="dash-requests-meta">Awaiting review</div></div>
                 <div class="kpi kpi-clickable" data-nav="matters"><div class="kpi-label">Active Matters</div><div class="kpi-value" id="dash-matters">—</div><div class="kpi-trend" id="dash-matters-meta">In progress</div></div>
                 <div class="kpi kpi-clickable" data-nav="appointments"><div class="kpi-label">Upcoming Appointments</div><div class="kpi-value" id="dash-appts">—</div><div class="kpi-trend" id="dash-appts-meta">This week</div></div>
-                <div class="kpi kpi-clickable" data-nav="messages"><div class="kpi-label">Unread Messages</div><div class="kpi-value" id="dash-notif">—</div><div class="kpi-trend" id="dash-notif-meta">Awaiting attention</div></div>
+                <div class="kpi kpi-clickable" data-nav="notifications"><div class="kpi-label">Unread notifications</div><div class="kpi-value" id="dash-notif">—</div><div class="kpi-trend" id="dash-notif-meta">Open Notifications</div></div>
+            </section>
+            <section class="panel owner-steps" aria-labelledby="owner-steps-title">
+                <div class="panel-head"><h2 id="owner-steps-title">Your steps, from request to service</h2></div>
+                <div class="panel-body">
+                    <ol class="owner-journey">
+                        <li><strong>Review the request</strong><span>Open Requests. Ask the client for more information, decline with a reason, or accept.</span></li>
+                        <li><strong>Set the payment</strong><span>On the request, use Set Payment. The client sees the invoice and the Lipa Namba in their portal.</span></li>
+                        <li><strong>Verify the receipt</strong><span>Open Payments. Check the receipt against your Lipa Namba statement, then Verify or Reject with a reason.</span></li>
+                        <li><strong>Matter opens</strong><span>Verifying the payment opens the matter. Message the client first so they can reply.</span></li>
+                        <li><strong>Run and close</strong><span>Share documents, book appointments, update the matter status, and close it when the work is done.</span></li>
+                    </ol>
+                </div>
             </section>
             <section class="panel">
                 <div class="panel-head">
@@ -705,7 +739,7 @@
                     <a class="btn ghost" href="#" data-nav="requests">View all</a>
                 </div>
                 <div class="panel-body tight" id="dash-recent-requests">
-                    <div class="empty-state"><span class="ico">·</span><strong>Loading...</strong></div>
+                    <div class="empty-state"><strong>Loading...</strong></div>
                 </div>
             </section>
             <section class="panel">
@@ -714,7 +748,7 @@
                     <a class="btn ghost" href="#" data-nav="messages">View all</a>
                 </div>
                 <div class="panel-body tight" id="dash-recent-messages">
-                    <div class="empty-state"><span class="ico">·</span><strong>Loading...</strong></div>
+                    <div class="empty-state"><strong>Loading...</strong></div>
                 </div>
             </section>
             <section class="panel">
@@ -723,7 +757,7 @@
                     <a class="btn ghost" href="#" data-nav="matters">View all</a>
                 </div>
                 <div class="panel-body tight" id="dash-recent-matters">
-                    <div class="empty-state"><span class="ico">·</span><strong>Loading...</strong></div>
+                    <div class="empty-state"><strong>Loading...</strong></div>
                 </div>
             </section>
         `;
@@ -762,7 +796,7 @@
             const res = await api('/owner/requests', { auth: true });
             const items = (res && res.data) || [];
             if (!items.length) {
-                el.innerHTML = '<div class="empty-state"><span class="ico">·</span><strong>No requests yet.</strong><p>New requests will appear here as clients submit them.</p></div>';
+                el.innerHTML = '<div class="empty-state"><strong>No requests yet.</strong><p>New requests will appear here as clients submit them.</p></div>';
             } else {
                 el.innerHTML = `<table class="table"><thead><tr>
                     <th>ID</th><th>Subject</th><th>Client</th><th>Status</th><th>Created</th><th>Actions</th>
@@ -771,8 +805,8 @@
                         <td class="mono">#${r.id.split('-')[0]}</td>
                         <td>${escape(r.subject)}</td>
                         <td class="muted">${escape(r.client_name)}</td>
-                        <td>${escape(r.status)}</td>
-                        <td class="muted">${escape(r.created_at)}</td>
+                        <td>${statusPill(r.status)}</td>
+                        <td class="muted">${escape(fmtWhen(r.created_at))}</td>
                         <td><button class="btn small secondary" data-request="${r.id}">View</button></td>
                     </tr>
                 `).join('')}</tbody></table>`;
@@ -781,7 +815,7 @@
                 });
             }
         } catch (error) {
-            el.innerHTML = `<div class="empty-state"><span class="ico">!</span><strong>Could not load requests.</strong><p>${escape(error.message)}</p></div>`;
+            el.innerHTML = `<div class="empty-state"><span class="ico"><svg viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7.5v5.5M12 16.5h.01"/></svg></span><strong>Could not load requests.</strong><p>${escape(error.message)}</p></div>`;
         }
     }
 
@@ -792,7 +826,7 @@
             const res = await api('/owner/conversations?limit=5', { auth: true });
             const items = (res && res.data) || [];
             if (!items.length) {
-                el.innerHTML = '<div class="empty-state"><span class="ico">·</span><strong>No messages yet.</strong></div>';
+                el.innerHTML = '<div class="empty-state"><strong>No messages yet.</strong></div>';
                 return;
             }
             el.innerHTML = items.slice(0, 5).map(c => `
@@ -805,7 +839,7 @@
                 </div>
             `).join('');
         } catch (e) {
-            el.innerHTML = '<div class="empty-state"><span class="ico">!</span><strong>Could not load messages.</strong></div>';
+            el.innerHTML = '<div class="empty-state"><span class="ico"><svg viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7.5v5.5M12 16.5h.01"/></svg></span><strong>Could not load messages.</strong></div>';
         }
     }
 
@@ -816,7 +850,7 @@
             const res = await api('/owner/matters', { auth: true });
             const items = (res && res.data) || [];
             if (!items.length) {
-                el.innerHTML = '<div class="empty-state"><span class="ico">·</span><strong>No open matters.</strong></div>';
+                el.innerHTML = '<div class="empty-state"><strong>No open matters.</strong></div>';
                 return;
             }
             el.innerHTML = `<table class="table"><thead><tr>
@@ -827,8 +861,8 @@
                     <td class="mono">${escape(m.reference)}</td>
                     <td>${escape(m.title || '—')}</td>
                     <td class="muted">${escape(m.client_name)}</td>
-                    <td>${escape(m.status)}</td>
-                    <td class="muted">${escape(m.updated_at)}</td>
+                    <td>${statusPill(m.status)}</td>
+                    <td class="muted">${escape(fmtWhen(m.updated_at))}</td>
                     <td><button class="btn small secondary" data-matter="${m.id}">View</button></td>
                 </tr>
             `).join('')}</tbody></table>`;
@@ -836,19 +870,19 @@
                 btn.addEventListener('click', () => loadMatterDetail(btn.getAttribute('data-matter')));
             });
         } catch (e) {
-            el.innerHTML = '<div class="empty-state"><span class="ico">!</span><strong>Could not load matters.</strong></div>';
+            el.innerHTML = '<div class="empty-state"><span class="ico"><svg viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7.5v5.5M12 16.5h.01"/></svg></span><strong>Could not load matters.</strong></div>';
         }
     }
 
     async function loadUsers() {
         const container = document.getElementById('main-content');
-        container.innerHTML = '<div class="empty-state"><span class="ico">·</span><strong>Loading users…</strong></div>';
+        container.innerHTML = '<div class="empty-state"><strong>Loading users…</strong></div>';
         try {
             const res = await api('/owner/users?limit=50', { auth: true });
             const items = (res && res.data) || [];
             container.innerHTML = `
                 <div class="page-head">
-                    <div><h1>Users</h1><p class="head-meta">Manage platform users, roles, and account status.</p></div>
+                    <div><h1>Users &amp; passwords</h1><p class="head-meta">Create accounts and set a temporary password for anyone who forgot theirs. The portal sends no e-mails: give the temporary password to the person directly. They change it under Profile.</p></div>
                     <div class="action-row"><button class="btn primary" id="show-create-user">New User</button></div>
                 </div>
                 <section class="panel" id="create-user-panel" style="display:none;margin-bottom:1rem;">
@@ -876,9 +910,7 @@
                                     <label for="cu-role">Role</label>
                                     <select id="cu-role" name="role" required>
                                         <option value="CLIENT">Client</option>
-                                        <option value="LAWYER">Lawyer</option>
-                                        <option value="STAFF">Staff</option>
-                                        <option value="OWNER">Owner</option>
+                                        <option value="OWNER">Owner (full administrator)</option>
                                     </select>
                                 </div>
                             </div>
@@ -900,9 +932,9 @@
                                     <td class="mono">#${u.id.split('-')[0]}</td>
                                     <td>${escape(u.full_name)}</td>
                                     <td class="muted">${escape(u.email)}</td>
-                                    <td>${escape(u.role)}</td>
+                                    <td>${escape(roleLabel(u.role))}</td>
                                     <td>${u.is_active ? '<span class="pill status-open">Active</span>' : '<span class="pill status-closed">Inactive</span>'}</td>
-                                    <td><button class="btn small secondary" data-user="${u.id}">View</button></td>
+                                    <td class="nowrap"><button class="btn small secondary" data-set-password="${u.id}" data-user-name="${escape(u.full_name || u.email)}">Set temporary password</button></td>
                                 </tr>
                             `).join('')}</tbody>
                         </table>
@@ -916,6 +948,18 @@
             document.getElementById('hide-create-user')?.addEventListener('click', () => {
                 const panel = document.getElementById('create-user-panel');
                 if (panel) panel.style.display = 'none';
+            });
+            container.querySelectorAll('[data-set-password]').forEach((btn) => {
+                btn.addEventListener('click', async () => {
+                    const who = btn.getAttribute('data-user-name');
+                    const pw = window.prompt(`New temporary password for ${who} (at least 12 characters).\nGive it to them directly; they change it under Profile.`);
+                    if (pw === null) return;
+                    if (pw.length < 12) { window.alert('The password must be at least 12 characters.'); return; }
+                    try {
+                        await api(`/owner/users/${btn.getAttribute('data-set-password')}/password`, { method: 'POST', body: { password: pw }, auth: true });
+                        window.alert(`Temporary password set for ${who}.`);
+                    } catch (err) { window.alert('Could not set the password: ' + (err.message || 'please try again.')); }
+                });
             });
             const createForm = document.getElementById('createUserForm');
             if (createForm) {
@@ -938,13 +982,13 @@
                 });
             }
         } catch (error) {
-            container.innerHTML = `<div class="empty-state"><span class="ico">!</span><strong>Could not load users.</strong><p>${escape(error.message)}</p></div>`;
+            container.innerHTML = `<div class="empty-state"><span class="ico"><svg viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7.5v5.5M12 16.5h.01"/></svg></span><strong>Could not load users.</strong><p>${escape(error.message)}</p></div>`;
         }
     }
 
     async function loadClients() {
         const container = document.getElementById('main-content');
-        container.innerHTML = '<div class="empty-state"><span class="ico">·</span><strong>Loading clients…</strong></div>';
+        container.innerHTML = '<div class="empty-state"><strong>Loading clients…</strong></div>';
         try {
             const res = await api('/owner/clients', { auth: true });
             const items = (res && res.data) || [];
@@ -954,7 +998,7 @@
                     <div class="panel-head"><h2>All Clients</h2><span class="panel-meta">${items.length} total</span></div>
                     <div class="panel-body tight">
                         ${items.length === 0
-                            ? '<div class="empty-state"><span class="ico">·</span><strong>No clients yet.</strong><p>Clients will appear here when they register or are created.</p></div>'
+                            ? '<div class="empty-state"><strong>No clients yet.</strong><p>Clients will appear here when they register or are created.</p></div>'
                             : `<table class="table">
                             <thead><tr><th>ID</th><th>Name</th><th>Email</th><th>Status</th><th>Last Login</th><th>Created</th><th>Actions</th></tr></thead>
                             <tbody>${items.map((u) => `
@@ -964,7 +1008,7 @@
                                     <td class="muted">${escape(u.email)}</td>
                                     <td>${u.is_active ? '<span class="pill status-open">Active</span>' : '<span class="pill status-closed">Inactive</span>'}</td>
                                     <td class="muted">${escape(u.last_login_at || '—')}</td>
-                                    <td class="muted">${escape(u.created_at)}</td>
+                                    <td class="muted">${escape(fmtWhen(u.created_at))}</td>
                                     <td><button class="btn small secondary" data-client="${u.id}">View</button></td>
                                 </tr>
                             `).join('')}</tbody>
@@ -977,13 +1021,13 @@
                 btn.addEventListener('click', () => loadClientDetail(btn.getAttribute('data-client')));
             });
         } catch (error) {
-            container.innerHTML = `<div class="empty-state"><span class="ico">!</span><strong>Could not load clients.</strong><p>${escape(error.message)}</p></div>`;
+            container.innerHTML = `<div class="empty-state"><span class="ico"><svg viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7.5v5.5M12 16.5h.01"/></svg></span><strong>Could not load clients.</strong><p>${escape(error.message)}</p></div>`;
         }
     }
 
     async function loadLawyers() {
         const container = document.getElementById('main-content');
-        container.innerHTML = '<div class="empty-state"><span class="ico">·</span><strong>Loading lawyers…</strong></div>';
+        container.innerHTML = '<div class="empty-state"><strong>Loading lawyers…</strong></div>';
         try {
             const res = await api('/owner/lawyers', { auth: true });
             const items = (res && res.data) || [];
@@ -993,7 +1037,7 @@
                     <div class="panel-head"><h2>All Lawyers</h2><span class="panel-meta">${items.length} total</span></div>
                     <div class="panel-body tight">
                         ${items.length === 0
-                            ? '<div class="empty-state"><span class="ico">·</span><strong>No lawyers found.</strong></div>'
+                            ? '<div class="empty-state"><strong>No lawyers found.</strong></div>'
                             : `<table class="table">
                             <thead><tr><th>ID</th><th>Name</th><th>Email</th><th>Status</th><th>Last Login</th><th>Created</th><th>Actions</th></tr></thead>
                             <tbody>${items.map((u) => `
@@ -1003,7 +1047,7 @@
                                     <td class="muted">${escape(u.email)}</td>
                                     <td>${u.is_active ? '<span class="pill status-open">Active</span>' : '<span class="pill status-closed">Inactive</span>'}</td>
                                     <td class="muted">${escape(u.last_login_at || '—')}</td>
-                                    <td class="muted">${escape(u.created_at)}</td>
+                                    <td class="muted">${escape(fmtWhen(u.created_at))}</td>
                                     <td><button class="btn small secondary">View</button></td>
                                 </tr>
                             `).join('')}</tbody>
@@ -1013,13 +1057,13 @@
                 </section>
             `;
         } catch (error) {
-            container.innerHTML = `<div class="empty-state"><span class="ico">!</span><strong>Could not load lawyers.</strong><p>${escape(error.message)}</p></div>`;
+            container.innerHTML = `<div class="empty-state"><span class="ico"><svg viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7.5v5.5M12 16.5h.01"/></svg></span><strong>Could not load lawyers.</strong><p>${escape(error.message)}</p></div>`;
         }
     }
 
     async function loadOwners() {
         const container = document.getElementById('main-content');
-        container.innerHTML = '<div class="empty-state"><span class="ico">·</span><strong>Loading owners…</strong></div>';
+        container.innerHTML = '<div class="empty-state"><strong>Loading owners…</strong></div>';
         try {
             const res = await api('/owner/owners', { auth: true });
             const items = (res && res.data) || [];
@@ -1043,7 +1087,7 @@
                                     <td class="muted">${escape(u.email)}</td>
                                     <td>${u.is_active ? '<span class="pill status-open">Active</span>' : '<span class="pill status-closed">Inactive</span>'}</td>
                                     <td class="muted">${escape(u.last_login_at || '—')}</td>
-                                    <td class="muted">${escape(u.created_at)}</td>
+                                    <td class="muted">${escape(fmtWhen(u.created_at))}</td>
                                 </tr>
                             `).join('')}</tbody>
                         </table>
@@ -1147,13 +1191,13 @@
                 });
             }
         } catch (error) {
-            container.innerHTML = `<div class="empty-state"><span class="ico">!</span><strong>Could not load owners.</strong><p>${escape(error.message)}</p></div>`;
+            container.innerHTML = `<div class="empty-state"><span class="ico"><svg viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7.5v5.5M12 16.5h.01"/></svg></span><strong>Could not load owners.</strong><p>${escape(error.message)}</p></div>`;
         }
     }
 
     async function loadStaff() {
         const container = document.getElementById('main-content');
-        container.innerHTML = '<div class="empty-state"><span class="ico">·</span><strong>Loading staff…</strong></div>';
+        container.innerHTML = '<div class="empty-state"><strong>Loading staff…</strong></div>';
         try {
             const res = await api('/owner/staff', { auth: true });
             const items = (res && res.data) || [];
@@ -1163,7 +1207,7 @@
                     <div class="panel-head"><h2>All Staff</h2><span class="panel-meta">${items.length} total</span></div>
                     <div class="panel-body tight">
                         ${items.length === 0
-                            ? '<div class="empty-state"><span class="ico">·</span><strong>No staff found.</strong></div>'
+                            ? '<div class="empty-state"><strong>No staff found.</strong></div>'
                             : `<table class="table">
                             <thead><tr><th>ID</th><th>Name</th><th>Email</th><th>Status</th><th>Last Login</th><th>Created</th><th>Actions</th></tr></thead>
                             <tbody>${items.map((u) => `
@@ -1173,7 +1217,7 @@
                                     <td class="muted">${escape(u.email)}</td>
                                     <td>${u.is_active ? '<span class="pill status-open">Active</span>' : '<span class="pill status-closed">Inactive</span>'}</td>
                                     <td class="muted">${escape(u.last_login_at || '—')}</td>
-                                    <td class="muted">${escape(u.created_at)}</td>
+                                    <td class="muted">${escape(fmtWhen(u.created_at))}</td>
                                     <td><button class="btn small secondary">View</button></td>
                                 </tr>
                             `).join('')}</tbody>
@@ -1183,13 +1227,13 @@
                 </section>
             `;
         } catch (error) {
-            container.innerHTML = `<div class="empty-state"><span class="ico">!</span><strong>Could not load staff.</strong><p>${escape(error.message)}</p></div>`;
+            container.innerHTML = `<div class="empty-state"><span class="ico"><svg viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7.5v5.5M12 16.5h.01"/></svg></span><strong>Could not load staff.</strong><p>${escape(error.message)}</p></div>`;
         }
     }
 
     async function loadRequests() {
         const container = document.getElementById('main-content');
-        container.innerHTML = '<div class="empty-state"><span class="ico">·</span><strong>Loading requests…</strong></div>';
+        container.innerHTML = '<div class="empty-state"><strong>Loading requests…</strong></div>';
         try {
             const res = await api('/owner/requests', { auth: true });
             const items = (res && res.data) || [];
@@ -1199,7 +1243,7 @@
                     <div class="panel-head"><h2>All Requests</h2><span class="panel-meta">${items.length} total</span></div>
                     <div class="panel-body tight">
                         ${items.length === 0
-                            ? '<div class="empty-state"><span class="ico">·</span><strong>No requests yet.</strong><p>New requests will appear here as clients submit them.</p></div>'
+                            ? '<div class="empty-state"><strong>No requests yet.</strong><p>New requests will appear here as clients submit them.</p></div>'
                             : `<table class="table">
                             <thead><tr><th>ID</th><th>Subject</th><th>Client</th><th>Status</th><th>Created</th><th>Actions</th></tr></thead>
                             <tbody>${items.map((r) => `
@@ -1207,8 +1251,8 @@
                                     <td class="mono">#${r.id.split('-')[0]}</td>
                                     <td>${escape(r.subject)}</td>
                                     <td class="muted">${escape(r.client_name)}</td>
-                                    <td>${escape(r.status)}</td>
-                                    <td class="muted">${escape(r.created_at)}</td>
+                                    <td>${statusPill(r.status)}</td>
+                                    <td class="muted">${escape(fmtWhen(r.created_at))}</td>
                                     <td><button class="btn small secondary" data-request="${r.id}">View</button></td>
                                 </tr>
                             `).join('')}</tbody>
@@ -1221,13 +1265,13 @@
                 btn.addEventListener('click', () => loadRequestDetail(btn.getAttribute('data-request')));
             });
         } catch (error) {
-            container.innerHTML = `<div class="empty-state"><span class="ico">!</span><strong>Could not load requests.</strong><p>${escape(error.message)}</p></div>`;
+            container.innerHTML = `<div class="empty-state"><span class="ico"><svg viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7.5v5.5M12 16.5h.01"/></svg></span><strong>Could not load requests.</strong><p>${escape(error.message)}</p></div>`;
         }
     }
 
     async function loadRequestDetail(id) {
         const container = document.getElementById('main-content');
-        container.innerHTML = '<div class="empty-state"><span class="ico">·</span><strong>Loading request…</strong></div>';
+        container.innerHTML = '<div class="empty-state"><strong>Loading request…</strong></div>';
         try {
             const res = await api(`/owner/requests/${encodeURIComponent(id)}`, { auth: true });
             const r = (res && res.data) || {};
@@ -1558,13 +1602,13 @@
                 });
             }
         } catch (error) {
-            container.innerHTML = `<div class="empty-state"><span class="ico">!</span><strong>Could not load request.</strong><p>${escape(error.message)}</p></div>`;
+            container.innerHTML = `<div class="empty-state"><span class="ico"><svg viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7.5v5.5M12 16.5h.01"/></svg></span><strong>Could not load request.</strong><p>${escape(error.message)}</p></div>`;
         }
     }
 
     async function loadMatters() {
         const container = document.getElementById('main-content');
-        container.innerHTML = '<div class="empty-state"><span class="ico">·</span><strong>Loading matters…</strong></div>';
+        container.innerHTML = '<div class="empty-state"><strong>Loading matters…</strong></div>';
         try {
             const res = await api('/owner/matters', { auth: true });
             const items = (res && res.data) || [];
@@ -1574,7 +1618,7 @@
                     <div class="panel-head"><h2>All Matters</h2><span class="panel-meta">${items.length} total</span></div>
                     <div class="panel-body tight">
                         ${items.length === 0
-                            ? '<div class="empty-state"><span class="ico">·</span><strong>No matters yet.</strong><p>Matters will appear here when a client request is accepted.</p></div>'
+                            ? '<div class="empty-state"><strong>No matters yet.</strong><p>Matters will appear here when a client request is accepted.</p></div>'
                             : `<table class="table">
                             <thead><tr><th>ID</th><th>Reference</th><th>Title</th><th>Client</th><th>Assignee</th><th>Status</th><th>Created</th><th>Actions</th></tr></thead>
                             <tbody>${items.map((m) => `
@@ -1584,8 +1628,8 @@
                                     <td>${escape(m.title || '—')}</td>
                                     <td class="muted">${escape(m.client_name)}</td>
                                     <td class="muted">${escape(m.assignee_name || '—')}</td>
-                                    <td>${escape(m.status)}</td>
-                                    <td class="muted">${escape(m.created_at)}</td>
+                                    <td>${statusPill(m.status)}</td>
+                                    <td class="muted">${escape(fmtWhen(m.created_at))}</td>
                                     <td><button class="btn small secondary" data-matter="${m.id}">View</button></td>
                                 </tr>
                             `).join('')}</tbody>
@@ -1598,7 +1642,7 @@
                 btn.addEventListener('click', () => loadMatterDetail(btn.getAttribute('data-matter')));
             });
         } catch (error) {
-            container.innerHTML = `<div class="empty-state"><span class="ico">!</span><strong>Could not load matters.</strong><p>${escape(error.message)}</p></div>`;
+            container.innerHTML = `<div class="empty-state"><span class="ico"><svg viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7.5v5.5M12 16.5h.01"/></svg></span><strong>Could not load matters.</strong><p>${escape(error.message)}</p></div>`;
         }
     }
 
@@ -1620,13 +1664,13 @@
                     <div class="panel-head"><h2>Upcoming</h2><span class="panel-meta">${upcoming.length} upcoming</span></div>
                     <div class="panel-body tight">
                         ${upcoming.length === 0
-                            ? '<div class="empty-state tight"><span class="ico">·</span><strong>No upcoming appointments.</strong></div>'
+                            ? '<div class="empty-state tight"><strong>No upcoming appointments.</strong></div>'
                             : `<table class="table"><thead><tr><th>Date/Time</th><th>Client</th><th>Matter</th><th>Status</th><th>Actions</th></tr></thead><tbody>${upcoming.map((a) => `
                                 <tr>
-                                    <td class="muted">${escape(a.starts_at)}${a.ends_at ? ' — ' + escape(a.ends_at) : ''}</td>
+                                    <td class="muted">${escape(fmtWhen(a.starts_at))}${a.ends_at ? ' — ' + escape(a.ends_at) : ''}</td>
                                     <td>${escape(a.client_name)}</td>
                                     <td class="muted">${escape(a.matter_reference || '—')}</td>
-                                    <td>${escape(a.status)}</td>
+                                    <td>${statusPill(a.status)}</td>
                                     <td>
                                         <button class="btn small secondary" data-appt="${a.id}">View</button>
                                         <button class="btn small" data-cancel="${a.id}">Cancel</button>
@@ -1640,13 +1684,13 @@
                     <div class="panel-head"><h2>Past / Cancelled</h2><span class="panel-meta">${past.length} total</span></div>
                     <div class="panel-body tight">
                         ${past.length === 0
-                            ? '<div class="empty-state tight"><span class="ico">·</span><strong>No past appointments.</strong></div>'
+                            ? '<div class="empty-state tight"><strong>No past appointments.</strong></div>'
                             : `<table class="table"><thead><tr><th>Date/Time</th><th>Client</th><th>Matter</th><th>Status</th><th>Actions</th></tr></thead><tbody>${past.map((a) => `
                                 <tr>
-                                    <td class="muted">${escape(a.starts_at)}${a.ends_at ? ' — ' + escape(a.ends_at) : ''}</td>
+                                    <td class="muted">${escape(fmtWhen(a.starts_at))}${a.ends_at ? ' — ' + escape(a.ends_at) : ''}</td>
                                     <td>${escape(a.client_name)}</td>
                                     <td class="muted">${escape(a.matter_reference || '—')}</td>
-                                    <td>${escape(a.status)}</td>
+                                    <td>${statusPill(a.status)}</td>
                                     <td><button class="btn small secondary" data-appt="${a.id}">View</button></td>
                                 </tr>
                             `).join('')}</tbody></table>`}
@@ -1709,7 +1753,7 @@
                 });
             }
         } catch (error) {
-            container.innerHTML = `<div class="empty-state"><span class="ico">!</span><strong>Could not load appointments.</strong><p>${escape(error.message)}</p></div>`;
+            container.innerHTML = `<div class="empty-state"><span class="ico"><svg viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7.5v5.5M12 16.5h.01"/></svg></span><strong>Could not load appointments.</strong><p>${escape(error.message)}</p></div>`;
         }
     }
 
@@ -1763,7 +1807,7 @@
 
     async function loadDocuments() {
         const container = document.getElementById('main-content');
-        container.innerHTML = '<div class="empty-state"><span class="ico">·</span><strong>Loading documents…</strong></div>';
+        container.innerHTML = '<div class="empty-state"><strong>Loading documents…</strong></div>';
         try {
             const [docsRes, mattersRes] = await Promise.all([
                 api('/owner/documents', { auth: true }),
@@ -1782,12 +1826,12 @@
                     <div class="panel-head"><h2>All Documents</h2><span class="panel-meta">${items.length} total</span></div>
                     <div class="panel-body">
                         ${items.length === 0
-                            ? '<div class="empty-state"><span class="ico">·</span><strong>No documents uploaded yet.</strong></div>'
+                            ? '<div class="empty-state"><strong>No documents uploaded yet.</strong></div>'
                             : `<div class="admin-docs-list">${items.map((d) => `
                                 <div class="admin-doc-card">
                                     <div class="admin-doc-main">
                                         <strong class="admin-doc-name">${escape(d.original_name)}</strong>
-                                        <span class="admin-doc-meta">${escape(d.matter_reference || '—')} · ${escape(d.client_name || '—')} · ${escape(d.size_bytes ? (d.size_bytes / 1024).toFixed(1) + ' KB' : '—')} · ${escape(d.created_at)} · ${d.uploaded_by_role === 'OWNER' ? 'Shared by the firm' : 'Uploaded by the client'}${d.request_description ? ' · for: ' + escape(d.request_description) : ''}</span>
+                                        <span class="admin-doc-meta">${escape(d.matter_reference || '—')} · ${escape(d.client_name || '—')} · ${escape(d.size_bytes ? (d.size_bytes / 1024).toFixed(1) + ' KB' : '—')} · ${escape(fmtWhen(d.created_at))} · ${d.uploaded_by_role === 'OWNER' ? 'Shared by the firm' : 'Uploaded by the client'}${d.request_description ? ' · for: ' + escape(d.request_description) : ''}</span>
                                         <span class="pill status-${(d.status || 'available').toLowerCase().replace(/\s+/g, '_')}">${escape(d.status || 'AVAILABLE')}</span>
                                     </div>
                                     <div class="admin-doc-actions">
@@ -1808,7 +1852,7 @@
             });
             bindAdminDownloads(container);
         } catch (error) {
-            container.innerHTML = `<div class="empty-state"><span class="ico">!</span><strong>Could not load documents.</strong><p>${escape(error.message)}</p></div>`;
+            container.innerHTML = `<div class="empty-state"><span class="ico"><svg viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7.5v5.5M12 16.5h.01"/></svg></span><strong>Could not load documents.</strong><p>${escape(error.message)}</p></div>`;
         }
     }
 
@@ -2105,7 +2149,7 @@
             const isOwner = m.sender_role === 'OWNER';
             return `
                 <div class="msg ${isOwner ? 'from-client' : ''}">
-                    <div class="meta">${escape(m.sender_name || (isOwner ? 'Firm' : 'Client'))} · ${escape(m.created_at)}</div>
+                    <div class="meta">${escape(m.sender_name || (isOwner ? 'Firm' : 'Client'))} · ${escape(fmtWhen(m.created_at))}</div>
                     <div class="body">${escape(m.body)}</div>
                 </div>
             `;
@@ -2165,7 +2209,7 @@
 
     async function loadMessagesInbox() {
         const container = document.getElementById('main-content');
-        container.innerHTML = '<div class="empty-state"><span class="ico">·</span><strong>Loading messages…</strong></div>';
+        container.innerHTML = '<div class="empty-state"><strong>Loading messages…</strong></div>';
         try {
             const res = await api('/owner/conversations', { auth: true });
             const items = (res && res.data) || [];
@@ -2182,7 +2226,7 @@
                     <div class="panel-head"><h2>Conversations</h2><span class="panel-meta">${items.length} total</span></div>
                     <div class="panel-body tight">
                         ${items.length === 0
-                            ? '<div class="empty-state"><span class="ico">·</span><strong>No conversations yet.</strong><p>Conversations appear here once you message a client about a request or a matter.</p></div>'
+                            ? '<div class="empty-state"><strong>No conversations yet.</strong><p>Conversations appear here once you message a client about a request or a matter.</p></div>'
                             : `<table class="table">
                             <thead><tr><th>Matter / request</th><th>Client</th><th>Last Message</th><th>Date</th><th>Status</th><th>Actions</th></tr></thead>
                             <tbody>${items.map((c) => {
@@ -2214,13 +2258,13 @@
                 });
             });
         } catch (error) {
-            container.innerHTML = `<div class="empty-state"><span class="ico">!</span><strong>Could not load conversations.</strong><p>${escape(error.message)}</p></div>`;
+            container.innerHTML = `<div class="empty-state"><span class="ico"><svg viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7.5v5.5M12 16.5h.01"/></svg></span><strong>Could not load conversations.</strong><p>${escape(error.message)}</p></div>`;
         }
     }
 
     async function loadOwnerConversationDetail(id) {
         const container = document.getElementById('main-content');
-        container.innerHTML = '<div class="empty-state"><span class="ico">·</span><strong>Loading conversation…</strong></div>';
+        container.innerHTML = '<div class="empty-state"><strong>Loading conversation…</strong></div>';
         try {
             const [detailRes] = await Promise.all([
                 api(`/owner/conversations/${encodeURIComponent(id)}`, { auth: true }),
@@ -2270,13 +2314,13 @@
         } catch (error) {
             ownerStopPolling();
             ownerSseDisconnect();
-            container.innerHTML = `<div class="empty-state"><span class="ico">!</span><strong>Could not load conversation.</strong><p>${escape(error.message)}</p></div>`;
+            container.innerHTML = `<div class="empty-state"><span class="ico"><svg viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7.5v5.5M12 16.5h.01"/></svg></span><strong>Could not load conversation.</strong><p>${escape(error.message)}</p></div>`;
         }
     }
 
     async function loadNotifications() {
         const container = document.getElementById('main-content');
-        container.innerHTML = '<div class="empty-state"><span class="ico">·</span><strong>Loading notifications…</strong></div>';
+        container.innerHTML = '<div class="empty-state"><strong>Loading notifications…</strong></div>';
         try {
             const res = await api('/owner/notifications', { auth: true });
             const items = (res && res.data) || [];
@@ -2286,7 +2330,7 @@
                     <div class="panel-head"><h2>All Notifications</h2><span class="panel-meta">${items.length} total</span></div>
                     <div class="panel-body tight">
                         ${items.length === 0
-                            ? '<div class="empty-state"><span class="ico">·</span><strong>No notifications yet.</strong></div>'
+                            ? '<div class="empty-state"><strong>No notifications yet.</strong></div>'
                             : `<table class="table">
                             <thead><tr><th>Recipient</th><th>Kind</th><th>Title</th><th>Entity</th><th>Created</th><th>Actions</th></tr></thead>
                             <tbody>${items.map((n) => {
@@ -2297,7 +2341,7 @@
                                     <td class="muted">${escape(n.kind)}</td>
                                     <td>${escape(n.title)}</td>
                                     <td class="muted">${entityLabel}</td>
-                                    <td class="muted">${escape(n.created_at)}</td>
+                                    <td class="muted">${escape(fmtWhen(n.created_at))}</td>
                                     <td>${n.entity_type && n.entity_id ? `<button class="btn small secondary" data-notify-entity="${n.entity_type}" data-notify-id="${n.entity_id}">Go to</button>` : '<span class="muted">—</span>'}</td>
                                 </tr>`;
                             }).join('')}</tbody>
@@ -2322,13 +2366,13 @@
                 });
             });
         } catch (error) {
-            container.innerHTML = `<div class="empty-state"><span class="ico">!</span><strong>Could not load notifications.</strong><p>${escape(error.message)}</p></div>`;
+            container.innerHTML = `<div class="empty-state"><span class="ico"><svg viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7.5v5.5M12 16.5h.01"/></svg></span><strong>Could not load notifications.</strong><p>${escape(error.message)}</p></div>`;
         }
     }
 
     async function loadClientDetail(id) {
         const container = document.getElementById('main-content');
-        container.innerHTML = '<div class="empty-state"><span class="ico">·</span><strong>Loading client…</strong></div>';
+        container.innerHTML = '<div class="empty-state"><strong>Loading client…</strong></div>';
         try {
             const res = await api('/owner/clients/' + encodeURIComponent(id), { auth: true });
             const c = res.data;
@@ -2366,14 +2410,14 @@
                     <div class="panel-head"><h2>Matters (${matters.length})</h2></div>
                     <div class="panel-body tight">
                         ${matters.length === 0
-                            ? '<div class="empty-state tight"><span class="ico">·</span><strong>No matters for this client.</strong></div>'
+                            ? '<div class="empty-state tight"><strong>No matters for this client.</strong></div>'
                             : `<table class="table"><thead><tr><th>Reference</th><th>Title</th><th>Type</th><th>Status</th><th>Created</th><th>Actions</th></tr></thead><tbody>${matters.map((m) => `
                                 <tr>
                                     <td class="mono">${escape(m.reference)}</td>
                                     <td>${escape(m.title || '—')}</td>
                                     <td class="muted">${escape(m.matter_type || '—')}</td>
-                                    <td>${escape(m.status)}</td>
-                                    <td class="muted">${escape(m.created_at)}</td>
+                                    <td>${statusPill(m.status)}</td>
+                                    <td class="muted">${escape(fmtWhen(m.created_at))}</td>
                                     <td><button class="btn small secondary" data-matter="${m.id}">View</button></td>
                                 </tr>
                             `).join('')}</tbody></table>`
@@ -2384,12 +2428,12 @@
                     <div class="panel-head"><h2>Requests (${requests.length})</h2></div>
                     <div class="panel-body tight">
                         ${requests.length === 0
-                            ? '<div class="empty-state tight"><span class="ico">·</span><strong>No requests from this client.</strong></div>'
+                            ? '<div class="empty-state tight"><strong>No requests from this client.</strong></div>'
                             : `<table class="table"><thead><tr><th>Subject</th><th>Status</th><th>Created</th><th>Actions</th></tr></thead><tbody>${requests.map((r) => `
                                 <tr>
                                     <td>${escape(r.subject)}</td>
-                                    <td>${escape(r.status)}</td>
-                                    <td class="muted">${escape(r.created_at)}</td>
+                                    <td>${statusPill(r.status)}</td>
+                                    <td class="muted">${escape(fmtWhen(r.created_at))}</td>
                                     <td><button class="btn small secondary" data-request="${r.id}">View</button></td>
                                 </tr>
                             `).join('')}</tbody></table>`
@@ -2400,12 +2444,12 @@
                     <div class="panel-head"><h2>Appointments (${appointments.length})</h2></div>
                     <div class="panel-body tight">
                         ${appointments.length === 0
-                            ? '<div class="empty-state tight"><span class="ico">·</span><strong>No appointments.</strong></div>'
+                            ? '<div class="empty-state tight"><strong>No appointments.</strong></div>'
                             : `<table class="table"><thead><tr><th>Date/Time</th><th>Matter</th><th>Status</th><th>Actions</th></tr></thead><tbody>${appointments.map((a) => `
                                 <tr>
-                                    <td class="muted">${escape(a.starts_at)}</td>
+                                    <td class="muted">${escape(fmtWhen(a.starts_at))}</td>
                                     <td class="muted">${escape(a.matter_reference || '—')}</td>
-                                    <td>${escape(a.status)}</td>
+                                    <td>${statusPill(a.status)}</td>
                                     <td><button class="btn small secondary" data-appt="${a.id}">View</button></td>
                                 </tr>
                             `).join('')}</tbody></table>`
@@ -2416,7 +2460,7 @@
                     <div class="panel-head"><h2>Conversations (${conversations.length})</h2></div>
                     <div class="panel-body tight">
                         ${conversations.length === 0
-                            ? '<div class="empty-state tight"><span class="ico">·</span><strong>No conversations.</strong></div>'
+                            ? '<div class="empty-state tight"><strong>No conversations.</strong></div>'
                             : `<table class="table"><thead><tr><th>Matter</th><th>Client</th><th>Last Message</th><th>Date</th><th>Unread</th><th>Actions</th></tr></thead><tbody>${conversations.map((convo) => `
                                 <tr>
                                     <td class="mono">${escape(convo.reference || '')}</td>
@@ -2445,13 +2489,13 @@
                 btn.addEventListener('click', () => navigateTo('messages', btn.getAttribute('data-convo')));
             });
         } catch (error) {
-            container.innerHTML = `<div class="empty-state"><span class="ico">!</span><strong>Could not load client.</strong><p>${escape(error.message)}</p></div>`;
+            container.innerHTML = `<div class="empty-state"><span class="ico"><svg viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7.5v5.5M12 16.5h.01"/></svg></span><strong>Could not load client.</strong><p>${escape(error.message)}</p></div>`;
         }
     }
 
     async function loadMatterDetail(id) {
         const container = document.getElementById('main-content');
-        container.innerHTML = '<div class="empty-state"><span class="ico">·</span><strong>Loading matter…</strong></div>';
+        container.innerHTML = '<div class="empty-state"><strong>Loading matter…</strong></div>';
         try {
             const [res, actionsRes] = await Promise.all([
                 api('/owner/matters/' + encodeURIComponent(id), { auth: true }),
@@ -2508,7 +2552,7 @@
                         <button class="btn ghost" id="btn-back-matters">← Back to Matters</button>
                         ${conversation ? `<button class="btn small secondary" id="btn-open-conversation">Open Conversation</button>` : ''}
                         ${m.assigned_to ? `<button class="btn small secondary" id="btn-view-client">View Client</button>` : ''}
-                        ${availableActions.length > 0 ? `<button class="btn small secondary dropdown-toggle" id="btn-quick-actions" type="button">Quick Actions ▼</button>` : ''}
+                        ${availableActions.length > 0 ? `<button class="btn small secondary dropdown-toggle" id="btn-quick-actions" type="button">Actions <svg viewBox="0 0 16 16" width="12" height="12" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="vertical-align:-1px;margin-left:4px"><path d="m4 6 4 4 4-4"/></svg></button>` : ''}
                     </div>
                 </div>
                 ${dropdownMenu}
@@ -2520,11 +2564,11 @@
                                 <tr><th style="width:30%">Reference</th><td class="mono">${escape(m.reference)}</td></tr>
                                 <tr><th>Title</th><td>${escape(m.title || '—')}</td></tr>
                                 <tr><th>Type</th><td>${escape(m.matter_type || '—')}</td></tr>
-                                <tr><th>Status</th><td>${escape(m.status)}</td></tr>
+                                <tr><th>Status</th><td>${statusPill(m.status)}</td></tr>
                                 <tr><th>Client</th><td>${escape(m.client_name || '—')}</td></tr>
                                 <tr><th>Assignee</th><td class="muted">${escape(m.assignee_name || '—')}</td></tr>
-                                <tr><th>Created</th><td class="muted">${escape(m.created_at)}</td></tr>
-                                <tr><th>Updated</th><td class="muted">${escape(m.updated_at)}</td></tr>
+                                <tr><th>Created</th><td class="muted">${escape(fmtWhen(m.created_at))}</td></tr>
+                                <tr><th>Updated</th><td class="muted">${escape(fmtWhen(m.updated_at))}</td></tr>
                             </tbody>
                         </table>
                         ${m.description ? `<div style="margin-top:1.5rem;"><h3 style="font-size:0.78rem;letter-spacing:0.16em;text-transform:uppercase;color:var(--ink-mute);margin-bottom:0.5rem;">Description</h3><p style="white-space:pre-wrap;color:var(--ink-soft);line-height:1.6;">${escape(m.description)}</p></div>` : ''}
@@ -2537,8 +2581,8 @@
                         <table class="table">
                             <tbody>
                                 <tr><th style="width:30%">Subject</th><td>${escape(originatingRequest.subject)}</td></tr>
-                                <tr><th>Status</th><td>${escape(originatingRequest.status)}</td></tr>
-                                <tr><th>Created</th><td class="muted">${escape(originatingRequest.created_at)}</td></tr>
+                                <tr><th>Status</th><td>${statusPill(originatingRequest.status)}</td></tr>
+                                <tr><th>Created</th><td class="muted">${escape(fmtWhen(originatingRequest.created_at))}</td></tr>
                             </tbody>
                         </table>
                         <div style="margin-top:1rem;"><button class="btn small secondary" data-request="${originatingRequest.id}">View Request</button></div>
@@ -2551,19 +2595,19 @@
                     <div class="panel-body tight"><table class="table"><thead><tr><th>Asked for</th><th>Status</th><th>Asked</th><th></th></tr></thead><tbody>${docRequests.map((r) => `
                         <tr><td>${escape(r.description)}${r.note ? `<br><span class="muted">${escape(r.note)}</span>` : ''}</td>
                         <td>${r.status === 'FULFILLED' ? `<span class="pill status-closed">Received</span><br><span class="muted">${escape(r.fulfilled_document_name || '')}</span>` : r.status === 'CANCELLED' ? '<span class="pill">Cancelled</span>' : '<span class="pill status-new">Waiting for client</span>'}</td>
-                        <td class="muted">${escape(r.created_at)}</td>
+                        <td class="muted">${escape(fmtWhen(r.created_at))}</td>
                         <td>${r.status === 'OPEN' ? `<button class="btn small ghost" data-cancel-docreq="${r.id}">Cancel</button>` : ''}</td></tr>`).join('')}</tbody></table></div>
                 </section>` : ''}
                 <section class="panel">
                     <div class="panel-head"><h2>Documents (${documents.length})</h2></div>
                     <div class="panel-body tight">
                         ${documents.length === 0
-                            ? '<div class="empty-state tight"><span class="ico">·</span><strong>No documents in this matter.</strong></div>'
+                            ? '<div class="empty-state tight"><strong>No documents in this matter.</strong></div>'
                             : `<div class="admin-docs-list">${documents.map((d) => `
                                 <div class="admin-doc-card">
                                     <div class="admin-doc-main">
                                         <strong class="admin-doc-name">${escape(d.original_name)}</strong>
-                                        <span class="admin-doc-meta">${escape(d.size_bytes ? d.size_bytes + ' bytes' : '—')} · ${d.uploaded_by_role === 'OWNER' ? 'Shared by the firm' : 'Uploaded by the client'} · ${escape(d.created_at)}</span>
+                                        <span class="admin-doc-meta">${escape(d.size_bytes ? d.size_bytes + ' bytes' : '—')} · ${d.uploaded_by_role === 'OWNER' ? 'Shared by the firm' : 'Uploaded by the client'} · ${escape(fmtWhen(d.created_at))}</span>
                                     </div>
                                     <div class="admin-doc-actions">
                                         <button class="btn small secondary" data-doc="${d.id}">View</button>
@@ -2579,11 +2623,11 @@
                     <div class="panel-head"><h2>Appointments (${appointments.length})</h2></div>
                     <div class="panel-body tight">
                         ${appointments.length === 0
-                            ? '<div class="empty-state tight"><span class="ico">·</span><strong>No appointments for this matter.</strong></div>'
+                            ? '<div class="empty-state tight"><strong>No appointments for this matter.</strong></div>'
                             : `<table class="table"><thead><tr><th>Date/Time</th><th>Status</th><th>Notes</th><th>Actions</th></tr></thead><tbody>${appointments.map((a) => `
                             <tr>
-                                <td class="muted">${escape(a.starts_at)}</td>
-                                <td>${escape(a.status)}</td>
+                                <td class="muted">${escape(fmtWhen(a.starts_at))}</td>
+                                <td>${statusPill(a.status)}</td>
                                 <td class="muted">${escape(a.notes || '—')}</td>
                                 <td><button class="btn small secondary" data-appt="${a.id}">View</button></td>
                             </tr>
@@ -2595,10 +2639,10 @@
                     <div class="panel-head"><h2>Activity Timeline</h2></div>
                     <div class="panel-body tight">
                         ${events.length === 0
-                            ? '<div class="empty-state tight"><span class="ico">·</span><strong>No events recorded.</strong></div>'
+                            ? '<div class="empty-state tight"><strong>No events recorded.</strong></div>'
                             : `<table class="table"><thead><tr><th>Date</th><th>Event</th><th>Title</th><th>Note</th></tr></thead><tbody>${events.map((e) => `
                             <tr>
-                                <td class="muted">${escape(e.created_at)}</td>
+                                <td class="muted">${escape(fmtWhen(e.created_at))}</td>
                                 <td class="muted">${escape(e.event_type)}</td>
                                 <td>${escape(e.title)}</td>
                                 <td class="muted">${escape(e.note || '—')}</td>
@@ -2674,7 +2718,7 @@
                 });
             }
         } catch (error) {
-            container.innerHTML = `<div class="empty-state"><span class="ico">!</span><strong>Could not load matter.</strong><p>${escape(error.message)}</p></div>`;
+            container.innerHTML = `<div class="empty-state"><span class="ico"><svg viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7.5v5.5M12 16.5h.01"/></svg></span><strong>Could not load matter.</strong><p>${escape(error.message)}</p></div>`;
         }
     }
 
@@ -2845,7 +2889,7 @@
 
     async function loadAppointmentDetail(id) {
         const container = document.getElementById('main-content');
-        container.innerHTML = '<div class="empty-state"><span class="ico">·</span><strong>Loading appointment…</strong></div>';
+        container.innerHTML = '<div class="empty-state"><strong>Loading appointment…</strong></div>';
         try {
             const res = await api('/owner/appointments/' + encodeURIComponent(id), { auth: true });
             const a = res.data;
@@ -2880,13 +2924,13 @@
             `;
             document.getElementById('btn-back-appointments')?.addEventListener('click', loadAppointments);
         } catch (error) {
-            container.innerHTML = `<div class="empty-state"><span class="ico">!</span><strong>Could not load appointment.</strong><p>${escape(error.message)}</p></div>`;
+            container.innerHTML = `<div class="empty-state"><span class="ico"><svg viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7.5v5.5M12 16.5h.01"/></svg></span><strong>Could not load appointment.</strong><p>${escape(error.message)}</p></div>`;
         }
     }
 
     async function loadDocumentDetail(id) {
         const container = document.getElementById('main-content');
-        container.innerHTML = '<div class="empty-state"><span class="ico">·</span><strong>Loading document…</strong></div>';
+        container.innerHTML = '<div class="empty-state"><strong>Loading document…</strong></div>';
         try {
             const res = await api('/owner/documents/' + encodeURIComponent(id), { auth: true });
             const d = res.data;
@@ -2919,8 +2963,8 @@
                                 <tr><th>Matter</th><td>${escape(d.matter_reference || '—')} — ${escape(d.matter_title || '')}</td></tr>
                                 <tr><th>Client</th><td>${escape(d.client_name || '—')}<br><span class="muted">${escape(d.client_email || '')}</span></td></tr>
                                 <tr><th>Uploaded By</th><td class="muted">${escape(d.uploaded_by || '—')}</td></tr>
-                                <tr><th>Created</th><td class="muted">${escape(d.created_at)}</td></tr>
-                                <tr><th>Updated</th><td class="muted">${escape(d.updated_at)}</td></tr>
+                                <tr><th>Created</th><td class="muted">${escape(fmtWhen(d.created_at))}</td></tr>
+                                <tr><th>Updated</th><td class="muted">${escape(fmtWhen(d.updated_at))}</td></tr>
                             </tbody>
                         </table>
                     </div>
@@ -2958,13 +3002,13 @@
                 downloadBtn.style.display = 'none';
             }
         } catch (error) {
-            container.innerHTML = `<div class="empty-state"><span class="ico">!</span><strong>Could not load document.</strong><p>${escape(error.message)}</p></div>`;
+            container.innerHTML = `<div class="empty-state"><span class="ico"><svg viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7.5v5.5M12 16.5h.01"/></svg></span><strong>Could not load document.</strong><p>${escape(error.message)}</p></div>`;
         }
     }
 
     async function loadAnalyticsPage() {
         const container = document.getElementById('main-content');
-        container.innerHTML = '<div class="empty-state"><span class="ico">·</span><strong>Loading analytics…</strong></div>';
+        container.innerHTML = '<div class="empty-state"><strong>Loading analytics…</strong></div>';
         try {
             const res = await api('/owner/analytics', { auth: true });
             const d = res.data;
@@ -2994,13 +3038,13 @@
                 </section>
             `;
         } catch (error) {
-            container.innerHTML = `<div class="empty-state"><span class="ico">!</span><strong>Could not load analytics.</strong><p>${escape(error.message)}</p></div>`;
+            container.innerHTML = `<div class="empty-state"><span class="ico"><svg viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7.5v5.5M12 16.5h.01"/></svg></span><strong>Could not load analytics.</strong><p>${escape(error.message)}</p></div>`;
         }
     }
 
     async function loadAudit() {
         const container = document.getElementById('main-content');
-        container.innerHTML = '<div class="empty-state"><span class="ico">·</span><strong>Loading audit logs…</strong></div>';
+        container.innerHTML = '<div class="empty-state"><strong>Loading audit logs…</strong></div>';
         try {
             const res = await api('/owner/audit-logs?limit=50', { auth: true });
             const items = (res && res.data) || [];
@@ -3010,7 +3054,7 @@
                     <div class="panel-head"><h2>Recent Activity</h2><span class="panel-meta">${res.meta ? res.meta.total : items.length} total records</span></div>
                     <div class="panel-body tight">
                         ${items.length === 0
-                            ? '<div class="empty-state"><span class="ico">·</span><strong>No audit events yet.</strong></div>'
+                            ? '<div class="empty-state"><strong>No audit events yet.</strong></div>'
                             : `<table class="table">
                             <thead><tr><th>ID</th><th>Actor</th><th>Action</th><th>Entity</th><th>Date</th><th>Actions</th></tr></thead>
                             <tbody>${items.map((a) => `
@@ -3019,7 +3063,7 @@
                                     <td class="muted">${escape(a.actor_email)}</td>
                                     <td>${escape(a.action)}</td>
                                     <td class="muted">${escape(a.entity_type)}</td>
-                                    <td class="muted">${escape(a.created_at)}</td>
+                                    <td class="muted">${escape(fmtWhen(a.created_at))}</td>
                                     <td><button class="btn small secondary" disabled>View</button></td>
                                 </tr>
                             `).join('')}</tbody>
@@ -3029,13 +3073,13 @@
                 </section>
             `;
         } catch (error) {
-            container.innerHTML = `<div class="empty-state"><span class="ico">!</span><strong>Could not load audit logs.</strong><p>${escape(error.message)}</p></div>`;
+            container.innerHTML = `<div class="empty-state"><span class="ico"><svg viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7.5v5.5M12 16.5h.01"/></svg></span><strong>Could not load audit logs.</strong><p>${escape(error.message)}</p></div>`;
         }
     }
 
     async function loadSecurity() {
         const container = document.getElementById('main-content');
-        container.innerHTML = '<div class="empty-state"><span class="ico">·</span><strong>Loading security events…</strong></div>';
+        container.innerHTML = '<div class="empty-state"><strong>Loading security events…</strong></div>';
         try {
             const res = await api('/owner/security-events?limit=50', { auth: true });
             const items = (res && res.data) || [];
@@ -3045,7 +3089,7 @@
                     <div class="panel-head"><h2>Recent Security Events</h2><span class="panel-meta">${items.length} total events</span></div>
                     <div class="panel-body tight">
                         ${items.length === 0
-                            ? '<div class="empty-state"><span class="ico">·</span><strong>No security events.</strong></div>'
+                            ? '<div class="empty-state"><strong>No security events.</strong></div>'
                             : `<table class="table">
                             <thead><tr><th>ID</th><th>Event</th><th>Severity</th><th>Actor</th><th>IP</th><th>Date</th><th>Actions</th></tr></thead>
                             <tbody>${items.map((s) => `
@@ -3055,7 +3099,7 @@
                                     <td><span class="pill status-${s.severity}">${escape(s.severity)}</span></td>
                                     <td class="muted">${escape(s.actor_email)}</td>
                                     <td class="mono">${escape(s.ip_address || '—')}</td>
-                                    <td class="muted">${escape(s.created_at)}</td>
+                                    <td class="muted">${escape(fmtWhen(s.created_at))}</td>
                                     <td><button class="btn small secondary" disabled>View</button></td>
                                 </tr>
                             `).join('')}</tbody>
@@ -3065,13 +3109,13 @@
                 </section>
             `;
         } catch (error) {
-            container.innerHTML = `<div class="empty-state"><span class="ico">!</span><strong>Could not load security events.</strong><p>${escape(error.message)}</p></div>`;
+            container.innerHTML = `<div class="empty-state"><span class="ico"><svg viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7.5v5.5M12 16.5h.01"/></svg></span><strong>Could not load security events.</strong><p>${escape(error.message)}</p></div>`;
         }
     }
 
     async function loadRoles() {
         const container = document.getElementById('main-content');
-        container.innerHTML = '<div class="empty-state"><span class="ico">·</span><strong>Loading permissions…</strong></div>';
+        container.innerHTML = '<div class="empty-state"><strong>Loading permissions…</strong></div>';
         try {
             const res = await api('/owner/permissions', { auth: true });
             const data = res.data;
@@ -3103,13 +3147,13 @@
             html += `</div></section>`;
             container.innerHTML = html;
         } catch (error) {
-            container.innerHTML = `<div class="empty-state"><span class="ico">!</span><strong>Could not load permissions.</strong><p>${escape(error.message)}</p></div>`;
+            container.innerHTML = `<div class="empty-state"><span class="ico"><svg viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7.5v5.5M12 16.5h.01"/></svg></span><strong>Could not load permissions.</strong><p>${escape(error.message)}</p></div>`;
         }
     }
 
     async function loadSettings() {
         const container = document.getElementById('main-content');
-        container.innerHTML = '<div class="empty-state"><span class="ico">·</span><strong>Loading settings…</strong></div>';
+        container.innerHTML = '<div class="empty-state"><strong>Loading settings…</strong></div>';
         try {
             const [settingsRes, destinationsRes] = await Promise.all([
                 api('/owner/settings', { auth: true }),
@@ -3162,7 +3206,7 @@
                     <div id="destinations-list">
             `;
             if (!destinations.length) {
-                html += `<div class="empty-state"><span class="ico">·</span><strong>No payment destinations configured.</strong><p>Add your Lipa Namba so clients can pay from any mobile network or bank.</p></div>`;
+                html += `<div class="empty-state"><strong>No payment destinations configured.</strong><p>Add your Lipa Namba so clients can pay from any mobile network or bank.</p></div>`;
             } else {
                 html += `
                 <table class="table table-dest">
@@ -3216,7 +3260,7 @@
             });
             
         } catch (error) {
-            container.innerHTML = `<div class="empty-state"><span class="ico">!</span><strong>Could not load settings.</strong><p>${escape(error.message)}</p></div>`;
+            container.innerHTML = `<div class="empty-state"><span class="ico"><svg viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7.5v5.5M12 16.5h.01"/></svg></span><strong>Could not load settings.</strong><p>${escape(error.message)}</p></div>`;
         }
     }
 
@@ -3430,14 +3474,14 @@
 
     async function loadHealth() {
         const container = document.getElementById('main-content');
-        container.innerHTML = '<div class="empty-state"><span class="ico">·</span><strong>Checking system health…</strong></div>';
+        container.innerHTML = '<div class="empty-state"><strong>Checking system health…</strong></div>';
         try {
             const res = await api('/health', { auth: true });
             const health = res.data;
             container.innerHTML = `
                 <div class="page-head"><div><h1>System Health</h1><p class="head-meta">System status and health checks.</p></div></div>
                 <section class="panel">
-                    <div class="panel-head"><h2>Health Status</h2><span class="panel-meta">Last checked: ${new Date().toLocaleString()}</span></div>
+                    <div class="panel-head"><h2>Health Status</h2><span class="panel-meta">Last checked: ${fmtWhen(new Date())}</span></div>
                     <div class="panel-body">
                         <div class="kpi-grid">
                             <div class="kpi"><div class="kpi-label">API Status</div><div class="kpi-value" style="color: ${health.status === 'ok' ? 'var(--success)' : 'var(--danger)'}">${escape(health.status)}</div></div>
@@ -3448,13 +3492,13 @@
                 </section>
             `;
         } catch (error) {
-            container.innerHTML = `<div class="empty-state"><span class="ico">!</span><strong>Health check failed.</strong><p>${escape(error.message)}</p></div>`;
+            container.innerHTML = `<div class="empty-state"><span class="ico"><svg viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7.5v5.5M12 16.5h.01"/></svg></span><strong>Health check failed.</strong><p>${escape(error.message)}</p></div>`;
         }
     }
 
     async function loadInvoices() {
         const container = document.getElementById('main-content');
-        container.innerHTML = '<div class="empty-state"><span class="ico">·</span><strong>Loading invoices…</strong></div>';
+        container.innerHTML = '<div class="empty-state"><strong>Loading invoices…</strong></div>';
         try {
             const res = await api('/owner/invoices', { auth: true });
             const items = (res && res.data) || [];
@@ -3464,7 +3508,7 @@
                     <div class="panel-head"><h2>All Invoices</h2><span class="panel-meta">${items.length} total</span></div>
                     <div class="panel-body tight">
                         ${items.length === 0
-                            ? '<div class="empty-state"><span class="ico">·</span><strong>No invoices yet.</strong></div>'
+                            ? '<div class="empty-state"><strong>No invoices yet.</strong></div>'
                             : `<table class="table">
                             <thead><tr><th>ID</th><th>Matter</th><th>Client</th><th>Status</th><th>Total</th><th>Issued</th><th>Due</th><th>Actions</th></tr></thead>
                             <tbody>${items.map((inv) => `
@@ -3472,7 +3516,7 @@
                                     <td class="mono">#${inv.id.split('-')[0]}</td>
                                     <td class="muted">${escape(inv.matter_reference || '—')}</td>
                                     <td>${escape(inv.client_name || '—')}</td>
-                                    <td>${escape(inv.status)}</td>
+                                    <td>${statusPill(inv.status)}</td>
                                     <td class="muted">${escape(inv.currency || 'TZS')} ${Number(inv.total || 0).toFixed(2)}</td>
                                     <td class="muted">${escape(inv.issued_at || '—')}</td>
                                     <td class="muted">${escape(inv.due_at || '—')}</td>
@@ -3488,13 +3532,13 @@
                 btn.addEventListener('click', () => loadInvoiceDetail(btn.getAttribute('data-invoice')));
             });
         } catch (error) {
-            container.innerHTML = `<div class="empty-state"><span class="ico">!</span><strong>Could not load invoices.</strong><p>${escape(error.message)}</p></div>`;
+            container.innerHTML = `<div class="empty-state"><span class="ico"><svg viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7.5v5.5M12 16.5h.01"/></svg></span><strong>Could not load invoices.</strong><p>${escape(error.message)}</p></div>`;
         }
     }
 
     async function loadInvoiceDetail(id) {
         const container = document.getElementById('main-content');
-        container.innerHTML = '<div class="empty-state"><span class="ico">·</span><strong>Loading invoice…</strong></div>';
+        container.innerHTML = '<div class="empty-state"><strong>Loading invoice…</strong></div>';
         try {
             const [invoiceRes, itemsRes] = await Promise.all([
                 api('/owner/invoices/' + encodeURIComponent(id), { auth: true }),
@@ -3525,7 +3569,7 @@
                     <div class="panel-body">
                         <table class="table">
                             <tbody>
-                                <tr><th style="width:30%">Status</th><td>${escape(inv.status)}</td></tr>
+                                <tr><th style="width:30%">Status</th><td>${statusPill(inv.status)}</td></tr>
                                 <tr><th>Payment Status</th><td>${escape(inv.payment_status || 'unpaid')}</td></tr>
                                 <tr><th>Currency</th><td>${escape(inv.currency || 'TZS')}</td></tr>
                                 <tr><th>Subtotal</th><td>${escape(inv.currency || 'TZS')} ${Number(inv.subtotal || 0).toFixed(2)}</td></tr>
@@ -3555,7 +3599,7 @@
                     <div class="panel-head"><h2>Line Items</h2></div>
                     <div class="panel-body tight">
                         ${items.length === 0
-                            ? '<div class="empty-state tight"><span class="ico">·</span><strong>No line items.</strong></div>'
+                            ? '<div class="empty-state tight"><strong>No line items.</strong></div>'
                             : `<table class="table"><thead><tr><th>Description</th><th>Qty</th><th>Unit Price</th><th>Amount</th></tr></thead><tbody>${items.map((it) => `
                                 <tr>
                                     <td>${escape(it.description)}</td>
@@ -3570,14 +3614,14 @@
                 <section class="panel">
                     <div class="panel-head"><h2>Payments</h2><span class="panel-meta">Payment records for this invoice</span></div>
                     <div class="panel-body tight" id="invoice-payments-body">
-                        <div class="empty-state"><span class="ico">·</span><strong>Loading payments…</strong></div>
+                        <div class="empty-state"><strong>Loading payments…</strong></div>
                     </div>
                 </section>
             `;
             document.getElementById('btn-back-invoices')?.addEventListener('click', loadInvoices);
             loadInvoicePayments(inv.id);
         } catch (error) {
-            container.innerHTML = `<div class="empty-state"><span class="ico">!</span><strong>Could not load invoice.</strong><p>${escape(error.message)}</p></div>`;
+            container.innerHTML = `<div class="empty-state"><span class="ico"><svg viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7.5v5.5M12 16.5h.01"/></svg></span><strong>Could not load invoice.</strong><p>${escape(error.message)}</p></div>`;
         }
     }
 
@@ -3588,7 +3632,7 @@
             const res = await api('/payments/invoice/' + encodeURIComponent(invoiceId), { auth: true });
             const items = (res && res.data) || [];
             if (!items.length) {
-                el.innerHTML = '<div class="empty-state tight"><span class="ico">·</span><strong>No payments recorded.</strong></div>';
+                el.innerHTML = '<div class="empty-state tight"><strong>No payments recorded.</strong></div>';
                 return;
             }
             el.innerHTML = `<table class="table"><thead><tr><th>ID</th><th>Amount</th><th>Status</th><th>Method</th><th>Submitted</th><th>Verified</th><th>Actions</th></tr></thead><tbody>${items.map((p) => `
@@ -3606,13 +3650,13 @@
                 btn.addEventListener('click', () => loadPaymentDetail(btn.getAttribute('data-payment')));
             });
         } catch (error) {
-            el.innerHTML = `<div class="empty-state tight"><span class="ico">!</span><strong>Could not load payments.</strong></div>`;
+            el.innerHTML = `<div class="empty-state tight"><span class="ico"><svg viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7.5v5.5M12 16.5h.01"/></svg></span><strong>Could not load payments.</strong></div>`;
         }
     }
 
     async function loadPayments() {
         const container = document.getElementById('main-content');
-        container.innerHTML = '<div class="empty-state"><span class="ico">·</span><strong>Loading payments…</strong></div>';
+        container.innerHTML = '<div class="empty-state"><strong>Loading payments…</strong></div>';
         try {
             const res = await api('/owner/payments', { auth: true });
             const items = (res && res.data) || [];
@@ -3622,7 +3666,7 @@
                     <div class="panel-head"><h2>All Payments</h2><span class="panel-meta">${items.length} total</span></div>
                     <div class="panel-body tight">
                         ${items.length === 0
-                            ? '<div class="empty-state"><span class="ico">·</span><strong>No payments yet.</strong></div>'
+                            ? '<div class="empty-state"><strong>No payments yet.</strong></div>'
                             : `<table class="table">
                             <thead><tr><th>ID</th><th>Invoice</th><th>Client</th><th>Amount</th><th>Status</th><th>Method</th><th>Submitted</th><th>Actions</th></tr></thead>
                             <tbody>${items.map((p) => `
@@ -3646,13 +3690,13 @@
                 btn.addEventListener('click', () => loadPaymentDetail(btn.getAttribute('data-payment')));
             });
         } catch (error) {
-            container.innerHTML = `<div class="empty-state"><span class="ico">!</span><strong>Could not load payments.</strong><p>${escape(error.message)}</p></div>`;
+            container.innerHTML = `<div class="empty-state"><span class="ico"><svg viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7.5v5.5M12 16.5h.01"/></svg></span><strong>Could not load payments.</strong><p>${escape(error.message)}</p></div>`;
         }
     }
 
     async function loadPaymentDetail(id) {
         const container = document.getElementById('main-content');
-        container.innerHTML = '<div class="empty-state"><span class="ico">·</span><strong>Loading payment…</strong></div>';
+        container.innerHTML = '<div class="empty-state"><strong>Loading payment…</strong></div>';
         try {
             const res = await api('/owner/payments/' + encodeURIComponent(id), { auth: true });
             const p = (res && res.data) || {};
@@ -3733,7 +3777,7 @@
                 });
             }
         } catch (error) {
-            container.innerHTML = `<div class="empty-state"><span class="ico">!</span><strong>Could not load payment.</strong><p>${escape(error.message)}</p></div>`;
+            container.innerHTML = `<div class="empty-state"><span class="ico"><svg viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7.5v5.5M12 16.5h.01"/></svg></span><strong>Could not load payment.</strong><p>${escape(error.message)}</p></div>`;
         }
     }
 
@@ -3758,11 +3802,13 @@
                 const user = res && res.data ? res.data : { fullName: 'ET Cetra', email: 'admin@etcetra.co.tz', role: 'OWNER' };
                 const nameEl = document.getElementById('subui-user-name');
                 if (nameEl) nameEl.textContent = user.full_name || user.fullName || user.email || 'ET Cetra';
+                const avatarEl = document.getElementById('subui-avatar');
+                if (avatarEl) avatarEl.textContent = String(user.full_name || user.fullName || user.email || 'E').trim().charAt(0).toUpperCase();
                 const roleEl = document.getElementById('subui-user');
-                if (roleEl) roleEl.textContent = user.role || 'OWNER';
+                if (roleEl) roleEl.textContent = roleLabel(user.role || 'OWNER');
 
                 if (user.role !== 'OWNER') {
-                    document.getElementById('main-content').innerHTML = '<div class="empty-state"><span class="ico">!</span><strong>Access denied.</strong><p>This area is reserved for platform owners.</p></div>';
+                    document.getElementById('main-content').innerHTML = '<div class="empty-state"><span class="ico"><svg viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7.5v5.5M12 16.5h.01"/></svg></span><strong>Access denied.</strong><p>This area is reserved for platform owners.</p></div>';
                 }
             })
             .catch(() => {
