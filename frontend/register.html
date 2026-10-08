@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="description" content="Create a client account.">
-    <title>Create Account | Emmanuel Richard Machibya</title>
+    <title>Create Account | ET CETRA ADVOCATES</title>
     <link rel="stylesheet" href="styles.css">
     <link rel="stylesheet" href="login.css">
 </head>
@@ -12,7 +12,7 @@
     <div class="site-shell auth-site-shell">
 
         <main class="auth-shell">
-            <aside class="auth-side" aria-label="Security overview">
+            <aside class="auth-side" aria-label="About the client portal">
                 <div class="auth-side-inner">
                     <div class="auth-brand-block">
                         <div class="auth-mark" aria-hidden="true">EC</div>
@@ -22,47 +22,37 @@
                         </div>
                     </div>
 
-                    <div class="auth-side-meta">FILE EC/AUTH/28-A</div>
+                    <div class="auth-side-meta">CLIENT PORTAL</div>
 
-                    <h1>Claim your client file.</h1>
-                    <p>Chambers issues every client a numbered file. Create your sign-in to activate it — your history, documents and counsel appear instantly.</p>
+                    <h1>Create your client account.</h1>
+                    <p>It is free and takes two minutes. You need an account to send a request, book a consultation and pay invoices.</p>
 
-                    <div class="auth-trust-card" aria-label="Security guarantees">
-                        <div class="trust-heading">CHAIN OF CUSTODY</div>
+                    <div class="auth-trust-card" aria-label="What the portal gives you">
+                        <div class="trust-heading">YOUR PORTAL</div>
                         <ul>
-                            <li>Encrypted in transit &amp; at rest</li>
-                            <li>Logged access trail</li>
-                            <li>LSK advocate oversight</li>
+                            <li>Only you and the firm can see your file</li>
+                            <li>Pay by Lipa Namba and upload the receipt</li>
+                            <li>Follow every step of your matter</li>
                         </ul>
                     </div>
                 </div>
 
                 <div class="auth-side-footer">
-                    <span>Privileged notice applies</span>
+                    <span>Confidential</span>
                     <a class="auth-back" href="index.html">← Back to website</a>
                 </div>
             </aside>
-
             <section class="auth-main">
                 <div class="auth-card auth-card--narrow">
-                    <div class="auth-kicker">CREATE WORKSPACE · 2 MINUTES</div>
-                    <h2>Activate Account EC/2026/1902.</h2>
-                    <div class="auth-success-banner" aria-live="polite">
-                        <span class="banner-dot" aria-hidden="true"></span>
-                        Invitation verified — Amina Yusuf · referred by W. Njeri
-                    </div>
+                    <div class="auth-kicker">CREATE ACCOUNT</div>
+                    <h2>Create your account.</h2>
+                    <p class="auth-subhead">You will use this email and password to sign in.</p>
 
                     <form id="registerForm" class="auth-form" novalidate>
-                        <div class="field auth-field auth-inline-grid">
-                            <div class="auth-grid-item">
-                                <label for="rg-name">Full legal name</label>
-                                <input id="rg-name" name="fullName" type="text" autocomplete="name" minlength="2" maxlength="160" required placeholder="Amina Yusuf">
-                                <span class="error">Please provide your full name.</span>
-                            </div>
-                            <div class="auth-grid-item">
-                                <label for="rg-id">National ID / Passport</label>
-                                <input id="rg-id" name="idNumber" type="text" autocomplete="off" placeholder="TZ · 44•••••21/Optional">
-                            </div>
+                        <div class="field auth-field">
+                            <label for="rg-name">Full name</label>
+                            <input id="rg-name" name="fullName" type="text" autocomplete="name" minlength="2" maxlength="160" required placeholder="As on your ID">
+                            <span class="error">Please provide your full name.</span>
                         </div>
 
                         <div class="field auth-field">
@@ -73,19 +63,22 @@
 
                         <div class="field auth-field">
                             <label for="rg-password">Create password</label>
-                            <input id="rg-password" name="password" type="password" autocomplete="new-password" minlength="12" required placeholder="StrongPassword!2026">
+                            <input id="rg-password" name="password" type="password" autocomplete="new-password" minlength="12" required placeholder="At least 12 characters">
                             <span class="help">At least 12 characters.</span>
                             <span class="error">Password must be at least 12 characters.</span>
                         </div>
 
-                        <label class="remember-box remember-box-large" for="accept-privilege">
-                            <input id="accept-privilege" type="checkbox" checked>
-                            <span>I accept the client file letter, privacy notice and fee terms. I confirm I am the invited person.</span>
-                        </label>
+                        <div class="field auth-field auth-consent">
+                            <label class="remember-box remember-box-large" for="accept-privilege">
+                                <input id="accept-privilege" name="consent" type="checkbox" required>
+                                <span>I confirm my details are correct and agree that the firm may contact me about my requests.</span>
+                            </label>
+                            <span class="error">Please tick this box to continue.</span>
+                        </div>
 
                         <div id="rg-status" class="form-status" role="status" aria-live="polite"></div>
 
-                        <button type="submit" class="button auth-submit">Create Account <span class="arrow" aria-hidden="true">→</span></button>
+                        <button type="submit" class="button auth-submit">Create account <span class="arrow" aria-hidden="true">→</span></button>
                         <a class="button ghost-dark auth-ghost" href="login.html">Already have an account? Sign in</a>
                     </form>
                 </div>

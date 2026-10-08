@@ -553,3 +553,13 @@ html:has(.auth-page), .auth-page { height: 100%; }
         #0f2239;
 }
 .auth-side h1, .auth-side p, .auth-trust-card, .auth-brand-copy, .auth-side-meta { text-shadow: 0 1px 8px rgba(5, 12, 24, 0.85); }
+
+/* Password help: numbered steps instead of a form (the portal sends no e-mail). */
+.auth-steps { margin: 1rem 0 1.2rem; padding-left: 1.2rem; display: grid; gap: 0.7rem; font-size: 0.9rem; line-height: 1.5; color: inherit; }
+.auth-steps li::marker { font-weight: 600; }
+.auth-steps a { text-decoration: underline; text-underline-offset: 2px; }
+.auth-card > .button + .button { margin-top: 0.4rem; }
+.auth-card > .button { display: flex; justify-content: center; }
+.auth-consent .error { display: none; }
+.auth-consent.invalid .error { display: block; }
+@media (max-width: 760px) { .auth-steps { font-size: 0.78rem; gap: 0.5rem; } }

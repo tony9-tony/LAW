@@ -20,14 +20,14 @@
     }
     function fmtDate(s) {
         if (!s) return '—';
-        try { return new Date(s).toLocaleString(); } catch (e) { return s; }
+        return window.Portal ? window.Portal.fmtDate(s) : String(s);
     }
 
     async function loadList() {
         const root = document.getElementById('invoices-root');
         const meta = document.getElementById('invoices-meta');
         if (!root) return;
-        root.innerHTML = '<div class="empty-state"><span class="ico">·</span><strong>Loading invoices…</strong></div>';
+        root.innerHTML = '<div class="empty-state"><strong>Loading invoices…</strong></div>';
         if (meta) meta.textContent = 'Loading…';
         try {
             const res = await API.listInvoices();
@@ -35,7 +35,7 @@
             if (!items.length) {
                 root.innerHTML = `
                     <div class="empty-state">
-                        <span class="ico">·</span>
+                        
                         <strong>No invoices yet.</strong>
                         <p>Invoices are generated for accepted matters. Once the firm opens a matter and issues billing, records will appear here.</p>
                     </div>`;
@@ -48,27 +48,27 @@
                     <thead>
                         <tr>
                             <th class="col-ref">Invoice</th>
-                            <th class="inv-hide-sm">Matter</th>
-                            <th class="col-status-140">Status</th>
-                            <th class="inv-hide-sm">Payment</th>
+                            <th class="inv-hide-sm">For</th>
+                            <th class="col-status-140">Payment</th>
                             <th class="col-date-140 inv-hide-sm">Issued</th>
                             <th class="inv-total">Total</th>
+                            <th class="inv-action"><span class="sr-only">Action</span></th>
                         </tr>
                     </thead>
                     <tbody>${items.map((inv) => `
                         <tr class="row-link" data-href="invoices.html?id=${inv.id}">
                             <td><span class="ref">#${P.shortRef(inv.id)}</span></td>
-                            <td class="subj inv-hide-sm">${inv.matter_reference ? `<strong>${escape(inv.matter_reference)}</strong>${inv.matter_title ? ' · ' + escape(inv.matter_title) : ''}` : '<span class="muted">After payment</span>'}</td>
-                            <td>${P.statusPill(inv.status)}</td>
-                            <td class="inv-hide-sm">${inv.payment_status ? `<span class="pill ${inv.payment_status === 'PAID' ? 'status-open' : 'status-new'}">${escape(String(inv.payment_status).replace(/_/g, ' ').toLowerCase().replace(/^./, (c) => c.toUpperCase()))}</span>` : '<span class="muted">—</span>'}</td>
+                            <td class="subj inv-hide-sm">${inv.matter_reference ? `<strong>${escape(inv.matter_reference)}</strong>${inv.matter_title ? ' · ' + escape(inv.matter_title) : ''}` : '<span class="muted">Your request (the matter opens once paid)</span>'}</td>
+                            <td>${P.statusPill(inv.payment_status || inv.status)}</td>
                             <td class="muted inv-hide-sm">${fmtDateShort(inv.issued_at || inv.created_at)}</td>
                             <td class="inv-total">${fmtCurrency(inv.total, inv.currency)}</td>
+                            <td class="inv-action">${['PAYMENT_REQUIRED', 'PAYMENT_REJECTED', 'UNPAID'].includes(String(inv.payment_status || '').toUpperCase()) ? `<a class="btn small" href="invoices.html?id=${inv.id}#payment-section">Pay now</a>` : `<a class="btn small secondary" href="invoices.html?id=${inv.id}">View</a>`}</td>
                         </tr>
                     `).join('')}</tbody>
                 </table></div>`;
         } catch (err) {
             if (err && err.status === 401) { window.location.replace('../login.html'); return; }
-            root.innerHTML = `<div class="empty-state"><span class="ico">!</span><strong>Could not load invoices.</strong><p>${escape(err.message || 'Please try again shortly.')}</p></div>`;
+            root.innerHTML = `<div class="empty-state"><span class="ico"><svg viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7.5v5.5M12 16.5h.01"/></svg></span><strong>Could not load invoices.</strong><p>${escape(err.message || 'Please try again shortly.')}</p></div>`;
             if (meta) meta.textContent = 'Error';
         }
     }
@@ -77,7 +77,7 @@
         const root = document.getElementById('invoices-root');
         const meta = document.getElementById('invoices-meta');
         if (!root) return;
-        root.innerHTML = '<div class="empty-state"><span class="ico">·</span><strong>Loading invoice…</strong></div>';
+        root.innerHTML = '<div class="empty-state"><strong>Loading invoice…</strong></div>';
         if (meta) meta.textContent = 'Loading…';
         try {
             const [invRes, itemsRes, destRes] = await Promise.all([
@@ -144,8 +144,9 @@
                     <div class="inv-main">
                         <section class="panel">
                             <div class="panel-head"><h2>Invoice</h2><div class="inv-head-right"><span class="panel-meta">#${P.shortRef(inv.id)}</span>
+                                ${!isPaid && !awaitingVerification && availableDestinations.length ? '<button type="button" class="btn small" id="inv-pay-btn">Pay now</button>' : ''}
                                 <div class="inv-menu">
-                                    <button type="button" class="inv-menu-btn" id="inv-menu-btn" aria-haspopup="menu" aria-expanded="false" aria-label="Invoice actions">&#8943;</button>
+                                    <button type="button" class="inv-menu-btn" id="inv-menu-btn" aria-haspopup="menu" aria-expanded="false" aria-label="More invoice actions"><svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor" aria-hidden="true"><circle cx="5" cy="12" r="1.8"/><circle cx="12" cy="12" r="1.8"/><circle cx="19" cy="12" r="1.8"/></svg></button>
                                     <div class="inv-menu-list" id="inv-menu-list" role="menu" hidden>
                                         ${!isPaid && !awaitingVerification && availableDestinations.length ? '<button type="button" role="menuitem" data-inv-action="pay">Pay now</button><button type="button" role="menuitem" data-inv-action="proof">Upload payment proof</button>' : ''}
                                         ${!isPaid && availableDestinations.length ? '<button type="button" role="menuitem" data-inv-action="copy-lipa">Copy Lipa Namba</button>' : ''}
@@ -170,7 +171,7 @@
                             <div class="panel-head"><h2>Line items</h2></div>
                             <div class="panel-body tight">
                                 ${items.length === 0
-                                    ? '<div class="empty-state tight"><span class="ico">·</span><strong>No line items.</strong></div>'
+                                    ? '<div class="empty-state tight"><strong>No line items.</strong></div>'
                                     : `<table class="requests-table inv-items">
                                         <thead><tr><th>Description</th><th style="text-align:right;">Qty</th><th class="inv-hide-sm" style="text-align:right;">Unit price</th><th style="text-align:right;">Amount</th></tr></thead>
                                         <tbody>${items.map((it) => `
@@ -203,7 +204,7 @@
                                         <div class="form-status" id="pay-status" role="status" aria-live="polite"></div>
                                         <div class="actions"><button type="submit" class="btn primary">Submit payment proof</button></div>
                                     </form>
-                                </div>` : '<div class="empty-state tight"><span class="ico">·</span><strong>Payment is not available yet.</strong><p>The firm has not configured a payment destination for this invoice.</p></div>'}
+                                </div>` : '<div class="empty-state tight"><strong>Payment is not available yet.</strong><p>The firm has not configured a payment destination for this invoice.</p></div>'}
                             </div>
                         </section>
                         ` : ''}
@@ -262,6 +263,8 @@
             if (section) section.scrollIntoView({ behavior: 'smooth', block: 'start' });
             if (focusProof) setTimeout(() => document.getElementById('pay-receipt')?.focus(), 350);
         };
+        document.getElementById('inv-pay-btn')?.addEventListener('click', () => openCheckout(false));
+        if (location.hash === '#payment-section' && document.getElementById('inv-pay-btn')) setTimeout(() => openCheckout(false), 200);
         btn.addEventListener('click', (e) => {
             e.stopPropagation();
             const open = list.hidden;

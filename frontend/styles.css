@@ -2284,7 +2284,12 @@ h4 { font-size: clamp(1rem, 1.4vw, 1.1rem); line-height: 1.35; font-family: var(
 .stepper .step.active .step-label { color: var(--paper); }
 .stepper .step.done .step-label { color: var(--muted); text-decoration: line-through; }
 .stepper .step.done::before {
-    content: '✓';
+    content: '';
+    width: 6px;
+    height: 11px;
+    border: solid currentColor;
+    border-width: 0 2px 2px 0;
+    transform: rotate(45deg);
     position: absolute;
     top: 1rem;
     right: 1rem;
@@ -2493,3 +2498,41 @@ h4 { font-size: clamp(1rem, 1.4vw, 1.1rem); line-height: 1.35; font-family: var(
     .brand-name { font-size: 0.94rem; }
     .brand-tag { letter-spacing: 0.14em; }
 }
+
+/* ---------------------------------------------------------------------------
+   Handover polish: simple, consistent blocks shared by the public pages.
+   --------------------------------------------------------------------------- */
+.practice-row { grid-template-columns: 84px minmax(0, 1fr) auto; }
+@media (max-width: 960px) { .practice-row { grid-template-columns: 54px 1fr; } }
+@media (max-width: 720px) { .practice-row { grid-template-columns: 1fr; } }
+.process-card .icon-box svg { width: 22px; height: 22px; }
+.process-card h3 { font-size: 1.7rem; }
+.process-more { margin: 1.75rem 0 0; }
+a.article-tile { color: inherit; text-decoration: none; transition: border-color .2s ease, transform .2s ease; }
+a.article-tile:hover { border-color: var(--green); transform: translateY(-2px); }
+.consult-note { margin: 0 0 1.2rem; color: rgba(255, 255, 255, 0.78); line-height: 1.6; }
+a.matter-update { color: inherit; text-decoration: underline; text-underline-offset: 3px; }
+
+/* Step-by-step guide (How it works page and portal). */
+.journey { display: grid; gap: 0; counter-reset: journey; margin: 0; padding: 0; list-style: none; }
+.journey li { position: relative; display: grid; grid-template-columns: 56px minmax(0, 1fr); gap: 0 1.25rem; padding: 0 0 2rem; }
+.journey li::before { counter-increment: journey; content: counter(journey); width: 40px; height: 40px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; background: var(--green); color: #fff; font-weight: 600; font-family: var(--sans); font-size: 1rem; position: relative; z-index: 1; }
+.journey li::after { content: ''; position: absolute; left: 19px; top: 44px; bottom: 4px; width: 2px; background: var(--line); }
+.journey li:last-child::after { display: none; }
+.journey h3 { font-family: var(--serif); font-size: 1.5rem; line-height: 1.15; margin: 0.35rem 0 0.4rem; grid-column: 2; }
+.journey p { grid-column: 2; margin: 0; color: var(--muted); line-height: 1.7; }
+.journey .who { grid-column: 2; display: inline-block; margin-top: 0.55rem; font-size: 0.72rem; letter-spacing: 0.12em; text-transform: uppercase; color: var(--green); font-weight: 600; }
+.journey-cols { display: grid; grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr); gap: 3rem; align-items: start; }
+@media (max-width: 900px) { .journey-cols { grid-template-columns: 1fr; gap: 2rem; } }
+.status-guide { border: 1px solid var(--line); background: var(--surface); }
+.status-guide h3 { font-family: var(--serif); font-size: 1.4rem; margin: 0; padding: 1.1rem 1.25rem; border-bottom: 1px solid var(--line); }
+.status-guide dl { margin: 0; }
+.status-guide div { display: grid; grid-template-columns: 150px 1fr; gap: 0.75rem; padding: 0.85rem 1.25rem; border-bottom: 1px solid var(--line-soft); }
+.status-guide div:last-child { border-bottom: 0; }
+.status-guide dt { font-weight: 600; font-size: 0.85rem; color: var(--ink); }
+.status-guide dd { margin: 0; color: var(--muted); font-size: 0.92rem; line-height: 1.55; }
+@media (max-width: 520px) { .status-guide div { grid-template-columns: 1fr; gap: 0.2rem; } }
+.notice-plain { border-left: 3px solid var(--green); background: var(--green-glow); padding: 1rem 1.25rem; margin: 2rem 0 0; color: var(--ink); line-height: 1.6; }
+/* Keep the firm name on two lines next to the menu. */
+.site-header .brand-name { white-space: normal; max-width: 22ch; }
+@media (min-width: 1280px) { .site-header .brand-name { max-width: none; white-space: nowrap; } }

@@ -13,7 +13,10 @@
 (function () {
     'use strict';
 
-    const EMOJIS = ['👍', '❤️', '😂', '😮', '🙏'];
+    /* Emoji reactions are switched off: a law firm's record of a matter stays in plain words. */
+    const EMOJIS = [];
+    const CHECK = '<svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 8.5 6.2 11.5 13 4.5"/></svg>';
+    const CHEVRON = '<svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m4 6 4 4 4-4"/></svg>';
     const DELETED_TEXT = 'This message was deleted';
 
     const esc = (s) => String(s == null ? '' : s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -152,10 +155,10 @@
             if (!mineOf(m) || m.deleted) return '';
             const s = m.status || 'sent';
             const label = s === 'read' ? 'Read' : s === 'delivered' ? 'Delivered' : 'Sent';
-            return `<span class="cw-tick ${s === 'read' ? 'read' : ''}" title="${label}" aria-label="${label}">${s === 'sent' ? '✓' : '✓✓'}</span>`;
+            return `<span class="cw-tick ${s === 'read' ? 'read' : ''}" title="${label}" aria-label="${label}">${s === 'sent' ? CHECK : CHECK + CHECK}</span>`;
         }
         function reactionsHtml(m) {
-            if (!m.reactions || !m.reactions.length || m.deleted) return '';
+            if (!EMOJIS.length || !m.reactions || !m.reactions.length || m.deleted) return '';
             const groups = new Map();
             m.reactions.forEach((r) => {
                 const g = groups.get(r.emoji) || { n: 0, mine: false };
@@ -179,11 +182,11 @@
             const newGroup = !prev || String(prev.sender_id) !== String(m.sender_id) || dayOf(prev.created_at) !== dayOf(m.created_at);
             const name = !mine && newGroup ? `<div class="cw-name">${esc(m.sender_name || other)}</div>` : '';
             const bubbleClass = `cw-bubble${m.deleted ? ' deleted' : ''}${m.kind === 'DOCUMENT_REQUEST' ? ' request' : ''}`;
-            const body = m.deleted ? `🚫 ${DELETED_TEXT}` : esc(m.body);
+            const body = m.deleted ? DELETED_TEXT : esc(m.body);
             return `<div class="cw-row ${mine ? 'mine' : 'theirs'}${newGroup ? ' gap' : ''}" data-id="${m.id}">
                 ${name}
                 <div class="${bubbleClass}">
-                    ${m.deleted ? '' : `<button type="button" class="cw-more" data-more="${m.id}" aria-label="Message options">⌄</button>`}
+                    ${m.deleted ? '' : `<button type="button" class="cw-more" data-more="${m.id}" aria-label="Message options">${CHEVRON}</button>`}
                     ${quoteHtml(m)}${docHtml(m)}<span class="cw-text">${body}</span>
                     <div class="cw-meta"><span>${esc(timeOf(m.created_at))}</span>${tickHtml(m)}</div>
                 </div>
@@ -302,7 +305,7 @@
             menuEl.className = 'cw-menu';
             menuEl.setAttribute('role', 'menu');
             menuEl.innerHTML = `
-                <div class="cw-menu-emoji">${EMOJIS.map((e) => `<button type="button" data-emoji="${e}" aria-label="React ${e}">${e}</button>`).join('')}</div>
+                ${EMOJIS.length ? `<div class="cw-menu-emoji">${EMOJIS.map((e) => `<button type="button" data-emoji="${e}" aria-label="React ${e}">${e}</button>`).join('')}</div>` : ''}
                 <button type="button" class="cw-menu-item" data-act="reply" role="menuitem">Reply</button>
                 <button type="button" class="cw-menu-item" data-act="copy" role="menuitem">Copy text</button>
                 <button type="button" class="cw-menu-item danger" data-act="delete" role="menuitem">Delete…</button>`;

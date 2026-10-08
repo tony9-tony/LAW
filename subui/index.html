@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Dashboard | SUBUI</title>
+    <title>Owner Command Center | ET CETRA ADVOCATES</title>
     <link rel="stylesheet" href="/subui/styles.css">
 </head>
 <body>
@@ -15,22 +15,26 @@
                 <span class="sidebar-tag">Advocates &amp; Legal Counsel</span>
             </div>
         <nav class="sidebar-nav">
-            <div class="group-label">Practice</div>
+            <div class="group-label">Work</div>
             <a href="#dashboard"><span class="nav-mark"></span>Dashboard</a>
-            <a href="#clients"><span class="nav-mark"></span>Clients</a>
             <a href="#requests"><span class="nav-mark"></span>Requests</a>
             <a href="#matters"><span class="nav-mark"></span>Matters</a>
             <a href="#appointments"><span class="nav-mark"></span>Appointments</a>
-            <a href="#documents"><span class="nav-mark"></span>Documents</a>
+            <a href="#clients"><span class="nav-mark"></span>Clients</a>
+            <div class="group-label">Communication</div>
             <a href="#messages"><span class="nav-mark"></span>Messages<span class="nav-badge" id="owner-msg-badge" aria-label="unread messages"></span></a>
+            <a href="#documents"><span class="nav-mark"></span>Documents</a>
             <a href="#notifications"><span class="nav-mark"></span>Notifications</a>
+            <div class="group-label">Billing</div>
             <a href="#invoices"><span class="nav-mark"></span>Invoices</a>
             <a href="#payments"><span class="nav-mark"></span>Payments</a>
-            <a href="#analytics"><span class="nav-mark"></span>Analytics</a>
-            <a href="#audit"><span class="nav-mark"></span>Audit</a>
-            <a href="#security"><span class="nav-mark"></span>Security</a>
+            <div class="group-label">Administration</div>
+            <a href="#users"><span class="nav-mark"></span>Users &amp; passwords</a>
             <a href="#settings"><span class="nav-mark"></span>Settings</a>
-            <a href="#health"><span class="nav-mark"></span>Health</a>
+            <a href="#analytics"><span class="nav-mark"></span>Analytics</a>
+            <a href="#audit"><span class="nav-mark"></span>Audit log</a>
+            <a href="#security"><span class="nav-mark"></span>Security</a>
+            <a href="#health"><span class="nav-mark"></span>System health</a>
         </nav>
         <div class="sidebar-foot">
                 <span id="subui-user">Signed in</span>
@@ -52,7 +56,7 @@
                 </div>
                 <div class="user">
                     <span id="subui-user-name">Loading…</span>
-                    <span class="avatar" aria-hidden="true">·</span>
+                    <span class="avatar" id="subui-avatar" aria-hidden="true"></span>
                 </div>
             </header>
 
@@ -104,7 +108,7 @@
                         <span class="panel-meta">Real-time platform metrics</span>
                     </div>
                     <div class="panel-body tight" id="analytics-data">
-                        <div class="empty-state"><span class="ico">·</span><strong>Loading analytics…</strong></div>
+                        <div class="empty-state"><strong>Loading analytics…</strong></div>
                     </div>
                 </section>
             </main>

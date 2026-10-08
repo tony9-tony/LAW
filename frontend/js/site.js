@@ -7,7 +7,7 @@
         tagline: 'Advocates & Legal Counsel',
         role: 'Advocates & Legal Counsel',
         location: 'Posta, Kisutu, Tanzania',
-        experience: 'Delivering legal excellence since 2014',
+        experience: 'Office visits by appointment',
         year: new Date().getFullYear()
     };
 
@@ -16,8 +16,7 @@
         { href: 'about.html', label: 'About' },
         { href: 'how-it-works.html', label: 'How It Works' },
         { href: 'legal-insights.html', label: 'Legal Insights' },
-        { href: 'contact.html', label: 'Contact' },
-        { href: 'login.html', label: 'Client Portal', cta: true }
+        { href: 'contact.html', label: 'Contact' }
     ];
 
     function headerHTML() {
@@ -30,8 +29,8 @@
             return `<a class="${cls}" href="${item.href}"${attr}>${item.label}</a>`;
         }).join('');
         const account = authed
-            ? `<a class="nav-portal" href="portal/dashboard.html">Client portal</a><button class="nav-signout" type="button" data-signout>Sign out</button>`
-            : `<a class="nav-login" href="login.html">Sign in</a>`;
+            ? `<a class="nav-cta" href="portal/dashboard.html">My portal</a><button class="nav-signout" type="button" data-signout>Sign out</button>`
+            : `<a class="nav-login" href="register.html">Create account</a><a class="nav-cta" href="login.html">Sign in</a>`;
         return `
 <header class="site-header" role="banner">
     <div class="wrap site-header-inner">
@@ -68,6 +67,7 @@
                 <h4>Firm</h4>
                 <ul>
                     <li><a href="about.html">About</a></li>
+                    <li><a href="how-it-works.html">How it works</a></li>
                     <li><a href="legal-insights.html">Legal insights</a></li>
                     <li><a href="contact.html">Contact</a></li>
                 </ul>

@@ -16,14 +16,14 @@
     }
     function fmtDate(s) {
         if (!s) return '—';
-        try { return new Date(s).toLocaleString(); } catch (e) { return s; }
+        return window.Portal ? window.Portal.fmtDate(s) : String(s);
     }
 
     async function loadList() {
         const root = document.getElementById('payments-root');
         const meta = document.getElementById('payments-meta');
         if (!root) return;
-        root.innerHTML = '<div class="empty-state"><span class="ico">·</span><strong>Loading payments…</strong></div>';
+        root.innerHTML = '<div class="empty-state"><strong>Loading payments…</strong></div>';
         if (meta) meta.textContent = 'Loading…';
         try {
             const res = await API.listPayments();
@@ -31,7 +31,7 @@
             if (!items.length) {
                 root.innerHTML = `
                     <div class="empty-state">
-                        <span class="ico">·</span>
+                        
                         <strong>No payments yet.</strong>
                         <p>Make a payment from any unpaid invoice to see a record here.</p>
                     </div>`;
@@ -65,7 +65,7 @@
             `;
         } catch (err) {
             if (err && err.status === 401) { window.location.replace('../login.html'); return; }
-            root.innerHTML = `<div class="empty-state"><span class="ico">!</span><strong>Could not load payments.</strong><p>${escape(err.message || 'Please try again shortly.')}</p></div>`;
+            root.innerHTML = `<div class="empty-state"><span class="ico"><svg viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7.5v5.5M12 16.5h.01"/></svg></span><strong>Could not load payments.</strong><p>${escape(err.message || 'Please try again shortly.')}</p></div>`;
             if (meta) meta.textContent = 'Error';
         }
     }
@@ -74,7 +74,7 @@
         const root = document.getElementById('payments-root');
         const meta = document.getElementById('payments-meta');
         if (!root) return;
-        root.innerHTML = '<div class="empty-state"><span class="ico">·</span><strong>Loading payment…</strong></div>';
+        root.innerHTML = '<div class="empty-state"><strong>Loading payment…</strong></div>';
         if (meta) meta.textContent = 'Loading…';
         try {
             const res = await fetch(window.Site.API.base() + '/payments/' + encodeURIComponent(id), {

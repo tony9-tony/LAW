@@ -1,4 +1,4 @@
-﻿/* ==========================================================================
+/* ==========================================================================
    Client Portal stylesheet — matte black / deep green / warm white.
    Premium legal browser UI. Minimal, calm, authoritative.
    ========================================================================== */
@@ -746,7 +746,12 @@ img { max-width: 100%; display: block; }
 .stepper .step.active .step-label { color: var(--ink); }
 .stepper .step.done .step-label { color: var(--ink-faint); text-decoration: line-through; }
 .stepper .step.done::before {
-    content: '\2713';
+    content: '';
+    width: 6px;
+    height: 11px;
+    border: solid currentColor;
+    border-width: 0 2px 2px 0;
+    transform: rotate(45deg);
     position: absolute;
     top: 0.85rem;
     right: 1rem;
@@ -2078,3 +2083,40 @@ body.notifications-page .panel-head, body.practice-page .panel-head, body.practi
 .field .checkbox-row, .phase4-page .field .checkbox-row { display: flex; align-items: flex-start; gap: 0.75rem; text-transform: none; letter-spacing: 0; font-size: 0.95rem; line-height: 1.5; color: var(--ink-soft); cursor: pointer; }
 .field .checkbox-row input[type="checkbox"], .phase4-page .field .checkbox-row input[type="checkbox"] { flex: 0 0 auto; width: 20px; height: 20px; min-width: 20px; padding: 0; margin: 0.15rem 0 0; accent-color: #123d68; cursor: pointer; }
 .field .checkbox-row span { text-transform: none; letter-spacing: 0; font-size: inherit; color: inherit; }
+
+/* ---------------------------------------------------------------------------
+   Handover polish
+   --------------------------------------------------------------------------- */
+/* The sidebar column keeps its colour all the way down, even on long pages. */
+@media (min-width: 861px) { [data-portal-sidebar] { background: #123d68; } }
+/* Read / unread marker on notifications (was a text glyph). */
+.doc-icon.notif-dot { width: 12px; height: 12px; min-width: 12px; padding: 0; border-radius: 50%; border: 2px solid #123d68; background: transparent; font-size: 0; }
+.doc-icon.notif-dot.is-unread { background: #123d68; }
+.empty-line { margin: 0; padding: 1.1rem 1.4rem; color: var(--ink-mute); font-size: 0.95rem; line-height: 1.6; }
+/* Invoices: one clear action per row. */
+.inv-table th.inv-action, .inv-table td.inv-action { text-align: right; white-space: nowrap; width: 1%; }
+.inv-head-right .btn.small { padding: 0.45rem 0.9rem; }
+.inv-menu-btn svg { display: block; }
+.dashboard-search svg { vertical-align: -3px; margin-left: 0.35rem; }
+/* Long references never push a status pill off the card. */
+.requests-table .pill, .inv-table .pill { white-space: nowrap; }
+.requests-table td .ref { white-space: nowrap; }
+/* Steps on the dashboard: what happens next, in order. */
+.journey-mini { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 0; counter-reset: jm; }
+.journey-mini li { position: relative; padding: 1.1rem 1rem 1.2rem 0; counter-increment: jm; }
+.journey-mini li::before { content: counter(jm); display: inline-flex; align-items: center; justify-content: center; width: 28px; height: 28px; border-radius: 50%; background: #123d68; color: #fff; font-size: 0.85rem; font-weight: 600; margin-bottom: 0.6rem; }
+.journey-mini li:not(:last-child)::after { content: ''; position: absolute; top: calc(1.1rem + 13px); left: 34px; right: 8px; height: 2px; background: rgba(18, 61, 104, 0.18); }
+.journey-mini strong { display: block; font-size: 0.95rem; margin-bottom: 0.25rem; color: var(--ink, #14213d); }
+.journey-mini span { display: block; font-size: 0.85rem; line-height: 1.5; color: var(--ink-mute); }
+@media (max-width: 1100px) { .journey-mini { grid-template-columns: repeat(2, minmax(0, 1fr)); } .journey-mini li::after { display: none; } }
+@media (max-width: 560px) { .journey-mini { grid-template-columns: 1fr; } }
+/* Simple stacked forms (Profile: name and password). */
+.stack-form { display: grid; gap: 1rem; max-width: 420px; }
+.stack-form .field { display: grid; gap: 0.35rem; }
+.stack-form label { font-size: 0.72rem; letter-spacing: 0.12em; text-transform: uppercase; color: var(--ink-mute); }
+.stack-form input { min-height: 42px; padding: 0.55rem 0.8rem; border: 1px solid var(--line); border-radius: 6px; font: inherit; background: #fff; }
+.stack-form input:focus { outline: 2px solid #123d68; outline-offset: 1px; }
+.stack-form .help { font-size: 0.78rem; color: var(--ink-mute); }
+.stack-form .btn { justify-self: start; }
+.stack-form .form-status:empty { display: none; }
+@media (max-width: 640px) { .inv-table th.inv-action, .inv-table td.inv-action { display: none; } }

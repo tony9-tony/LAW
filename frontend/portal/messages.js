@@ -88,7 +88,7 @@
         if (notice) notice.style.display = 'none';
         if (threadContext) { threadContext.style.display = 'none'; threadContext.innerHTML = ''; }
         meta.textContent = '';
-        chatRoot.innerHTML = '<div class="empty-state tight"><span class="ico">·</span><strong>Loading conversation…</strong></div>';
+        chatRoot.innerHTML = '<div class="empty-state tight"><strong>Loading conversation…</strong></div>';
         try {
             const detail = await API.request(`/conversations/${encodeURIComponent(convoId)}?limit=1`, { auth: true });
             const c = detail.data || {};
@@ -119,7 +119,7 @@
             });
         } catch (err) {
             if (err && err.status === 401) { window.location.replace('../login.html'); return; }
-            chatRoot.innerHTML = `<div class="empty-state tight"><span class="ico">!</span><strong>Could not load this conversation.</strong><p>${escape(err.message || 'Please try again.')}</p><button class="btn" type="button" id="retry-thread">Retry</button></div>`;
+            chatRoot.innerHTML = `<div class="empty-state tight"><span class="ico"><svg viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7.5v5.5M12 16.5h.01"/></svg></span><strong>Could not load this conversation.</strong><p>${escape(err.message || 'Please try again.')}</p><button class="btn" type="button" id="retry-thread">Retry</button></div>`;
             document.getElementById('retry-thread')?.addEventListener('click', () => loadThread(convoId, context));
         }
     }
@@ -170,7 +170,7 @@
 
     async function loadInbox() {
         if (!inboxList) return;
-        inboxList.innerHTML = `<div class="empty-state"><span class="ico">·</span><strong>Loading conversations…</strong></div>`;
+        inboxList.innerHTML = `<div class="empty-state"><strong>Loading conversations…</strong></div>`;
         inboxMeta.textContent = 'Loading…';
         try {
             const res = await API.listConversations({ limit: 50 });
@@ -180,7 +180,7 @@
             if (!items.length) {
                 inboxList.innerHTML = `
                     <div class="empty-state">
-                        <span class="ico">·</span>
+                        
                         <strong>No conversations yet.</strong>
                         <p>When the firm responds to your request or matter, your threads will appear here. Submit a request to get started.</p>
                         <div class="empty-actions">
@@ -193,7 +193,7 @@
             renderInbox();
         } catch (err) {
             if (err && err.status === 401) { window.location.replace('../login.html'); return; }
-            inboxList.innerHTML = `<div class="empty-state"><span class="ico">!</span><strong>Could not load conversations.</strong><p>${escape(err.message || 'Please try again.')}</p></div>`;
+            inboxList.innerHTML = `<div class="empty-state"><span class="ico"><svg viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7.5v5.5M12 16.5h.01"/></svg></span><strong>Could not load conversations.</strong><p>${escape(err.message || 'Please try again.')}</p></div>`;
         }
     }
 
@@ -225,7 +225,7 @@
             }
             thread.innerHTML = `
                 <div class="empty-state tight">
-                    <span class="ico">·</span>
+                    
                     <strong>Conversation will appear here.</strong>
                     <p>Once the firm reviews your request and creates a matter (or starts a conversation directly), your messages will appear here. Check your requests for status updates.</p>
                     <div class="empty-actions">
@@ -245,7 +245,7 @@
             }
         } catch (err) {
             if (err && err.status === 401) { window.location.replace('../login.html'); return; }
-            thread.innerHTML = `<div class="empty-state tight"><span class="ico">·</span><strong>No conversation available for this matter.</strong><p>Please select a different matter or check back later.</p></div>`;
+            thread.innerHTML = `<div class="empty-state tight"><strong>No conversation available for this matter.</strong><p>Please select a different matter or check back later.</p></div>`;
             if (inboxEl) inboxEl.style.display = 'none';
             if (threadEl) threadEl.style.display = '';
         }

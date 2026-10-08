@@ -89,6 +89,8 @@ app.use('/api/v1/auth/login', loginLimiter);
     });
 
     app.get('/', (_request, response) => response.redirect('/frontend/'));
+/* Browsers ask for /favicon.ico on every page; without this it was a 404 in the console. */
+app.get('/favicon.ico', (_request, response) => response.sendFile(path.join(projectRoot, 'favicon.ico')));
 
     
     app.use('/frontend', express.static(path.join(projectRoot, 'frontend')));
