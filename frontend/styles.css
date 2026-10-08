@@ -2534,5 +2534,5 @@ a.matter-update { color: inherit; text-decoration: underline; text-underline-off
 @media (max-width: 520px) { .status-guide div { grid-template-columns: 1fr; gap: 0.2rem; } }
 .notice-plain { border-left: 3px solid var(--green); background: var(--green-glow); padding: 1rem 1.25rem; margin: 2rem 0 0; color: var(--ink); line-height: 1.6; }
 /* Keep the firm name on two lines next to the menu. */
-.site-header .brand-name { white-space: normal; max-width: 22ch; }
-@media (min-width: 1280px) { .site-header .brand-name { max-width: none; white-space: nowrap; } }
+.site-header .brand-name { white-space: normal; max-width: 20ch; display: block; }
+.site-header .brand { flex-shrink: 0; }

@@ -123,11 +123,11 @@ export const SUPPORT_FAQ = [
         topics: ['contact', 'wasiliana', 'office', 'ofisi', 'phone', 'simu', 'email', 'barua', 'hours', 'muda', 'location', 'mahali'],
         en: {
             q: 'How do I contact the office?',
-            a: 'The office is in Posta, Kisutu, Tanzania, and visits are by appointment only. The quickest way to reach the firm is to send a request or book a consultation in the client portal. Signed-in clients can also message the firm from their matter.'
+            a: 'Call or WhatsApp the firm on +255 714 840 951 or +255 657 259 584. The office is in Posta, Kisutu, Tanzania, and visits are by appointment only. To start a matter, send a request or book a consultation in the client portal. Signed-in clients can also message the firm from their matter.'
         },
         sw: {
             q: 'Ninawezaje kuwasiliana na ofisi?',
-            a: 'Ofisi iko Posta, Kisutu, Tanzania, na ziara ni kwa miadi tu. Njia ya haraka ya kuwasiliana na kampuni ni kutuma ombi au kuweka miadi ya ushauri kwenye portal ya mteja. Wateja walioingia wanaweza pia kutuma ujumbe kwenye shauri lao.'
+            a: 'Piga simu au tuma WhatsApp kwa +255 714 840 951 au +255 657 259 584. Ofisi iko Posta, Kisutu, Tanzania, na ziara ni kwa miadi tu. Kuanza shauri, tuma ombi au weka miadi ya ushauri kwenye portal ya mteja. Wateja walioingia wanaweza pia kutuma ujumbe kwenye shauri lao.'
         }
     },
     {
@@ -135,11 +135,11 @@ export const SUPPORT_FAQ = [
         topics: ['account', 'akaunti', 'register', 'jisajili', 'sign', 'ingia', 'login', 'password', 'nywila'],
         en: {
             q: 'Do I need an account?',
-            a: 'You can chat with me and read these answers without an account. To book, submit a request, pay, message the firm, or view documents, sign in or create a free client account first. Forgot your password? The portal sends no e-mails: contact the firm, who will set a temporary password, then change it under Profile.'
+            a: 'You can chat with me and read these answers without an account. To book, submit a request, pay, message the firm, or view documents, sign in or create a free client account first. Forgot your password? The portal sends no e-mails: call or WhatsApp the firm (+255 714 840 951 or +255 657 259 584); they set a temporary password, then you change it under Profile.'
         },
         sw: {
             q: 'Je, nahitaji akaunti?',
-            a: 'Unaweza kuzungumza nami na kusoma majibu haya bila akaunti. Kuweka miadi, kuwasilisha ombi, kulipa, kutuma ujumbe, au kuangalia nyaraka, ingia au fungua akaunti ya mteja bure kwanza. Umesahau nenosiri? Portal haitumi barua pepe: wasiliana na kampuni, itakuwekea nenosiri la muda, kisha ulibadilishe kwenye Profile.'
+            a: 'Unaweza kuzungumza nami na kusoma majibu haya bila akaunti. Kuweka miadi, kuwasilisha ombi, kulipa, kutuma ujumbe, au kuangalia nyaraka, ingia au fungua akaunti ya mteja bure kwanza. Umesahau nenosiri? Portal haitumi barua pepe: piga simu au tuma WhatsApp kwa kampuni (+255 714 840 951 au +255 657 259 584), itakuwekea nenosiri la muda, kisha ulibadilishe kwenye Profile.'
         }
     },
     {

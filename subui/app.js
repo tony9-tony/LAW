@@ -922,6 +922,24 @@
                         </form>
                     </div>
                 </section>
+                <section class="panel" id="set-pw-panel" style="display:none;margin-bottom:1rem;">
+                    <div class="panel-head"><h2 id="set-pw-title">Set a temporary password</h2></div>
+                    <div class="panel-body">
+                        <form id="setPwForm" novalidate>
+                            <p class="head-meta" style="margin:0 0 1rem;">Give this password to the person directly (phone or in person). They sign in with it and choose their own under Profile.</p>
+                            <div class="field" style="max-width:360px;">
+                                <label for="sp-password">Temporary password</label>
+                                <input id="sp-password" type="text" autocomplete="off" minlength="12" required>
+                                <span class="help">At least 12 characters.</span>
+                            </div>
+                            <div class="page-actions" style="margin-top:1rem;">
+                                <button type="submit" class="btn primary">Set password</button>
+                                <button type="button" class="btn ghost" id="sp-cancel">Cancel</button>
+                            </div>
+                            <div class="form-status" id="sp-status" role="status" aria-live="polite" style="margin-top:0.75rem;"></div>
+                        </form>
+                    </div>
+                </section>
                 <section class="panel">
                     <div class="panel-head"><h2>All Users</h2><span class="panel-meta">${res.meta.total} total</span></div>
                     <div class="panel-body tight">
@@ -949,17 +967,45 @@
                 const panel = document.getElementById('create-user-panel');
                 if (panel) panel.style.display = 'none';
             });
+            /* Temporary password: one small form above the list, for the person picked. */
+            const pwPanel = document.getElementById('set-pw-panel');
+            const pwForm = document.getElementById('setPwForm');
+            const pwInput = document.getElementById('sp-password');
+            const pwStatus = document.getElementById('sp-status');
+            let pwTarget = null;
             container.querySelectorAll('[data-set-password]').forEach((btn) => {
-                btn.addEventListener('click', async () => {
-                    const who = btn.getAttribute('data-user-name');
-                    const pw = window.prompt(`New temporary password for ${who} (at least 12 characters).\nGive it to them directly; they change it under Profile.`);
-                    if (pw === null) return;
-                    if (pw.length < 12) { window.alert('The password must be at least 12 characters.'); return; }
-                    try {
-                        await api(`/owner/users/${btn.getAttribute('data-set-password')}/password`, { method: 'POST', body: { password: pw }, auth: true });
-                        window.alert(`Temporary password set for ${who}.`);
-                    } catch (err) { window.alert('Could not set the password: ' + (err.message || 'please try again.')); }
+                btn.addEventListener('click', () => {
+                    pwTarget = { id: btn.getAttribute('data-set-password'), name: btn.getAttribute('data-user-name') };
+                    document.getElementById('set-pw-title').textContent = `Set a temporary password for ${pwTarget.name}`;
+                    pwInput.value = '';
+                    pwStatus.className = 'form-status';
+                    pwStatus.textContent = '';
+                    pwPanel.style.display = 'block';
+                    pwPanel.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                    pwInput.focus();
                 });
+            });
+            document.getElementById('sp-cancel')?.addEventListener('click', () => { pwPanel.style.display = 'none'; pwTarget = null; });
+            pwForm?.addEventListener('submit', async (e) => {
+                e.preventDefault();
+                if (!pwTarget) return;
+                const pw = pwInput.value;
+                if (pw.length < 12) {
+                    pwStatus.className = 'form-status error';
+                    pwStatus.innerHTML = '<strong>Too short.</strong> Use at least 12 characters.';
+                    return;
+                }
+                pwStatus.className = 'form-status';
+                pwStatus.textContent = 'Saving…';
+                try {
+                    await api(`/owner/users/${pwTarget.id}/password`, { method: 'POST', body: { password: pw }, auth: true });
+                    pwStatus.className = 'form-status success';
+                    pwStatus.innerHTML = `<strong>Password set for ${escape(pwTarget.name)}.</strong> Give it to them directly; they change it under Profile.`;
+                    pwInput.value = '';
+                } catch (err) {
+                    pwStatus.className = 'form-status error';
+                    pwStatus.innerHTML = `<strong>Could not set the password.</strong> ${escape(err.message || 'Please try again.')}`;
+                }
             });
             const createForm = document.getElementById('createUserForm');
             if (createForm) {
@@ -1007,7 +1053,7 @@
                                     <td>${escape(u.full_name)}</td>
                                     <td class="muted">${escape(u.email)}</td>
                                     <td>${u.is_active ? '<span class="pill status-open">Active</span>' : '<span class="pill status-closed">Inactive</span>'}</td>
-                                    <td class="muted">${escape(u.last_login_at || '—')}</td>
+                                    <td class="muted">${escape(fmtWhen(u.last_login_at || '—'))}</td>
                                     <td class="muted">${escape(fmtWhen(u.created_at))}</td>
                                     <td><button class="btn small secondary" data-client="${u.id}">View</button></td>
                                 </tr>
@@ -1046,7 +1092,7 @@
                                     <td>${escape(u.full_name)}</td>
                                     <td class="muted">${escape(u.email)}</td>
                                     <td>${u.is_active ? '<span class="pill status-open">Active</span>' : '<span class="pill status-closed">Inactive</span>'}</td>
-                                    <td class="muted">${escape(u.last_login_at || '—')}</td>
+                                    <td class="muted">${escape(fmtWhen(u.last_login_at || '—'))}</td>
                                     <td class="muted">${escape(fmtWhen(u.created_at))}</td>
                                     <td><button class="btn small secondary">View</button></td>
                                 </tr>
@@ -1086,7 +1132,7 @@
                                     <td>${escape(u.full_name)}</td>
                                     <td class="muted">${escape(u.email)}</td>
                                     <td>${u.is_active ? '<span class="pill status-open">Active</span>' : '<span class="pill status-closed">Inactive</span>'}</td>
-                                    <td class="muted">${escape(u.last_login_at || '—')}</td>
+                                    <td class="muted">${escape(fmtWhen(u.last_login_at || '—'))}</td>
                                     <td class="muted">${escape(fmtWhen(u.created_at))}</td>
                                 </tr>
                             `).join('')}</tbody>
@@ -1216,7 +1262,7 @@
                                     <td>${escape(u.full_name)}</td>
                                     <td class="muted">${escape(u.email)}</td>
                                     <td>${u.is_active ? '<span class="pill status-open">Active</span>' : '<span class="pill status-closed">Inactive</span>'}</td>
-                                    <td class="muted">${escape(u.last_login_at || '—')}</td>
+                                    <td class="muted">${escape(fmtWhen(u.last_login_at || '—'))}</td>
                                     <td class="muted">${escape(fmtWhen(u.created_at))}</td>
                                     <td><button class="btn small secondary">View</button></td>
                                 </tr>
@@ -1291,7 +1337,7 @@
                     </div>
                     <div class="action-row">
                         <button class="btn ghost" id="back-requests">← Back</button>
-                        ${!isResolved ? `<button class="btn primary" id="btn-accept">Accept &amp; open matter</button>` : ''}
+                        ${!isResolved ? `<button class="btn primary" id="btn-accept">Accept</button>` : ''}
                         ${!isResolved ? `<button class="btn secondary" id="btn-decline">Decline</button>` : ''}
                         ${!isResolved && canRequestInfo ? `<button class="btn" id="btn-info">Request info</button>` : ''}
                         ${canSetPayment ? `<button class="btn" id="btn-set-payment">Set Payment</button>` : ''}
@@ -1309,8 +1355,8 @@
                                     <tbody>
                                         <tr><th style="width:30%">Client</th><td>${escape(r.client_name || '—')}<br><span class="muted">${escape(r.client_email || '')}</span></td></tr>
                                         <tr><th>Status</th><td>${statusPill(r.status || 'new')}</td></tr>
-                                        <tr><th>Created</th><td class="muted">${escape(r.created_at || '—')}</td></tr>
-                                        <tr><th>Updated</th><td class="muted">${escape(r.updated_at || r.created_at || '—')}</td></tr>
+                                        <tr><th>Created</th><td class="muted">${escape(fmtWhen(r.created_at || '—'))}</td></tr>
+                                        <tr><th>Updated</th><td class="muted">${escape(fmtWhen(r.updated_at || r.created_at || '—'))}</td></tr>
                                         ${r.matter_id ? `<tr><th>Related Matter</th><td>${escape(r.matter_reference || '')} — ${escape(r.matter_title || '')}<br><span class="muted">${escape(r.matter_type || '')} · ${escape(r.matter_status || '')}</span></td></tr>` : ''}
                                     </tbody>
                                 </table>
@@ -1323,10 +1369,10 @@
                             <div class="panel-head"><h2>Workflow Actions</h2><span class="panel-meta">Take action on this request</span></div>
                             <div class="panel-body">
                                 <ul class="workflow-steps">
-                                    <li><strong>Accept request</strong> — Create a matter and open a conversation.</li>
-                                    <li><strong>Decline request</strong> — Close with an optional reason.</li>
-                                    <li><strong>Request information</strong> — Ask the client for additional details.</li>
-                                    <li><strong>Message client</strong> — Send a message before a matter is created.</li>
+                                    <li><strong>Accept</strong>: the client is told; then use <strong>Set Payment</strong> so the invoice appears in their portal. The matter opens when you verify their payment.</li>
+                                    <li><strong>Decline</strong>: close the request with a reason the client can read.</li>
+                                    <li><strong>Request info</strong>: ask the client for missing details; the request waits for their reply.</li>
+                                    <li><strong>Message client</strong>: talk to the client before a matter exists.</li>
                                 </ul>
                                 <div class="form-status" id="workflow-status" role="status" aria-live="polite"></div>
                             </div>
@@ -1344,7 +1390,7 @@
                                             <div class="ts">${P.fmtDate(ir.created_at)}</div>
                                             <div class="lead"><strong>${ir.message ? escape(ir.message) : 'Additional information requested'}</strong></div>
                                             ${ir.items && ir.items.length ? `<div class="muted">${escape(ir.items.join(', '))}</div>` : ''}
-                                            ${ir.deadline ? `<div class="muted">Deadline: ${escape(ir.deadline)}</div>` : ''}
+                                            ${ir.deadline ? `<div class="muted">Deadline: ${escape(fmtWhen(ir.deadline))}</div>` : ''}
                                         </div>
                                     </div>
                                 `).join('')}
@@ -1489,7 +1535,7 @@
                     setWorkflowStatus('Accepting…', 'form-status');
                     try {
                         const title = r.subject || 'Matter';
-                        await api(`/owner/requests/${encodeURIComponent(r.id)}/accept`, { method: 'POST', body: { title, description: r.description || '' }, auth: true });
+                        await api(`/owner/requests/${encodeURIComponent(r.id)}/accept`, { method: 'POST', body: { title: title.slice(0, 200), description: (r.description || '').slice(0, 4000) }, auth: true });
                         refreshOwnerUnreadBadge();
                         loadRequestDetail(r.id);
                     } catch (err) {
@@ -2236,7 +2282,7 @@
                                     <td class="mono">${c.matter_id ? escape(c.reference || '—') + (c.title ? ' — ' + escape(c.title) : '') : 'Request' + (c.request_subject ? ' — ' + escape(c.request_subject) : '')}${isUnread ? '<span class="unread-dot" aria-hidden="true" title="Unread"></span>' : ''}</td>
                                     <td>${escape(c.client_name || '—')}<br><span class="muted">${escape(c.client_email || '')}</span></td>
                                     <td>${escape(c.last_message_body || '—')}</td>
-                                    <td class="muted">${escape(c.last_message_at || c.created_at)}</td>
+                                    <td class="muted">${escape(fmtWhen(c.last_message_at || c.created_at))}</td>
                                     <td>${isUnread ? `<span class="pill status-new">${Number(c.unread_count) || 0} unread</span>` : '<span class="pill status-closed">Read</span>'}</td>
                                     <td><button class="btn small secondary" data-conversation-id="${c.id}">Open</button></td>
                                 </tr>
@@ -2400,8 +2446,8 @@
                                 <tr><th style="width:30%">Full Name</th><td>${escape(c.full_name || '—')}</td></tr>
                                 <tr><th>Email</th><td>${escape(c.email || '—')}</td></tr>
                                 <tr><th>Status</th><td>${c.is_active ? '<span class="pill status-open">Active</span>' : '<span class="pill status-closed">Inactive</span>'}</td></tr>
-                                <tr><th>Member Since</th><td class="muted">${escape(c.created_at || '—')}</td></tr>
-                                <tr><th>Last Login</th><td class="muted">${escape(c.last_login_at || '—')}</td></tr>
+                                <tr><th>Member Since</th><td class="muted">${escape(fmtWhen(c.created_at || '—'))}</td></tr>
+                                <tr><th>Last Login</th><td class="muted">${escape(fmtWhen(c.last_login_at || '—'))}</td></tr>
                             </tbody>
                         </table>
                     </div>
@@ -2466,7 +2512,7 @@
                                     <td class="mono">${escape(convo.reference || '')}</td>
                                     <td>${escape(convo.client_name || '—')}</td>
                                     <td>${escape((convo.last_message_body || '').slice(0, 60))}</td>
-                                    <td class="muted">${escape(convo.last_message_at || '—')}</td>
+                                    <td class="muted">${escape(fmtWhen(convo.last_message_at || '—'))}</td>
                                     <td>${(Number(convo.unread_count) || 0) > 0 ? `<span class="pill status-new">${Number(convo.unread_count) || 0}</span>` : '<span class="muted">0</span>'}</td>
                                     <td><button class="btn small secondary" data-convo="${convo.id}">Open</button></td>
                                 </tr>
@@ -2902,6 +2948,8 @@
                     </div>
                     <div class="action-row">
                         <button class="btn ghost" id="btn-back-appointments">← Back to Appointments</button>
+                        ${a.status === 'SCHEDULED' ? `<button class="btn primary" data-appt-action="accept">Confirm</button>` : ''}
+                        ${['SCHEDULED', 'CONFIRMED'].includes(a.status) ? `<button class="btn" data-appt-action="complete">Mark completed</button><button class="btn" data-appt-action="no-show">Client did not come</button><button class="btn secondary" data-appt-action="cancel">Cancel</button>` : ''}
                     </div>
                 </div>
                 <section class="panel">
@@ -2910,12 +2958,12 @@
                         <table class="table">
                             <tbody>
                                 <tr><th style="width:30%">Client</th><td>${escape(a.client_name || '—')}<br><span class="muted">${escape(a.client_email || '')}</span></td></tr>
-                                <tr><th>Starts At</th><td class="muted">${escape(a.starts_at || '—')}</td></tr>
-                                <tr><th>Ends At</th><td class="muted">${escape(a.ends_at || '—')}</td></tr>
-                                <tr><th>Status</th><td>${escape(a.status || '—')}</td></tr>
+                                <tr><th>Starts At</th><td class="muted">${escape(fmtWhen(a.starts_at || '—'))}</td></tr>
+                                <tr><th>Ends At</th><td class="muted">${escape(fmtWhen(a.ends_at || '—'))}</td></tr>
+                                <tr><th>Status</th><td>${statusPill(a.status || 'SCHEDULED')}</td></tr>
                                 ${a.matter_reference ? `<tr><th>Matter</th><td>${escape(a.matter_reference)} — ${escape(a.matter_title || '')}</td></tr>` : ''}
-                                <tr><th>Created</th><td class="muted">${escape(a.created_at || '—')}</td></tr>
-                                <tr><th>Updated</th><td class="muted">${escape(a.updated_at || '—')}</td></tr>
+                                <tr><th>Created</th><td class="muted">${escape(fmtWhen(a.created_at || '—'))}</td></tr>
+                                <tr><th>Updated</th><td class="muted">${escape(fmtWhen(a.updated_at || '—'))}</td></tr>
                             </tbody>
                         </table>
                         ${a.notes ? `<div style="margin-top:1.5rem;"><h3 style="font-size:0.78rem;letter-spacing:0.16em;text-transform:uppercase;color:var(--ink-mute);margin-bottom:0.5rem;">Notes</h3><p style="white-space:pre-wrap;color:var(--ink-soft);line-height:1.6;">${escape(a.notes)}</p></div>` : ''}
@@ -2923,6 +2971,25 @@
                 </section>
             `;
             document.getElementById('btn-back-appointments')?.addEventListener('click', loadAppointments);
+            container.querySelectorAll('[data-appt-action]').forEach((btn) => {
+                btn.addEventListener('click', async () => {
+                    const action = btn.getAttribute('data-appt-action');
+                    let body = {};
+                    if (action === 'cancel') {
+                        const reason = await showPrompt({ title: 'Cancel appointment', message: 'The client is told. Add a reason (optional):', label: 'Reason', required: false });
+                        if (reason === null) return;
+                        body = { reason: reason.trim() };
+                    }
+                    btn.disabled = true;
+                    try {
+                        await api(`/owner/appointments/${encodeURIComponent(a.id)}/${action}`, { method: 'POST', body, auth: true });
+                        loadAppointmentDetail(a.id);
+                    } catch (err) {
+                        btn.disabled = false;
+                        window.alert('Could not update the appointment: ' + (err.message || 'please try again.'));
+                    }
+                });
+            });
         } catch (error) {
             container.innerHTML = `<div class="empty-state"><span class="ico"><svg viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7.5v5.5M12 16.5h.01"/></svg></span><strong>Could not load appointment.</strong><p>${escape(error.message)}</p></div>`;
         }
@@ -3517,9 +3584,9 @@
                                     <td class="muted">${escape(inv.matter_reference || '—')}</td>
                                     <td>${escape(inv.client_name || '—')}</td>
                                     <td>${statusPill(inv.status)}</td>
-                                    <td class="muted">${escape(inv.currency || 'TZS')} ${Number(inv.total || 0).toFixed(2)}</td>
-                                    <td class="muted">${escape(inv.issued_at || '—')}</td>
-                                    <td class="muted">${escape(inv.due_at || '—')}</td>
+                                    <td class="muted">${escape(inv.currency || 'TZS')} ${Number(inv.total || 0).toLocaleString('en-US', { maximumFractionDigits: 0 })}</td>
+                                    <td class="muted">${escape(fmtWhen(inv.issued_at || '—'))}</td>
+                                    <td class="muted">${escape(fmtWhen(inv.due_at || '—'))}</td>
                                     <td><button class="btn small secondary" data-invoice="${inv.id}">View</button></td>
                                 </tr>
                             `).join('')}</tbody>
@@ -3572,12 +3639,12 @@
                                 <tr><th style="width:30%">Status</th><td>${statusPill(inv.status)}</td></tr>
                                 <tr><th>Payment Status</th><td>${escape(inv.payment_status || 'unpaid')}</td></tr>
                                 <tr><th>Currency</th><td>${escape(inv.currency || 'TZS')}</td></tr>
-                                <tr><th>Subtotal</th><td>${escape(inv.currency || 'TZS')} ${Number(inv.subtotal || 0).toFixed(2)}</td></tr>
-                                <tr><th>Tax</th><td>${escape(inv.currency || 'TZS')} ${Number(inv.tax || 0).toFixed(2)}</td></tr>
-                                <tr><th>Total</th><td>${escape(inv.currency || 'TZS')} ${Number(inv.total || 0).toFixed(2)}</td></tr>
-                                <tr><th>Issued</th><td class="muted">${escape(inv.issued_at || '—')}</td></tr>
-                                <tr><th>Due</th><td class="muted">${escape(inv.due_at || '—')}</td></tr>
-                                <tr><th>Paid</th><td class="muted">${escape(inv.paid_at || '—')}</td></tr>
+                                <tr><th>Subtotal</th><td>${escape(inv.currency || 'TZS')} ${Number(inv.subtotal || 0).toLocaleString('en-US', { maximumFractionDigits: 0 })}</td></tr>
+                                <tr><th>Tax</th><td>${escape(inv.currency || 'TZS')} ${Number(inv.tax || 0).toLocaleString('en-US', { maximumFractionDigits: 0 })}</td></tr>
+                                <tr><th>Total</th><td>${escape(inv.currency || 'TZS')} ${Number(inv.total || 0).toLocaleString('en-US', { maximumFractionDigits: 0 })}</td></tr>
+                                <tr><th>Issued</th><td class="muted">${escape(fmtWhen(inv.issued_at || '—'))}</td></tr>
+                                <tr><th>Due</th><td class="muted">${escape(fmtWhen(inv.due_at || '—'))}</td></tr>
+                                <tr><th>Paid</th><td class="muted">${escape(fmtWhen(inv.paid_at || '—'))}</td></tr>
                             </tbody>
                         </table>
                         ${inv.payment_status !== 'paid' ? `
@@ -3629,7 +3696,7 @@
         const el = document.getElementById('invoice-payments-body');
         if (!el) return;
         try {
-            const res = await api('/payments/invoice/' + encodeURIComponent(invoiceId), { auth: true });
+            const res = await api('/owner/payments?limit=200&invoice_id=' + encodeURIComponent(invoiceId), { auth: true });
             const items = (res && res.data) || [];
             if (!items.length) {
                 el.innerHTML = '<div class="empty-state tight"><strong>No payments recorded.</strong></div>';
@@ -3638,11 +3705,11 @@
             el.innerHTML = `<table class="table"><thead><tr><th>ID</th><th>Amount</th><th>Status</th><th>Method</th><th>Submitted</th><th>Verified</th><th>Actions</th></tr></thead><tbody>${items.map((p) => `
                 <tr>
                     <td class="mono">#${p.id.split('-')[0]}</td>
-                    <td class="muted">${escape(p.currency || 'TZS')} ${Number(p.amount || 0).toFixed(0)}</td>
+                    <td class="muted">${escape(p.currency || 'TZS')} ${Number(p.amount || 0).toLocaleString('en-US', { maximumFractionDigits: 0 })}</td>
                     <td>${escape(p.status || 'pending')}</td>
                     <td class="muted">${escape(p.method || '—')}</td>
-                    <td class="muted">${escape(p.created_at || '—')}</td>
-                    <td class="muted">${escape(p.verified_at || '—')}</td>
+                    <td class="muted">${escape(fmtWhen(p.created_at || '—'))}</td>
+                    <td class="muted">${escape(fmtWhen(p.verified_at || '—'))}</td>
                     <td><button class="btn small secondary" data-payment="${p.id}">View</button></td>
                 </tr>
             `).join('')}</tbody></table>`;
@@ -3674,10 +3741,10 @@
                                     <td class="mono">#${p.id.split('-')[0]}</td>
                                     <td class="mono">${escape(p.invoice_id ? p.invoice_id.split('-')[0] : '—')}</td>
                                     <td>${escape(p.client_name || '—')}</td>
-                                    <td class="muted">${escape(p.currency || 'TZS')} ${Number(p.amount || 0).toFixed(0)}</td>
+                                    <td class="muted">${escape(p.currency || 'TZS')} ${Number(p.amount || 0).toLocaleString('en-US', { maximumFractionDigits: 0 })}</td>
                                     <td>${escape(p.status || 'pending')}</td>
                                     <td class="muted">${escape(p.method || '—')}</td>
-                                    <td class="muted">${escape(p.created_at || '—')}</td>
+                                    <td class="muted">${escape(fmtWhen(p.created_at || '—'))}</td>
                                     <td><button class="btn small secondary" data-payment="${p.id}">View</button></td>
                                 </tr>
                             `).join('')}</tbody>
@@ -3702,7 +3769,7 @@
             const p = (res && res.data) || {};
             const receiptUrl = p.receipt_storage_key ? ('/api/v1/owner/payments/' + encodeURIComponent(p.id) + '/receipt?token=' + token()) : null;
             const receiptPreview = receiptUrl && p.receipt_content_type && p.receipt_content_type.startsWith('image/')
-                ? `<img src="${receiptUrl}" alt="Receipt preview" style="max-width:320px;max-height:240px;border:1px solid var(--line);border-radius:8px;">`
+                ? `<a href="${receiptUrl}" target="_blank" rel="noopener"><img src="${receiptUrl}" alt="Receipt preview" style="max-width:320px;max-height:240px;min-width:60px;border:1px solid var(--line);border-radius:8px;"></a><br><a href="${receiptUrl}" target="_blank" rel="noopener">Open the receipt full size</a>`
                 : (receiptUrl ? `<a href="${receiptUrl}" target="_blank">View receipt</a>` : '—');
             const rejectReasonText = p.rejection_reason ? `<tr><th>Rejection Reason</th><td class="muted">${escape(p.rejection_reason)}</td></tr>` : '';
             container.innerHTML = `
@@ -3723,12 +3790,12 @@
                     <div class="panel-body">
                         <table class="table">
                             <tbody>
-                                <tr><th>Status</th><td>${escape(p.status || 'PENDING')}</td></tr>
-                                <tr><th>Amount</th><td>${escape(p.currency || 'TZS')} ${Number(p.amount || 0).toFixed(0)}</td></tr>
-                                <tr><th>Method</th><td>${escape(p.method || '—')}</td></tr>
+                                <tr><th>Status</th><td>${statusPill(p.status || 'PENDING')}</td></tr>
+                                <tr><th>Amount</th><td>${escape(p.currency || 'TZS')} ${Number(p.amount || 0).toLocaleString('en-US', { maximumFractionDigits: 0 })}</td></tr>
+                                <tr><th>Method</th><td>${escape(({ mobile_money: 'Lipa Namba (mobile money)', bank: 'Bank', qr: 'QR code' })[p.method] || p.method || '—')}</td></tr>
                                 <tr><th>Reference</th><td>${escape(p.reference_number || '—')}</td></tr>
-                                <tr><th>Submitted</th><td class="muted">${escape(p.created_at || '—')}</td></tr>
-                                <tr><th>Verified</th><td class="muted">${escape(p.verified_at || '—')}</td></tr>
+                                <tr><th>Submitted</th><td class="muted">${escape(fmtWhen(p.created_at || '—'))}</td></tr>
+                                <tr><th>Verified</th><td class="muted">${escape(fmtWhen(p.verified_at || '—'))}</td></tr>
                                 <tr><th>Receipt</th><td class="muted">${receiptPreview}</td></tr>
                                 <tr><th>Message</th><td class="muted">${escape(p.payment_message || '—')}</td></tr>
                                 ${rejectReasonText}

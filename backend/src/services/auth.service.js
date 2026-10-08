@@ -2,6 +2,7 @@ import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import { config } from '../config.js';
 import { query } from '../db.js';
+import { SESSION_HOURS } from '../lib/session.js';
 
 export async function registerUser({ email, password, fullName, role = 'CLIENT' }) {
     if (!['CLIENT', 'LAWYER', 'STAFF', 'OWNER'].includes(role)) {
@@ -30,6 +31,6 @@ export async function loginUser({ email, password }) {
         error.code = 'INVALID_CREDENTIALS';
         throw error;
     }
-    const token = jwt.sign({ sub: user.id, role: user.role, email: user.email }, config.jwtSecret, { expiresIn: '1h' });
+    const token = jwt.sign({ sub: user.id, role: user.role, email: user.email }, config.jwtSecret, { expiresIn: `${SESSION_HOURS}h` });
     return { token, user: { id: user.id, email: user.email, fullName: user.full_name, role: user.role } };
 }
