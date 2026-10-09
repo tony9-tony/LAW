@@ -12,7 +12,7 @@ import { query } from '../db.js';
 import { notify } from '../services/notification.service.js';
 import multer from 'multer';
 import { saveUploadedFile, storageFilePath, deleteStoredFile } from '../services/upload.service.js';
-import { acceptRequest, declineRequest, updateRequestStatus, requestMoreInfo, processClientResponse, updateMatterStatus, addInternalNote, scheduleAppointment, rescheduleAppointment, changeAppointmentStatus, recordMatterEvent, createMatterForRequest, isConsultationRequest } from '../services/workflow.service.js';
+import { acceptRequest, declineRequest, updateRequestStatus, requestMoreInfo, processClientResponse, updateMatterStatus, addInternalNote, scheduleAppointment, rescheduleAppointment, changeAppointmentStatus, acceptConsultation, declineConsultation, recordMatterEvent, createMatterForRequest, isConsultationRequest } from '../services/workflow.service.js';
 import { verifyPayment, rejectPayment, listPaymentsForOwner, getPaymentById, getPaymentDestinations, createPaymentDestination, updatePaymentDestination, getServiceCatalog, receiptPath, uploadPaymentDestinationQR, removePaymentDestinationQR } from '../services/payment.service.js';
 import { setPaymentForRequest, setPaymentForAppointment, PAYMENT_STATUS } from '../services/billing.service.js';
 import { notifyPaymentVerified, notifyPaymentRejected, notifyDocumentRequested, notifyPaymentRequested } from '../services/sse.js';
@@ -1107,7 +1107,11 @@ ownerRouter.get('/documents/:id', async (request, response, next) => {
 
 /* POST /api/v1/owner/requests/:id/request-info — request more information from client */
 const requestInfoSchema = z.object({
-    items: z.string().trim().min(1).max(2000),
+    /* The command centre sends one item per line as a list; a single text is accepted too. */
+    items: z.preprocess(
+        (value) => (Array.isArray(value) ? value.map((item) => String(item ?? '').trim()).filter(Boolean).join('\n') : value),
+        z.string().trim().min(1).max(2000)
+    ),
     message: z.string().trim().max(2000).optional(),
     deadline: z.string().datetime().optional()
 });

@@ -22,7 +22,9 @@
         }
 
         connect() {
-            if (!token()) return;
+            /* One live connection per page: coming back to the tab while it was still
+               connecting used to open a second one (and a third…). */
+            if (!token() || this.es) return;
             const API = window.Site.API;
             const url = API.base() + '/events?token=' + encodeURIComponent(token());
 

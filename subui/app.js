@@ -75,7 +75,7 @@
         ownerStopPolling();
         // Auth guard
         if (!token()) {
-            window.location.href = 'login.html';
+            window.location.href = '/subui/login.html';
             return;
         }
         const container = document.getElementById('main-content');
@@ -110,7 +110,7 @@
             if (error && error.status === 401) {
                 localStorage.removeItem(tokenKey);
                 localStorage.removeItem('owner_auth_user');
-                window.location.href = 'login.html';
+                window.location.href = '/subui/login.html';
                 return;
             }
             container.innerHTML = `<div class="empty-state"><span class="ico"><svg viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7.5v5.5M12 16.5h.01"/></svg></span><strong>Error loading section.</strong><p>${escape(error.message)}</p></div>`;
@@ -690,7 +690,7 @@
     async function loadDashboard() {
         // Auth guard: if token is missing or invalid, redirect to login
         if (!token()) {
-            window.location.href = 'login.html';
+            window.location.href = '/subui/login.html';
             return;
         }
         try {
@@ -698,13 +698,20 @@
             if (!check.data || check.data.role !== 'OWNER') {
                 localStorage.removeItem(tokenKey);
                 localStorage.removeItem('owner_auth_user');
-                window.location.href = 'login.html';
+                window.location.href = '/subui/login.html';
                 return;
             }
-        } catch {
-            localStorage.removeItem(tokenKey);
-            localStorage.removeItem('owner_auth_user');
-            window.location.href = 'login.html';
+        } catch (err) {
+            /* Only a refused sign-in means signed out. A request cut off by leaving or
+               refreshing the page used to sign the owner out as well. */
+            if (err && err.status === 401) {
+                localStorage.removeItem(tokenKey);
+                localStorage.removeItem('owner_auth_user');
+                window.location.href = '/subui/login.html';
+            } else {
+                const main = document.getElementById('main-content');
+                if (main) main.innerHTML = '<div class="empty-state"><strong>Could not reach the server.</strong><p>Check the connection, then refresh the page.</p></div>';
+            }
             return;
         }
 
@@ -1470,7 +1477,7 @@
                                         <div class="body">
                                             <div class="ts">${P.fmtDate(ir.created_at)}</div>
                                             <div class="lead"><strong>${ir.message ? escape(ir.message) : 'Additional information requested'}</strong></div>
-                                            ${ir.items && ir.items.length ? `<div class="muted">${escape(ir.items.join(', '))}</div>` : ''}
+                                            ${ir.items && ir.items.length ? `<div class="muted">${escape((Array.isArray(ir.items) ? ir.items : String(ir.items).split('\n')).map((s) => String(s).trim()).filter(Boolean).join(', '))}</div>` : ''}
                                             ${ir.deadline ? `<div class="muted">Deadline: ${escape(fmtWhen(ir.deadline))}</div>` : ''}
                                         </div>
                                     </div>
@@ -2309,7 +2316,7 @@
             }
         } catch (err) {
             if (err && err.status === 401) {
-                window.location.href = 'login.html';
+                window.location.href = '/subui/login.html';
                 return;
             }
         }
@@ -4053,8 +4060,9 @@
                     document.getElementById('main-content').innerHTML = '<div class="empty-state"><span class="ico"><svg viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7.5v5.5M12 16.5h.01"/></svg></span><strong>Access denied.</strong><p>This area is reserved for platform owners.</p></div>';
                 }
             })
-            .catch(() => {
-                window.location.href = 'login.html';
+            .catch((err) => {
+                /* Signed out only when the server says so, not when the page is left mid-request. */
+                if (err && err.status === 401) window.location.href = '/subui/login.html';
             });
     }
 
@@ -4066,7 +4074,7 @@
                 if (err && err.status === 401) {
                     localStorage.removeItem(tokenKey);
                     localStorage.removeItem('owner_auth_user');
-                    window.location.href = 'login.html';
+                    window.location.href = '/subui/login.html';
                 }
             }
         }, 5 * 60 * 1000);
@@ -4077,7 +4085,7 @@
         fetch((window.__API_BASE__ || '/api/v1') + '/auth/logout', { method: 'POST', credentials: 'include' }).catch(() => {});
         localStorage.removeItem(tokenKey);
         localStorage.removeItem('owner_auth_user');
-        window.location.href = 'login.html';
+        window.location.href = '/subui/login.html';
     });
 
     const subuiSections = [

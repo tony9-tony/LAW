@@ -129,6 +129,8 @@
         if (RT) {
             RT.on('message.created', onRealtimeMessage);
             RT.on('message.read', onRealtimeRead);
+            /* After the live connection (re)opens, fetch anything sent while it was down. */
+            RT.on('connected', fetchNewMessages);
             realtimeHandlersRegistered = true;
         }
     }
@@ -224,7 +226,16 @@
 
     let pollErrorCount = 0;
 
+    /* Live updates already bring new messages, so the timer only asks the server
+       while the live connection is down (it used to ask every 5 seconds, which used
+       up the server's request limit). */
     async function pollConversation() {
+        const RT = window.Site && window.Site.Realtime;
+        if (RT && RT.connected) return;
+        await fetchNewMessages();
+    }
+
+    async function fetchNewMessages() {
         if (!conversationId) return;
         try {
             const opts = lastKnownMessageId ? { after: lastKnownMessageId } : {};
@@ -320,8 +331,12 @@
         }
     }
 
+    /* The page re-renders on live updates; the message form stays, so it is wired
+       once only (wiring it again made one click send the message twice). */
+    let composerBound = false;
     function initComposer() {
-        if (!msgForm) return;
+        if (!msgForm || composerBound) return;
+        composerBound = true;
         // Prevent empty submission
         msgForm.addEventListener('submit', async (e) => {
             e.preventDefault();
@@ -446,9 +461,12 @@
             ? `<a class="link-bronze" href="matter.html?id=${request.originating_matter.id}">${escape(request.originating_matter.reference || 'matter')} — ${escape(request.originating_matter.title || 'View matter')}</a>`
             : '<span class="muted">Not yet created</span>';
 
+        const openInfo = openInfoRequest(request);
+
         root.innerHTML = `
             <div class="detail-grid">
                 <div>
+                    ${openInfo ? infoRequestPanel(openInfo) : ''}
                     <section class="panel">
                         <div class="panel-head"><h2>Request information</h2><span class="panel-meta">Submitted by you</span></div>
                         <div class="panel-body">
@@ -504,10 +522,77 @@
             </div>
         `;
 
+        if (openInfo) bindInfoAnswer(request, openInfo);
+
         // Initialize the inline message composer
         initComposer();
         if (msgSection) msgSection.style.display = '';
         await loadConversation(id, request.originating_matter && request.originating_matter.id ? request.originating_matter.id : null);
+    }
+
+    /* The firm's open question for this client: shown only while the request
+       waits for the client (Action required) and the newest question is unanswered. */
+    function openInfoRequest(request) {
+        if (String(request.status || '').toUpperCase() !== 'ACTION_REQUIRED') return null;
+        const list = Array.isArray(request.info_requests) ? request.info_requests : [];
+        return list.find((item) => !item.answered) || null;
+    }
+
+    function infoRequestPanel(info) {
+        const items = String(info.items || '').split('\n').map((s) => s.trim()).filter(Boolean);
+        return `
+                    <section class="panel info-needed" id="info-needed">
+                        <div class="panel-head"><h2>The firm needs more information</h2><span class="panel-meta">Asked ${P.fmtDate(info.created_at)}</span></div>
+                        <div class="panel-body">
+                            ${info.message ? `<p class="text-soft">${escape(info.message)}</p>` : ''}
+                            ${items.length ? `<ul class="info-items">${items.map((item) => `<li>${escape(item)}</li>`).join('')}</ul>` : ''}
+                            ${info.deadline ? `<p class="text-small-mute">Please answer by ${P.fmtDate(info.deadline)}.</p>` : ''}
+                            <form id="info-answer-form" novalidate>
+                                <div class="field">
+                                    <label for="info-answer">Your answer</label>
+                                    <textarea id="info-answer" name="response" maxlength="10000" required placeholder="Write your answer to the firm here."></textarea>
+                                </div>
+                                <div class="form-status" id="info-answer-status" role="status" aria-live="polite"></div>
+                                <div class="page-actions">
+                                    <button type="submit" class="btn primary">Send answer <span class="arrow" aria-hidden="true">→</span></button>
+                                </div>
+                            </form>
+                        </div>
+                    </section>`;
+    }
+
+    function bindInfoAnswer(request, info) {
+        const form = document.getElementById('info-answer-form');
+        const box = document.getElementById('info-answer');
+        const status = document.getElementById('info-answer-status');
+        if (!form || !box || !status) return;
+        form.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const text = (box.value || '').trim();
+            if (!text) {
+                status.className = 'form-status error';
+                status.textContent = 'Please write your answer before sending.';
+                box.focus();
+                return;
+            }
+            const button = form.querySelector('button[type="submit"]');
+            if (button) button.disabled = true;
+            status.className = 'form-status';
+            status.textContent = 'Sending…';
+            try {
+                await API.request(`/requests/${encodeURIComponent(request.id)}/responses`, { method: 'POST', body: { response: text, infoRequestId: info.id }, auth: true });
+                status.className = 'form-status success';
+                status.textContent = 'Answer sent. The firm has been told and will continue with your request.';
+                box.disabled = true;
+                if (typeof P.toast === 'function') P.toast('Answer sent', 'The firm has been told and will continue with your request.');
+                setTimeout(load, 1500);
+            } catch (err) {
+                if (err && err.status === 401) { window.location.replace('../login.html'); return; }
+                if (button) button.disabled = false;
+                status.className = 'form-status error';
+                status.innerHTML = '<strong>Could not send your answer.</strong> ' + escape(err.message || 'Please try again.');
+            }
+        });
     }
 
     /* Payment panel for a request with a linked invoice: links to the invoice's
@@ -539,6 +624,7 @@
             if (ps === 'PAYMENT_REJECTED') return 'Your payment proof could not be confirmed. Please open the invoice and submit it again.';
             return 'Your request has been accepted. Please pay the invoice below; your matter opens once the firm confirms your payment.';
         }
+        if (s === 'ACTION_REQUIRED') return 'The firm needs more information from you. Please answer the questions at the top of this page.';
         if (s === 'DECLINED') return 'The firm has reviewed this request and is unable to take it on at this time.';
         if (s === 'UNDER_REVIEW') return 'The firm is reviewing your request. You will be notified when the status changes.';
         if (s === 'SCHEDULED') return 'A consultation has been scheduled. Please check your messages for details.';
@@ -547,9 +633,10 @@
     }
 
     load();
-    /* Live: the payment panel appears as soon as the firm requests payment. */
+    /* Live: the payment panel appears as soon as the firm requests payment, and the
+       firm's questions appear as soon as it asks for more information. */
     const RTpay = window.Site && window.Site.Realtime;
-    if (RTpay) ['payment.requested', 'payment.verified', 'payment.rejected'].forEach((t) => RTpay.on(t, () => {
+    if (RTpay) ['payment.requested', 'payment.verified', 'payment.rejected', 'request.more_info_required', 'request.status_changed'].forEach((t) => RTpay.on(t, () => {
         const a = document.activeElement;
         if (!(a && /^(INPUT|TEXTAREA)$/.test(a.tagName))) load();
     }));
