@@ -58,7 +58,7 @@
                     <tbody>${items.map((inv) => `
                         <tr class="row-link" data-href="invoices.html?id=${inv.id}">
                             <td><span class="ref">#${P.shortRef(inv.id)}</span></td>
-                            <td class="subj inv-hide-sm">${inv.matter_reference ? `<strong>${escape(inv.matter_reference)}</strong>${inv.matter_title ? ' · ' + escape(inv.matter_title) : ''}` : '<span class="muted">Your request (the matter opens once paid)</span>'}</td>
+                            <td class="subj inv-hide-sm">${inv.matter_reference ? `<strong>${escape(inv.matter_reference)}</strong>${inv.matter_title ? ' · ' + escape(inv.matter_title) : ''}` : (inv.appointment_id ? '<span class="muted">Consultation booking</span>' : '<span class="muted">Your request (the matter opens once paid)</span>')}</td>
                             <td>${P.statusPill(inv.payment_status || inv.status)}</td>
                             <td class="muted inv-hide-sm">${fmtDateShort(inv.issued_at || inv.created_at)}</td>
                             <td class="inv-total">${fmtCurrency(inv.total, inv.currency)}</td>
@@ -158,7 +158,7 @@
                                 </div></div></div>
                             <div class="panel-body">
                                 <dl class="detail-meta">
-                                    <dt>Matter</dt><dd>${inv.matter_reference ? `<a class="link-bronze" href="${escape(matterHref)}">${escape(inv.matter_reference)}${inv.matter_title ? ' · ' + escape(inv.matter_title) : ''}</a>` : '<span class="text-soft">Opens once your payment is confirmed</span>'}</dd>
+                                    <dt>Matter</dt><dd>${inv.matter_reference ? `<a class="link-bronze" href="${escape(matterHref)}">${escape(inv.matter_reference)}${inv.matter_title ? ' · ' + escape(inv.matter_title) : ''}</a>` : (inv.appointment_id ? '<a class="link-bronze" href="appointments.html">Consultation booking</a> <span class="text-soft">(confirmed once paid)</span>' : '<span class="text-soft">Opens once your payment is confirmed</span>')}</dd>
                                     <dt>Payment</dt><dd><span class="pill ${isPaid ? 'status-open' : 'status-new'}">${escape(paymentStatusLabel)}</span></dd>
                                     <dt>Issued</dt><dd>${fmtDateShort(inv.issued_at || inv.created_at)}</dd>
                                     <dt>Due</dt><dd>${fmtDateShort(inv.due_at)}</dd>
@@ -264,7 +264,14 @@
             if (focusProof) setTimeout(() => document.getElementById('pay-receipt')?.focus(), 350);
         };
         document.getElementById('inv-pay-btn')?.addEventListener('click', () => openCheckout(false));
-        if (location.hash === '#payment-section' && document.getElementById('inv-pay-btn')) setTimeout(() => openCheckout(false), 200);
+        /* Coming from the list's Pay now: open the checkout once its payment details have loaded. */
+        if (location.hash === '#payment-section' && document.getElementById('inv-pay-btn')) {
+            let tries = 0;
+            const wait = setInterval(() => {
+                tries += 1;
+                if (document.querySelector('#payment-method-choices .payment-method-choice') || tries > 20) { clearInterval(wait); openCheckout(false); }
+            }, 200);
+        }
         btn.addEventListener('click', (e) => {
             e.stopPropagation();
             const open = list.hidden;

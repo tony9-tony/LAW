@@ -183,6 +183,10 @@
         document.addEventListener('click', (e) => {
             const link = e.target.closest('.row-link[data-href], [data-nav]');
             if (!link) return;
+            /* A real link or button inside a clickable row (for example "Pay now")
+               does its own job; the row only handles clicks on the rest of it. */
+            const inner = e.target.closest('a[href], button');
+            if (inner && inner !== link && link.contains(inner)) return;
             e.preventDefault();
             const href = link.getAttribute('data-href') || link.getAttribute('data-nav');
             if (href) window.location.href = href;

@@ -2282,7 +2282,7 @@ h4 { font-size: clamp(1rem, 1.4vw, 1.1rem); line-height: 1.35; font-family: var(
 .stepper .step.active { background: var(--ink); }
 .stepper .step.active .step-index { color: var(--green-soft); }
 .stepper .step.active .step-label { color: var(--paper); }
-.stepper .step.done .step-label { color: var(--muted); text-decoration: line-through; }
+.stepper .step.done .step-label { color: var(--muted); text-decoration: none; }
 .stepper .step.done::before {
     content: '';
     width: 6px;

@@ -200,7 +200,7 @@
                 </div>
                 <form class="modal-form" id="portal-upload-form">
                     <p class="muted modal-hint">Documents are attached to a matter that has been opened after payment.</p>
-                    <label>Type of matter
+                    <label>Matter
                         <select name="matter_id" required>
                             <option value="">Select matter…</option>
                         </select>
@@ -213,7 +213,7 @@
                     </label>
                     <div class="modal-form-actions">
                         <button type="button" class="btn secondary modal-cancel">Close</button>
-                        <button type="submit" class="btn primary">Upload that document</button>
+                        <button type="submit" class="btn primary">Upload</button>
                     </div>
                 </form>
             </div>
@@ -270,7 +270,7 @@
                 showToast('Upload failed: ' + (err.message || 'Unknown error'), 'error');
             } finally {
                 submitBtn.disabled = false;
-                submitBtn.textContent = 'Upload that document';
+                submitBtn.textContent = 'Upload';
             }
         });
 
