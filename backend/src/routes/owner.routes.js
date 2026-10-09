@@ -525,7 +525,7 @@ ownerRouter.get('/requests/:id', async (request, response, next) => {
         const row = await query(
             `SELECT r.id, r.subject, r.description, r.status, r.client_id,
                     r.created_at, r.updated_at,
-                    u.email AS client_email, u.full_name AS client_name,
+                    u.email AS client_email, u.full_name AS client_name, u.photo_updated_at AS client_photo_at,
                     m.id AS matter_id, m.reference AS matter_reference,
                     m.title AS matter_title, m.matter_type AS matter_type,
                     m.status AS matter_status, m.assigned_to AS matter_assigned_to
@@ -590,7 +590,7 @@ ownerRouter.get('/matters', async (request, response, next) => {
         const result = await query(
             `SELECT m.id, m.reference, m.title, m.matter_type, m.description,
                     m.status, m.client_id, m.assigned_to, m.created_at, m.updated_at,
-                    c.email AS client_email, c.full_name AS client_name,
+                    c.email AS client_email, c.full_name AS client_name, c.photo_updated_at AS client_photo_at,
                     a.email AS assignee_email, a.full_name AS assignee_name
              FROM matters m
              JOIN users c ON c.id = m.client_id
@@ -1010,7 +1010,7 @@ ownerRouter.get('/matters/:id', async (request, response, next) => {
             `SELECT m.id, m.reference, m.title, m.matter_type, m.description,
                      m.status, m.client_id, m.originating_request_id, m.assigned_to,
                      m.created_at, m.updated_at,
-                     c.email AS client_email, c.full_name AS client_name,
+                     c.email AS client_email, c.full_name AS client_name, c.photo_updated_at AS client_photo_at,
                      a.email AS assignee_email, a.full_name AS assignee_name
              FROM matters m
              JOIN users c ON c.id = m.client_id
@@ -1504,7 +1504,7 @@ ownerRouter.get('/requests', async (request, response, next) => {
         const result = await query(
             `SELECT r.id, r.subject, r.description, r.status, r.client_id,
                     r.created_at, r.updated_at,
-                    u.email AS client_email, u.full_name AS client_name,
+                    u.email AS client_email, u.full_name AS client_name, u.photo_updated_at AS client_photo_at,
                     m.id AS matter_id, m.reference AS matter_reference
              FROM requests r
              JOIN users u ON u.id = r.client_id
@@ -1722,7 +1722,7 @@ ownerRouter.get('/appointments', async (request, response, next) => {
             `SELECT a.id, a.client_id, a.matter_id, a.request_id, a.consultation_type, a.meeting_mode,
                     a.duration_minutes, a.location_details, a.starts_at, a.ends_at, a.status, a.notes,
                     a.created_at, a.updated_at,
-                    u.email AS client_email, u.full_name AS client_name,
+                    u.email AS client_email, u.full_name AS client_name, u.photo_updated_at AS client_photo_at,
                     m.reference AS matter_reference, m.title AS matter_title,
                     inv.id AS invoice_id, inv.total AS invoice_total, inv.payment_status AS invoice_payment_status,
                     inv.payment_destination_method AS invoice_payment_method
@@ -1763,7 +1763,7 @@ ownerRouter.get('/appointments/:id', async (request, response, next) => {
             `SELECT a.id, a.client_id, a.matter_id, a.request_id, a.consultation_type, a.meeting_mode,
                     a.duration_minutes, a.location_details, a.starts_at, a.ends_at, a.status, a.notes,
                     a.created_at, a.updated_at,
-                    u.email AS client_email, u.full_name AS client_name,
+                    u.email AS client_email, u.full_name AS client_name, u.photo_updated_at AS client_photo_at,
                     m.reference AS matter_reference, m.title AS matter_title,
                     inv.id AS invoice_id, inv.total AS invoice_total, inv.payment_status AS invoice_payment_status,
                     inv.payment_destination_method AS invoice_payment_method, inv.currency AS invoice_currency

@@ -43,7 +43,10 @@
 .cw-row.mine{align-self:flex-end;align-items:flex-end}
 .cw-row.theirs{align-self:flex-start;align-items:flex-start}
 .cw-row.gap{margin-top:.6rem}
-.cw-name{font-size:.72rem;color:var(--cw-mute);margin:0 .5rem .15rem}
+.cw-name{font-size:.72rem;color:var(--cw-mute);margin:0}
+.cw-who{display:flex;align-items:center;gap:.4rem;margin:0 .25rem .25rem}
+.cw-avatar{position:relative;width:26px;height:26px;flex:0 0 26px;border-radius:50%;background:var(--cw-mine);color:var(--cw-mine-fg);display:inline-flex;align-items:center;justify-content:center;font-size:.72rem;font-weight:600;overflow:hidden}
+.cw-avatar img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
 .cw-bubble{position:relative;padding:.5rem .8rem .3rem;border-radius:14px;border:1px solid var(--cw-line);background:var(--cw-theirs);color:var(--cw-ink);font-size:.93rem;line-height:1.5;word-break:break-word;min-width:72px;white-space:normal}
 .cw-text{white-space:pre-wrap}
 .cw-row.mine .cw-bubble{background:var(--cw-mine);color:var(--cw-mine-fg);border-color:var(--cw-mine);border-bottom-right-radius:4px}
@@ -147,6 +150,8 @@
 
         const mineOf = (m) => String(m.sender_id) === selfId;
         const byId = (id) => state.messages.find((m) => m.id === id);
+        /* A photo that cannot load leaves the initial showing instead of a broken picture. */
+        threadEl.addEventListener('error', (e) => { if (e.target && e.target.tagName === 'IMG' && e.target.closest('.cw-avatar')) e.target.remove(); }, true);
         const nearBottom = () => threadEl.scrollHeight - threadEl.scrollTop - threadEl.clientHeight < 140;
         const toBottom = () => { threadEl.scrollTop = threadEl.scrollHeight; };
 
@@ -177,10 +182,20 @@
             const who = String(m.parent.sender_id) === selfId ? 'You' : (m.parent.sender_name || other);
             return `<button type="button" class="cw-quote" data-goto="${m.parent.id}"><strong>${esc(who)}</strong><span>${esc(m.parent.deleted ? DELETED_TEXT : m.parent.body)}</span></button>`;
         }
+        function avatarHtml(m, mine) {
+            const label = m.sender_name || (mine ? 'You' : other);
+            const initial = esc(String(label).trim().charAt(0).toUpperCase() || '?');
+            const base = opts.apiBase || '/api/v1';
+            const img = m.sender_photo_at && m.sender_id
+                ? `<img alt="" loading="lazy" src="${esc(base)}/profile/people/${encodeURIComponent(m.sender_id)}/photo?v=${encodeURIComponent(m.sender_photo_at)}">`
+                : '';
+            return `<span class="cw-avatar" aria-hidden="true">${initial}${img}</span>`;
+        }
         function rowHtml(m, prev) {
             const mine = mineOf(m);
             const newGroup = !prev || String(prev.sender_id) !== String(m.sender_id) || dayOf(prev.created_at) !== dayOf(m.created_at);
-            const name = !mine && newGroup ? `<div class="cw-name">${esc(m.sender_name || other)}</div>` : '';
+            /* Each group of messages starts with the sender's photo (or initial), and their name on the other side. */
+            const name = newGroup ? `<div class="cw-who">${avatarHtml(m, mine)}${mine ? '' : `<span class="cw-name">${esc(m.sender_name || other)}</span>`}</div>` : '';
             const bubbleClass = `cw-bubble${m.deleted ? ' deleted' : ''}${m.kind === 'DOCUMENT_REQUEST' ? ' request' : ''}`;
             const body = m.deleted ? DELETED_TEXT : esc(m.body);
             return `<div class="cw-row ${mine ? 'mine' : 'theirs'}${newGroup ? ' gap' : ''}" data-id="${m.id}">

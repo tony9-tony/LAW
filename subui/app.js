@@ -7,6 +7,18 @@
 
     function token() { return localStorage.getItem(tokenKey) || ''; }
 
+    /* A client's name with their photo (or initial) beside it. */
+    function personChip(id, name, photoAt) {
+        const label = String(name || '—');
+        const initial = escape(label.trim().charAt(0).toUpperCase() || '?');
+        const img = id && photoAt
+            ? `<img alt="" loading="lazy" src="/api/v1/owner/users/${encodeURIComponent(id)}/photo?v=${encodeURIComponent(photoAt)}">`
+            : '';
+        return `<span class="person-chip"><span class="person-dot" aria-hidden="true">${initial}${img}</span><span>${escape(label)}</span></span>`;
+    }
+    /* A photo that cannot load leaves the initial showing instead of a broken picture. */
+    document.addEventListener('error', (e) => { if (e.target && e.target.tagName === 'IMG' && e.target.closest('.person-dot')) e.target.remove(); }, true);
+
     function escape(s) {
         return String(s == null ? '' : s)
             .replace(/&/g, '&amp;')
@@ -813,7 +825,7 @@
                     <tr>
                         <td class="mono">#${r.id.split('-')[0]}</td>
                         <td>${escape(r.subject)}</td>
-                        <td class="muted">${escape(r.client_name)}</td>
+                        <td class="muted">${personChip(r.client_id, r.client_name, r.client_photo_at)}</td>
                         <td>${statusPill(r.status)}</td>
                         <td class="muted">${escape(fmtWhen(r.created_at))}</td>
                         <td><button class="btn small secondary" data-request="${r.id}">View</button></td>
@@ -869,7 +881,7 @@
                     <td class="mono">#${m.id.split('-')[0]}</td>
                     <td class="mono">${escape(m.reference)}</td>
                     <td>${escape(m.title || '—')}</td>
-                    <td class="muted">${escape(m.client_name)}</td>
+                    <td class="muted">${personChip(m.client_id, m.client_name, m.client_photo_at)}</td>
                     <td>${statusPill(m.status)}</td>
                     <td class="muted">${escape(fmtWhen(m.updated_at))}</td>
                     <td><button class="btn small secondary" data-matter="${m.id}">View</button></td>
@@ -1384,7 +1396,7 @@
                                 <tr>
                                     <td class="mono">#${r.id.split('-')[0]}</td>
                                     <td>${escape(r.subject)}</td>
-                                    <td class="muted">${escape(r.client_name)}</td>
+                                    <td class="muted">${personChip(r.client_id, r.client_name, r.client_photo_at)}</td>
                                     <td>${statusPill(r.status)}</td>
                                     <td class="muted">${escape(fmtWhen(r.created_at))}</td>
                                     <td><button class="btn small secondary" data-request="${r.id}">View</button></td>
@@ -1441,7 +1453,7 @@
                             <div class="panel-body">
                                 <table class="table">
                                     <tbody>
-                                        <tr><th style="width:30%">Client</th><td>${escape(r.client_name || '—')}<br><span class="muted">${escape(r.client_email || '')}</span></td></tr>
+                                        <tr><th style="width:30%">Client</th><td>${personChip(r.client_id, r.client_name, r.client_photo_at)}<br><span class="muted">${escape(r.client_email || '')}</span></td></tr>
                                         <tr><th>Status</th><td>${statusPill(r.status || 'new')}</td></tr>
                                         <tr><th>Created</th><td class="muted">${escape(fmtWhen(r.created_at || '—'))}</td></tr>
                                         <tr><th>Updated</th><td class="muted">${escape(fmtWhen(r.updated_at || r.created_at || '—'))}</td></tr>
@@ -1760,7 +1772,7 @@
                                     <td class="mono">#${m.id.split('-')[0]}</td>
                                     <td>${escape(m.reference)}</td>
                                     <td>${escape(m.title || '—')}</td>
-                                    <td class="muted">${escape(m.client_name)}</td>
+                                    <td class="muted">${personChip(m.client_id, m.client_name, m.client_photo_at)}</td>
                                     <td class="muted">${escape(m.assignee_name || '—')}</td>
                                     <td>${statusPill(m.status)}</td>
                                     <td class="muted">${escape(fmtWhen(m.created_at))}</td>
@@ -1802,7 +1814,7 @@
                             : `<table class="table"><thead><tr><th>Date/Time</th><th>Client</th><th>Matter</th><th>Status</th><th>Actions</th></tr></thead><tbody>${upcoming.map((a) => `
                                 <tr>
                                     <td class="muted">${escape(fmtWhen(a.starts_at))}${a.ends_at ? ' — ' + escape(a.ends_at) : ''}</td>
-                                    <td>${escape(a.client_name)}</td>
+                                    <td>${personChip(a.client_id, a.client_name, a.client_photo_at)}</td>
                                     <td class="muted">${escape(a.matter_reference || '—')}</td>
                                     <td>${statusPill(a.status)}</td>
                                     <td>
@@ -1822,7 +1834,7 @@
                             : `<table class="table"><thead><tr><th>Date/Time</th><th>Client</th><th>Matter</th><th>Status</th><th>Actions</th></tr></thead><tbody>${past.map((a) => `
                                 <tr>
                                     <td class="muted">${escape(fmtWhen(a.starts_at))}${a.ends_at ? ' — ' + escape(a.ends_at) : ''}</td>
-                                    <td>${escape(a.client_name)}</td>
+                                    <td>${personChip(a.client_id, a.client_name, a.client_photo_at)}</td>
                                     <td class="muted">${escape(a.matter_reference || '—')}</td>
                                     <td>${statusPill(a.status)}</td>
                                     <td><button class="btn small secondary" data-appt="${a.id}">View</button></td>
@@ -2703,7 +2715,7 @@
                                 <tr><th>Title</th><td>${escape(m.title || '—')}</td></tr>
                                 <tr><th>Type</th><td>${escape(m.matter_type || '—')}</td></tr>
                                 <tr><th>Status</th><td>${statusPill(m.status)}</td></tr>
-                                <tr><th>Client</th><td>${escape(m.client_name || '—')}</td></tr>
+                                <tr><th>Client</th><td>${personChip(m.client_id, m.client_name, m.client_photo_at)}</td></tr>
                                 <tr><th>Assignee</th><td class="muted">${escape(m.assignee_name || '—')}</td></tr>
                                 <tr><th>Created</th><td class="muted">${escape(fmtWhen(m.created_at))}</td></tr>
                                 <tr><th>Updated</th><td class="muted">${escape(fmtWhen(m.updated_at))}</td></tr>
@@ -3050,7 +3062,7 @@
                     <div class="panel-body">
                         <table class="table">
                             <tbody>
-                                <tr><th style="width:30%">Client</th><td>${escape(a.client_name || '—')}<br><span class="muted">${escape(a.client_email || '')}</span></td></tr>
+                                <tr><th style="width:30%">Client</th><td>${personChip(a.client_id, a.client_name, a.client_photo_at)}<br><span class="muted">${escape(a.client_email || '')}</span></td></tr>
                                 <tr><th>Starts At</th><td class="muted">${escape(fmtWhen(a.starts_at || '—'))}</td></tr>
                                 <tr><th>Ends At</th><td class="muted">${escape(fmtWhen(a.ends_at || '—'))}</td></tr>
                                 <tr><th>Status</th><td>${statusPill(a.status || 'SCHEDULED')}</td></tr>
@@ -3854,7 +3866,7 @@
                                 <tr>
                                     <td class="mono">#${p.id.split('-')[0]}</td>
                                     <td class="mono">${escape(p.invoice_id ? p.invoice_id.split('-')[0] : '—')}</td>
-                                    <td>${escape(p.client_name || '—')}</td>
+                                    <td>${personChip(p.client_id, p.client_name, p.client_photo_at)}</td>
                                     <td class="muted">${escape(p.currency || 'TZS')} ${Number(p.amount || 0).toLocaleString('en-US', { maximumFractionDigits: 0 })}</td>
                                     <td>${escape(p.status || 'pending')}</td>
                                     <td class="muted">${escape(p.method || '—')}</td>
@@ -3891,7 +3903,7 @@
                     <div>
                         <span class="kicker">Payment</span>
                         <h1>#${escape(p.id.split('-')[0])}</h1>
-                        <p class="head-meta">Invoice #${escape(p.invoice_id ? p.invoice_id.split('-')[0] : '—')} · ${escape(p.client_name || '—')}</p>
+                        <p class="head-meta">Invoice #${escape(p.invoice_id ? p.invoice_id.split('-')[0] : '—')} · ${personChip(p.client_id, p.client_name, p.client_photo_at)}</p>
                     </div>
                     <div class="action-row">
                         <button class="btn ghost" id="btn-back-payments">← Back to Payments</button>

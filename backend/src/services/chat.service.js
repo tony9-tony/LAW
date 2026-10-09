@@ -49,7 +49,7 @@ const MESSAGE_COLUMNS = `
     m.id, m.conversation_id, m.sender_id, m.created_at, m.read_at, m.delivered_at, m.kind, m.document_id, m.parent_message_id,
     (m.deleted_at IS NOT NULL) AS deleted,
     CASE WHEN m.deleted_at IS NOT NULL THEN '' ELSE m.body END AS body,
-    u.role AS sender_role, u.full_name AS sender_name,
+    u.role AS sender_role, u.full_name AS sender_name, u.photo_updated_at AS sender_photo_at,
     d.original_name AS document_name, d.size_bytes AS document_size, d.content_type AS document_type,
     CASE WHEN p.id IS NULL THEN NULL ELSE json_build_object(
         'id', p.id,
@@ -138,7 +138,7 @@ export async function postMessage({ user, convo, body, parentMessageId = null, k
     }
 
     const online = await notifyMessageCreated(convo.id, messageId, user.sub, body, user.role, message.sender_name, {
-        parent_message_id: message.parent_message_id, parent: message.parent, kind: message.kind,
+        parent_message_id: message.parent_message_id, sender_photo_at: message.sender_photo_at, parent: message.parent, kind: message.kind,
         document_id: message.document_id, document_name: message.document_name, document_size: message.document_size
     });
     if (online.length) {
