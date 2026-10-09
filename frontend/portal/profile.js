@@ -25,6 +25,7 @@
             set('meta-created', u.created_at ? window.Portal.fmtDateShort(u.created_at) : '—');
             const nameInput = document.getElementById('pf-name');
             if (nameInput) nameInput.value = u.full_name || '';
+            showPreview(u.photo_updated_at, u.full_name || u.email);
             /* Keep local user object fresh so other pages see latest. */
             API.setUser({ id: u.id, email: u.email, fullName: u.full_name, role: u.role || 'CLIENT' });
         } catch (err) {
@@ -36,6 +37,33 @@
             set('meta-created', '—');
         }
     }
+
+    function showPreview(updatedAt, name) {
+        const box = document.getElementById('photo-preview');
+        if (!box) return;
+        box.innerHTML = '';
+        if (updatedAt) {
+            const img = document.createElement('img');
+            img.alt = '';
+            img.src = '/api/v1/profile/photo?v=' + encodeURIComponent(updatedAt);
+            box.appendChild(img);
+        } else {
+            box.textContent = String(name || '?').trim().charAt(0).toUpperCase();
+        }
+    }
+
+    document.getElementById('pf-photo')?.addEventListener('change', async (e) => {
+        const file = e.target.files && e.target.files[0];
+        const status = document.getElementById('photo-status');
+        if (!file) return;
+        say(status, '', 'Uploading…');
+        try {
+            const at = await window.Portal.uploadPhoto(file);
+            showPreview(at);
+            say(status, 'success', 'Photo saved.', 'It now shows at the top of the portal.');
+        } catch (err) { say(status, 'error', 'Could not save the photo.', err.message || ''); }
+        e.target.value = '';
+    });
 
     document.getElementById('name-form')?.addEventListener('submit', async (e) => {
         e.preventDefault();

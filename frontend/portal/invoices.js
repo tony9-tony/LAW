@@ -22,6 +22,10 @@
         if (!s) return '—';
         return window.Portal ? window.Portal.fmtDate(s) : String(s);
     }
+    /* Paid means paid, whichever of the invoice's fields the firm set. */
+    function invoiceIsPaid(inv) {
+        return String(inv.payment_status || '').toUpperCase() === 'PAID' || String(inv.status || '').toUpperCase() === 'PAID' || !!inv.paid_at;
+    }
 
     async function loadList() {
         const root = document.getElementById('invoices-root');
@@ -59,10 +63,10 @@
                         <tr class="row-link" data-href="invoices.html?id=${inv.id}">
                             <td><span class="ref">#${P.shortRef(inv.id)}</span></td>
                             <td class="subj inv-hide-sm">${inv.matter_reference ? `<strong>${escape(inv.matter_reference)}</strong>${inv.matter_title ? ' · ' + escape(inv.matter_title) : ''}` : (inv.appointment_id ? '<span class="muted">Consultation booking</span>' : '<span class="muted">Your request (the matter opens once paid)</span>')}</td>
-                            <td>${P.statusPill(inv.payment_status || inv.status)}</td>
+                            <td>${P.statusPill(invoiceIsPaid(inv) ? 'PAID' : (inv.payment_status || inv.status))}</td>
                             <td class="muted inv-hide-sm">${fmtDateShort(inv.issued_at || inv.created_at)}</td>
                             <td class="inv-total">${fmtCurrency(inv.total, inv.currency)}</td>
-                            <td class="inv-action">${['PAYMENT_REQUIRED', 'PAYMENT_REJECTED', 'UNPAID'].includes(String(inv.payment_status || '').toUpperCase()) ? `<a class="btn small" href="invoices.html?id=${inv.id}#payment-section">Pay now</a>` : `<a class="btn small secondary" href="invoices.html?id=${inv.id}">View</a>`}</td>
+                            <td class="inv-action">${invoiceIsPaid(inv) ? '<span class="paid-badge">PAID</span>' : ['PAYMENT_REQUIRED', 'PAYMENT_REJECTED', 'UNPAID'].includes(String(inv.payment_status || '').toUpperCase()) ? `<a class="btn small" href="invoices.html?id=${inv.id}#payment-section">Pay now</a>` : `<a class="btn small secondary" href="invoices.html?id=${inv.id}">View</a>`}</td>
                         </tr>
                     `).join('')}</tbody>
                 </table></div>`;
@@ -90,7 +94,7 @@
             const destinations = ((destRes && destRes.data) || []).filter((d) => d.method === 'mobile_money' || (d.lipa_number && String(d.lipa_number).trim())); /* Lipa Namba is the only payment method */
             if (meta) meta.textContent = 'Invoice #' + P.shortRef(inv.id);
             const matterHref = inv.matter_id ? `matter.html?id=${inv.matter_id}` : '#';
-            const isPaid = (inv.payment_status || '').toUpperCase() === 'PAID';
+            const isPaid = invoiceIsPaid(inv);
             const PAYMENT_LABELS = { PAYMENT_REQUIRED: 'Payment required', PAYMENT_PENDING_VERIFICATION: 'Awaiting verification', PAYMENT_REJECTED: 'Proof not accepted, please resubmit', PAID: 'Paid', UNPAID: 'Unpaid' };
             const paymentStatusLabel = isPaid ? 'Paid' : (PAYMENT_LABELS[String(inv.payment_status || 'UNPAID').toUpperCase()] || String(inv.payment_status).replace(/_/g, ' '));
             const awaitingVerification = String(inv.payment_status || '').toUpperCase() === 'PAYMENT_PENDING_VERIFICATION';
@@ -144,7 +148,7 @@
                     <div class="inv-main">
                         <section class="panel">
                             <div class="panel-head"><h2>Invoice</h2><div class="inv-head-right"><span class="panel-meta">#${P.shortRef(inv.id)}</span>
-                                ${!isPaid && !awaitingVerification && availableDestinations.length ? '<button type="button" class="btn small" id="inv-pay-btn">Pay now</button>' : ''}
+                                ${isPaid ? '<span class="paid-badge" aria-label="This invoice is paid">PAID</span>' : (!awaitingVerification && availableDestinations.length ? '<button type="button" class="btn small" id="inv-pay-btn">Pay now</button>' : '')}
                                 <div class="inv-menu">
                                     <button type="button" class="inv-menu-btn" id="inv-menu-btn" aria-haspopup="menu" aria-expanded="false" aria-label="More invoice actions"><svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor" aria-hidden="true"><circle cx="5" cy="12" r="1.8"/><circle cx="12" cy="12" r="1.8"/><circle cx="19" cy="12" r="1.8"/></svg></button>
                                     <div class="inv-menu-list" id="inv-menu-list" role="menu" hidden>
@@ -186,6 +190,11 @@
                                 }
                             </div>
                         </section>
+                        ${isPaid ? `
+                        <section class="panel paid-panel">
+                            <div class="panel-head"><h2>Payment</h2><span class="paid-badge">PAID</span></div>
+                            <div class="panel-body"><p><strong>Paid in full${inv.paid_at ? ' on ' + fmtDateShort(inv.paid_at) : ''}.</strong> The firm has confirmed this payment, so nothing more is due on this invoice. Your payments and receipts are under <a class="link-bronze" href="payments.html">Payments</a>.</p></div>
+                        </section>` : ''}
                         ${!isPaid ? `
                         <section class="panel" id="payment-section"${!awaitingVerification && availableDestinations.length ? ' hidden' : ''}>
                             <div class="panel-head"><h2>Payment</h2><span class="panel-meta">Amount due ${fmtCurrency(inv.total, inv.currency)}</span></div>

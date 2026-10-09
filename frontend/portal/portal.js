@@ -90,7 +90,7 @@
         <a class="public-link" href="../index.html">← Back to website</a>
         <div class="portal-user">
             <span>${u.fullName || u.email || 'Signed in'}</span>
-            <span class="avatar" aria-hidden="true">${initials}</span>
+            <a class="avatar" id="portal-avatar" href="profile.html" title="Your profile and photo">${initials}</a>
         </div>
         <button class="signout-btn" type="button" data-signout>Sign out</button>
     </div>
@@ -180,6 +180,21 @@
             });
         });
 
+        /* Payment receipts open in the in-app viewer (A4 sheet), not a new tab. */
+        document.addEventListener('click', (e) => {
+            const btn = e.target.closest('[data-open-receipt]');
+            if (!btn || !window.DocViewer) return;
+            e.preventDefault();
+            window.DocViewer.open({ url: window.Site.API.base() + '/payments/' + encodeURIComponent(btn.getAttribute('data-open-receipt')) + '/receipt', headers: { Authorization: 'Bearer ' + window.Site.API.token() }, name: 'Payment receipt' });
+        });
+        /* Any document with data-open-doc opens in the same viewer. */
+        document.addEventListener('click', (e) => {
+            const btn = e.target.closest('[data-open-doc]');
+            if (!btn || !window.DocViewer) return;
+            e.preventDefault();
+            window.DocViewer.open({ url: window.Site.API.base() + '/documents/' + encodeURIComponent(btn.getAttribute('data-open-doc')) + '/download?inline=1', headers: { Authorization: 'Bearer ' + window.Site.API.token() }, name: btn.getAttribute('data-name') || 'Document' });
+        });
+
         document.addEventListener('click', (e) => {
             const link = e.target.closest('.row-link[data-href], [data-nav]');
             if (!link) return;
@@ -193,6 +208,7 @@
         });
 
         refreshUnreadIndicators();
+        loadAvatar();
 
         if (window.Site.Realtime) {
             const rt = window.Site.Realtime;
@@ -302,7 +318,50 @@
         return /^[0-9a-f]{8}-/i.test(v) ? v.slice(0, 8).toUpperCase() : v.padStart(5, '0');
     }
 
-    window.Portal = { mount, toast, onLive, guard, fmtDate, fmtDateShort, statusPill, statusLabel, refreshUnreadIndicators, shortRef };
+    /* Profile photo: shown in the top bar once uploaded. */
+    function showAvatar(updatedAt) {
+        const el = document.getElementById('portal-avatar');
+        if (!el || !updatedAt) return;
+        el.innerHTML = '';
+        const img = document.createElement('img');
+        img.alt = '';
+        img.src = '/api/v1/profile/photo?v=' + encodeURIComponent(updatedAt);
+        img.onerror = () => img.remove();
+        el.appendChild(img);
+        el.classList.add('has-photo');
+    }
+    function loadAvatar() {
+        if (!window.Site.API.isAuthed()) return;
+        window.Site.API.me().then((res) => showAvatar(res && res.data && res.data.photo_updated_at)).catch(() => {});
+    }
+    /* Shrinks a chosen picture to at most 512 px (JPEG) before upload, so phone
+       photos fit the 2 MB limit, then uploads it as the profile photo. */
+    function uploadPhoto(file) {
+        return new Promise((resolve, reject) => {
+            if (!file || !/^image\/(png|jpeg|webp|gif)$/i.test(file.type)) { reject(new Error('Choose a PNG, JPG, WebP or GIF picture.')); return; }
+            const reader = new FileReader();
+            reader.onerror = () => reject(new Error('The picture could not be read.'));
+            reader.onload = () => {
+                const img = new Image();
+                img.onerror = () => reject(new Error('The picture could not be opened.'));
+                img.onload = () => {
+                    const scale = Math.min(1, 512 / Math.max(img.width, img.height));
+                    const canvas = document.createElement('canvas');
+                    canvas.width = Math.round(img.width * scale);
+                    canvas.height = Math.round(img.height * scale);
+                    canvas.getContext('2d').drawImage(img, 0, 0, canvas.width, canvas.height);
+                    const dataUrl = canvas.toDataURL('image/jpeg', 0.86);
+                    window.Site.API.request('/profile/photo', { method: 'POST', body: { photo: dataUrl }, auth: true })
+                        .then((res) => { const at = (res && res.data && res.data.photo_updated_at) || new Date().toISOString(); showAvatar(at); resolve(at); })
+                        .catch(reject);
+                };
+                img.src = reader.result;
+            };
+            reader.readAsDataURL(file);
+        });
+    }
+
+    window.Portal = { mount, toast, onLive, guard, fmtDate, fmtDateShort, statusPill, statusLabel, refreshUnreadIndicators, shortRef, uploadPhoto, showAvatar };
 
     if (document.readyState === 'loading') {
         document.addEventListener('DOMContentLoaded', mount);

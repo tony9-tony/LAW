@@ -151,6 +151,46 @@
                 </div>
             </section>
 
+            <section class="section rate-section" id="rate" aria-labelledby="rate-title">
+                <div class="wrap rate-grid">
+                    <div class="rate-intro">
+                        <span class="kicker">Your opinion</span>
+                        <h2 id="rate-title">How did we do?</h2>
+                        <p>Rate our service or this website and tell us what to improve. Your comment goes straight to the advocate. No account needed.</p>
+                    </div>
+                    <form class="rate-card" id="rate-form" novalidate>
+                        <fieldset class="star-input">
+                            <legend>Your rating</legend>
+                            <div class="stars" role="radiogroup" aria-label="Rating from 1 to 5 stars">
+                                <input type="radio" id="star5" name="rating" value="5"><label for="star5" title="Excellent"><span class="sr-only">5 stars, excellent</span></label>
+                                <input type="radio" id="star4" name="rating" value="4"><label for="star4" title="Good"><span class="sr-only">4 stars, good</span></label>
+                                <input type="radio" id="star3" name="rating" value="3"><label for="star3" title="Fair"><span class="sr-only">3 stars, fair</span></label>
+                                <input type="radio" id="star2" name="rating" value="2"><label for="star2" title="Poor"><span class="sr-only">2 stars, poor</span></label>
+                                <input type="radio" id="star1" name="rating" value="1"><label for="star1" title="Very poor"><span class="sr-only">1 star, very poor</span></label>
+                            </div>
+                            <span class="star-word" id="star-word" aria-live="polite">Tap a star</span>
+                        </fieldset>
+                        <div class="rate-fields">
+                            <label class="rate-field"><span>Your name</span><input name="name" type="text" maxlength="120" autocomplete="name" required></label>
+                            <label class="rate-field"><span>Email (optional)</span><input name="email" type="email" maxlength="200" autocomplete="email"></label>
+                            <label class="rate-field"><span>About</span>
+                                <select name="about">
+                                    <option value="service">The firm's service</option>
+                                    <option value="system">This website and portal</option>
+                                    <option value="both">Both</option>
+                                </select>
+                            </label>
+                            <label class="rate-field rate-field--wide"><span>Your comment</span><textarea name="comment" rows="3" maxlength="1500" placeholder="What went well? What should we improve?"></textarea></label>
+                            <input class="trap" type="text" name="website" tabindex="-1" autocomplete="off" aria-hidden="true">
+                        </div>
+                        <div class="rate-actions">
+                            <button class="button" type="submit">Send my rating</button>
+                            <span class="rate-status" id="rate-status" role="status" aria-live="polite"></span>
+                        </div>
+                    </form>
+                </div>
+            </section>
+
             <section class="home-faq section" id="ai-faq" aria-labelledby="faq-title">
                 <div class="wrap">
                     <div class="section-head">
@@ -215,5 +255,6 @@
     </div>
     <script src="js/site.js" defer></script>
     <script src="js/ai-support.js" defer></script>
+    <script src="js/feedback.js" defer></script>
 </body>
 </html>

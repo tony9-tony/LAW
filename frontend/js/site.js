@@ -78,6 +78,7 @@
                     <li><a href="how-it-works.html">How it works</a></li>
                     <li><a href="legal-insights.html">Legal insights</a></li>
                     <li><a href="contact.html">Contact</a></li>
+                    <li><a href="index.html#rate">Rate our service</a></li>
                 </ul>
             </div>
             <div>

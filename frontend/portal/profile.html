@@ -37,6 +37,23 @@
                     </section>
 
                     <section class="panel">
+                        <div class="panel-head"><h2>Profile photo</h2></div>
+                        <div class="panel-body">
+                            <div class="photo-row">
+                                <div class="photo-preview" id="photo-preview" aria-hidden="true"></div>
+                                <div class="stack-form">
+                                    <div class="field">
+                                        <label for="pf-photo">Choose a picture</label>
+                                        <input id="pf-photo" type="file" accept="image/png,image/jpeg,image/webp,image/gif">
+                                        <span class="help">PNG, JPG, WebP or GIF. It is resized for you.</span>
+                                    </div>
+                                    <div class="form-status" id="photo-status" role="status" aria-live="polite"></div>
+                                </div>
+                            </div>
+                        </div>
+                    </section>
+
+                    <section class="panel">
                         <div class="panel-head"><h2>Your name</h2></div>
                         <div class="panel-body">
                             <form id="name-form" class="stack-form" novalidate>
@@ -94,6 +111,7 @@
 
     <script src="../js/site.js"></script>
     <script src="../js/realtime.js"></script>
+    <script src="../js/doc-viewer.js"></script>
     <script src="portal.js"></script>
     <script src="profile.js"></script>
 </body>

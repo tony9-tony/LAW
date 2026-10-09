@@ -69,6 +69,7 @@
                     <div class="doc-name">${escape(d.original_name)}</div>
                     <div class="doc-meta">${P.fmtDateShort(d.created_at)} · ${escape(P.statusLabel(d.status || 'available'))}</div>
                 </div>
+                <button type="button" class="btn small secondary" data-open-doc="${d.id}" data-name="${escape(d.original_name)}">Open</button>
             </div>
          `).join('') || '<p class="empty-line">No documents on this matter yet. Documents the firm shares, and the ones you upload, appear here.</p>';
 

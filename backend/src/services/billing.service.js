@@ -407,3 +407,52 @@ export async function setPaymentForRequest({ requestId, actorId, amount, descrip
         return result;
     }
 }
+/* Set (or change) what a consultation costs. Creates the appointment's invoice
+   if there is none yet, otherwise replaces its amount; a paid invoice is
+   never changed. The client sees it under Invoices with Pay now. */
+export async function setPaymentForAppointment({ appointmentId, amount, description, currency = 'TZS' }) {
+    const appt = (await query(`SELECT id, client_id, status FROM appointments WHERE id = $1 LIMIT 1`, [appointmentId])).rows[0];
+    if (!appt) {
+        const error = new Error('Appointment not found');
+        error.statusCode = 404; error.code = 'NOT_FOUND';
+        throw error;
+    }
+    if (['CANCELLED', 'NO_SHOW'].includes(String(appt.status).toUpperCase())) {
+        const error = new Error('This appointment is cancelled; its payment cannot be set.');
+        error.statusCode = 409; error.code = 'INVALID_STATUS';
+        throw error;
+    }
+    const value = Number(amount) || 0;
+    const item = { description: description || 'Consultation', quantity: 1, unit_price: value, amount: value };
+    const existing = (await query(`SELECT id, payment_status, status, paid_at FROM invoices WHERE appointment_id = $1 LIMIT 1`, [appointmentId])).rows[0];
+    if (!existing) {
+        return createInvoiceForAppointment({ appointmentId, clientId: appt.client_id, currency, items: [item], paymentStatus: PAYMENT_STATUS.PAYMENT_REQUIRED });
+    }
+    if (existing.payment_status === PAYMENT_STATUS.PAID || existing.status === 'PAID' || existing.paid_at) {
+        const error = new Error('This consultation is already paid; its amount cannot be changed.');
+        error.statusCode = 409; error.code = 'ALREADY_PAID';
+        throw error;
+    }
+    const destination = await getActivePaymentDestinationSnapshot();
+    return withTransaction(async (client) => {
+        await client.query(`DELETE FROM invoice_items WHERE invoice_id = $1`, [existing.id]);
+        await client.query(
+            `INSERT INTO invoice_items (invoice_id, description, quantity, unit_price, amount) VALUES ($1, $2, 1, $3, $3)`,
+            [existing.id, item.description, value]
+        );
+        const updated = await client.query(
+            `UPDATE invoices SET status = 'ISSUED', issued_at = COALESCE(issued_at, NOW()), currency = $2, subtotal = $3, tax = 0, total = $3,
+                    payment_status = CASE WHEN payment_status = 'PAYMENT_PENDING_VERIFICATION' THEN payment_status ELSE 'PAYMENT_REQUIRED' END,
+                    payment_lipa_number = COALESCE($4, payment_lipa_number), payment_destination_method = COALESCE($5, payment_destination_method),
+                    payment_destination_label = COALESCE($6, payment_destination_label), payment_destination_id = COALESCE($7, payment_destination_id),
+                    payment_qr_storage_key = COALESCE($8, payment_qr_storage_key), payment_qr_content_type = COALESCE($9, payment_qr_content_type),
+                    updated_at = NOW()
+              WHERE id = $1
+              RETURNING id, client_id, appointment_id, status, currency, subtotal, tax, total, payment_status`,
+            [existing.id, currency, value, destination?.payment_lipa_number || null, destination?.payment_destination_method || null,
+             destination?.payment_destination_label || null, destination?.payment_destination_id || null,
+             destination?.payment_qr_storage_key || null, destination?.payment_qr_content_type || null]
+        );
+        return updated.rows[0];
+    });
+}

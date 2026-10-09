@@ -14,6 +14,7 @@ import { documentRouter } from './routes/document.routes.js';
 import { profileRouter } from './routes/profile.routes.js';
 import { staffRouter } from './routes/staff.routes.js';
 import { ownerRouter } from './routes/owner.routes.js';
+import { feedbackRouter, ownerFeedbackRouter } from './routes/feedback.routes.js';
 import { invoiceRouter } from './routes/invoice.routes.js';
 import { ownerInvoiceRouter } from './routes/owner-invoice.routes.js';
 import { paymentRouter } from './routes/payment.routes.js';
@@ -36,7 +37,17 @@ const adminRouter = Router();
 adminRouter.get('/', (_request, response) => response.redirect('/subui/login.html'));
 
 export const app = express();
-app.use(helmet({ referrerPolicy: { policy: 'same-origin' } }));
+/* The in-app document viewer shows a fetched file from a blob: URL (pictures in
+   an <img>, PDFs in an <iframe>); everything else keeps helmet's defaults. */
+app.use(helmet({
+    referrerPolicy: { policy: 'same-origin' },
+    contentSecurityPolicy: {
+        directives: {
+            'img-src': ["'self'", 'data:', 'blob:'],
+            'frame-src': ["'self'", 'blob:'],
+        },
+    },
+}));
 const corsOrigin = (process.env.CORS_ORIGIN || '').split(',').map((o) => o.trim()).filter(Boolean);
 /* The site, the portal and the API are served by this same server, so a
    browser calling the API from its own pages (same host) is always allowed,
@@ -116,7 +127,9 @@ app.use('/api/v1/payments', paymentRouter);
 app.use('/api/v1/uploads', uploadsRouter);
     app.use('/api/v1/profile', profileRouter);
     app.use('/api/v1/staff', staffRouter);
-    app.use('/api/v1/owner', ownerRouter);
+    app.use('/api/v1/owner/feedback', ownerFeedbackRouter);
+app.use('/api/v1/owner', ownerRouter);
+app.use('/api/v1/feedback', feedbackRouter);
 app.use('/api/v1/messages', messageActionsRouter);
 app.use('/api/v1/messages', messageReactionsRouter);
 app.use('/api/v1/support', supportRouter);

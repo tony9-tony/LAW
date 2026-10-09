@@ -5,6 +5,8 @@ import { Router } from 'express';
 import { z } from 'zod';
 import fs from 'node:fs/promises';
 import { existsSync, createReadStream } from 'node:fs';
+import path from 'node:path';
+import { config } from '../config.js';
 import { authenticate, requireRole } from '../middleware/auth.js';
 import { query } from '../db.js';
 import { notify } from '../services/notification.service.js';
@@ -12,7 +14,7 @@ import multer from 'multer';
 import { saveUploadedFile, storageFilePath, deleteStoredFile } from '../services/upload.service.js';
 import { acceptRequest, declineRequest, updateRequestStatus, requestMoreInfo, processClientResponse, updateMatterStatus, addInternalNote, scheduleAppointment, rescheduleAppointment, changeAppointmentStatus, recordMatterEvent, createMatterForRequest, isConsultationRequest } from '../services/workflow.service.js';
 import { verifyPayment, rejectPayment, listPaymentsForOwner, getPaymentById, getPaymentDestinations, createPaymentDestination, updatePaymentDestination, getServiceCatalog, receiptPath, uploadPaymentDestinationQR, removePaymentDestinationQR } from '../services/payment.service.js';
-import { setPaymentForRequest, PAYMENT_STATUS } from '../services/billing.service.js';
+import { setPaymentForRequest, setPaymentForAppointment, PAYMENT_STATUS } from '../services/billing.service.js';
 import { notifyPaymentVerified, notifyPaymentRejected, notifyDocumentRequested, notifyPaymentRequested } from '../services/sse.js';
 import { logAudit } from '../lib/audit.js';
 import { storeDocument, removeDocument, contentTypeForName, DOCUMENT_CSP } from '../services/document.service.js';
@@ -168,6 +170,21 @@ ownerRouter.post('/users', async (request, response, next) => {
         const user = await registerUser(input);
         await logAudit({ actorId: request.user.sub, action: 'USER_CREATED', entityType: 'user', entityId: user.id, metadata: { role: user.role, target_id: user.id } });
         response.status(201).json({ data: user });
+    } catch (error) { next(error); }
+});
+
+/* GET /api/v1/owner/users/:id/photo — a user's profile photo, for the owner's screens. */
+ownerRouter.get('/users/:id/photo', async (request, response, next) => {
+    try {
+        const userId = z.string().uuid().parse(request.params.id);
+        const row = (await query('SELECT photo_storage_key, photo_content_type FROM users WHERE id = $1', [userId])).rows[0];
+        if (!row || !row.photo_storage_key || !/^image\/(png|jpeg|webp|gif)$/.test(row.photo_content_type || '')) {
+            return response.status(404).json({ error: { code: 'NOT_FOUND', message: 'No photo' } });
+        }
+        const filePath = path.join(path.resolve(config.uploadDir), row.photo_storage_key);
+        if (!existsSync(filePath)) return response.status(404).json({ error: { code: 'NOT_FOUND', message: 'No photo' } });
+        response.writeHead(200, { 'Content-Type': row.photo_content_type, 'Cache-Control': 'private, max-age=300', 'X-Content-Type-Options': 'nosniff' });
+        createReadStream(filePath).pipe(response);
     } catch (error) { next(error); }
 });
 
@@ -1282,6 +1299,29 @@ ownerRouter.post('/requests/:id/set-payment', async (request, response, next) =>
                 entityId: invoice.id
             });
             await notifyPaymentRequested(invoice.client_id, { requestId: request.params.id, invoiceId: invoice.id, amount: input.amount, currency });
+        } catch (notifyError) { console.error('payment notification failed', notifyError.message); }
+        response.json({ data: invoice });
+    } catch (error) { next(error); }
+});
+
+/* POST /api/v1/owner/appointments/:id/set-payment — set what a consultation costs.
+   The client sees the invoice (with Pay now) and gets a notification. */
+ownerRouter.post('/appointments/:id/set-payment', async (request, response, next) => {
+    try {
+        const appointmentId = z.string().uuid().parse(request.params.id);
+        const input = setPaymentSchema.parse(request.body);
+        const currency = input.currency || 'TZS';
+        const invoice = await setPaymentForAppointment({ appointmentId, amount: input.amount, description: input.description, currency });
+        await logAudit({ actorId: request.user.sub, action: 'PAYMENT_SET', entityType: 'appointment', entityId: appointmentId, metadata: { invoice_id: invoice.id, amount: input.amount, currency } });
+        try {
+            await notify(invoice.client_id, {
+                kind: 'PAYMENT_REQUESTED',
+                title: 'Consultation payment',
+                body: `${currency} ${Number(input.amount).toLocaleString('en-US')}: ${input.description}. Open the invoice to pay.`,
+                entityType: 'invoice',
+                entityId: invoice.id
+            });
+            await notifyPaymentRequested(invoice.client_id, { requestId: null, invoiceId: invoice.id, amount: input.amount, currency });
         } catch (notifyError) { console.error('payment notification failed', notifyError.message); }
         response.json({ data: invoice });
     } catch (error) { next(error); }

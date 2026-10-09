@@ -2545,3 +2545,41 @@ a.matter-update { color: inherit; text-decoration: underline; text-underline-off
 .faq-item summary::-webkit-details-marker { display: none; }
 .faq-item summary::after { content: ''; flex: 0 0 auto; width: 8px; height: 8px; border: solid var(--green); border-width: 0 2px 2px 0; transform: rotate(45deg); margin-top: -4px; transition: transform .2s ease; }
 .faq-item[open] summary::after { transform: rotate(-135deg); margin-top: 4px; }
+
+/* ---------------------------------------------------------------------------
+   Rate the firm (home page)
+   --------------------------------------------------------------------------- */
+.rate-section { background: linear-gradient(180deg, var(--paper) 0%, #eef3ef 100%); }
+.rate-grid { display: grid; grid-template-columns: minmax(0, 0.8fr) minmax(0, 1.2fr); gap: 3rem; align-items: center; }
+@media (max-width: 900px) { .rate-grid { grid-template-columns: 1fr; gap: 1.5rem; } }
+.rate-intro h2 { font-family: var(--serif); font-size: clamp(2.2rem, 4vw, 3.2rem); line-height: 1.05; margin: 0.4rem 0 0.8rem; }
+.rate-intro p { color: var(--muted); line-height: 1.7; max-width: 42ch; margin: 0; }
+.rate-card { background: var(--surface); border: 1px solid var(--line); border-radius: 14px; padding: 1.75rem; box-shadow: var(--shadow-soft); }
+.star-input { border: 0; margin: 0 0 1.25rem; padding: 0; display: flex; align-items: center; gap: 1rem; flex-wrap: wrap; }
+.star-input legend { font-size: 0.72rem; letter-spacing: 0.14em; text-transform: uppercase; color: var(--muted); margin-bottom: 0.6rem; padding: 0; width: 100%; }
+.stars { display: inline-flex; flex-direction: row-reverse; gap: 0.3rem; }
+.stars input { position: absolute; opacity: 0; width: 1px; height: 1px; pointer-events: none; }
+.stars label { width: 40px; height: 40px; cursor: pointer; position: relative; transition: transform .12s ease; }
+.stars label::before { content: ''; position: absolute; inset: 0; background: #d9dfdb; clip-path: polygon(50% 3%, 61.8% 36.5%, 97% 36.5%, 68.5% 57.5%, 79.4% 91%, 50% 70.5%, 20.6% 91%, 31.5% 57.5%, 3% 36.5%, 38.2% 36.5%); transition: background .15s ease; }
+.stars label:hover { transform: scale(1.12); }
+.stars label:hover::before, .stars label:hover ~ label::before, .stars input:checked ~ label::before { background: #d4a017; }
+.stars input:focus-visible + label { outline: 2px solid var(--green); outline-offset: 3px; border-radius: 6px; }
+.star-word { font-weight: 600; color: var(--ink); font-size: 0.95rem; }
+.star-input.invalid .star-word { color: #b3362b; }
+.rate-fields { display: grid; grid-template-columns: 1fr 1fr; gap: 0.9rem 1rem; }
+.rate-field { display: grid; gap: 0.35rem; font-size: 0.72rem; letter-spacing: 0.12em; text-transform: uppercase; color: var(--muted); }
+.rate-field--wide { grid-column: 1 / -1; }
+.rate-field input, .rate-field select, .rate-field textarea { font: inherit; font-size: 0.95rem; letter-spacing: 0; text-transform: none; color: var(--ink); border: 1px solid var(--line); border-radius: 8px; padding: 0.6rem 0.75rem; background: #fff; min-height: 44px; }
+.rate-field textarea { resize: vertical; }
+.rate-field input:focus, .rate-field select:focus, .rate-field textarea:focus { outline: 2px solid var(--green); outline-offset: 0; border-color: transparent; }
+@media (max-width: 560px) { .rate-fields { grid-template-columns: 1fr; } .rate-card { padding: 1.25rem; } }
+.rate-actions { display: flex; align-items: center; gap: 1rem; margin-top: 1.25rem; flex-wrap: wrap; }
+.rate-status { font-size: 0.9rem; color: var(--muted); }
+.rate-status.error { color: #b3362b; }
+.trap { position: absolute !important; left: -9999px !important; width: 1px; height: 1px; opacity: 0; }
+.rate-thanks { text-align: center; padding: 1.5rem 0.5rem; }
+.rate-thanks h3 { font-family: var(--serif); font-size: 2rem; margin: 0.8rem 0 0.4rem; }
+.rate-thanks p { color: var(--muted); margin: 0; }
+.rate-thanks-stars { display: inline-flex; gap: 0.3rem; }
+.rate-thanks-stars span { width: 32px; height: 32px; background: #d9dfdb; clip-path: polygon(50% 3%, 61.8% 36.5%, 97% 36.5%, 68.5% 57.5%, 79.4% 91%, 50% 70.5%, 20.6% 91%, 31.5% 57.5%, 3% 36.5%, 38.2% 36.5%); }
+.rate-thanks-stars span.on { background: #d4a017; }

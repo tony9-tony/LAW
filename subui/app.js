@@ -102,6 +102,7 @@
                 case 'health':            await loadHealth(); break;
                 case 'invoices':          detailId ? await loadInvoiceDetail(detailId) : await loadInvoices(); break;
                 case 'payments':          detailId ? await loadPaymentDetail(detailId) : await loadPayments(); break;
+            case 'feedback':          await loadFeedback(); break;
                 case 'dashboard':
                 default:                  await loadDashboard(); break;
             }
@@ -135,6 +136,7 @@
         else if (section === 'health') { title = 'Health'; kicker = 'System'; }
          else if (section === 'invoices') { title = 'Invoices'; kicker = 'Billing'; }
          else if (section === 'payments') { title = 'Payments'; kicker = 'Billing'; }
+        else if (section === 'feedback') { title = 'Rates & comments'; kicker = 'Communication'; }
          else if (section === 'roles') { title = 'Roles'; kicker = 'Access'; }
         else if (section === 'users') { title = 'Users'; kicker = 'Administration'; }
         else if (section === 'lawyers') { title = 'Lawyers'; kicker = 'Administration'; }
@@ -872,6 +874,85 @@
         } catch (e) {
             el.innerHTML = '<div class="empty-state"><span class="ico"><svg viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7.5v5.5M12 16.5h.01"/></svg></span><strong>Could not load matters.</strong></div>';
         }
+    }
+
+    /* Rates & comments sent from the public website. */
+    function starRow(value, size) {
+        const full = Math.round(Number(value) * 2) / 2;
+        let html = `<span class="fb-stars fb-stars--${size || 'md'}" role="img" aria-label="${Number(value).toFixed(1)} out of 5 stars">`;
+        for (let i = 1; i <= 5; i += 1) {
+            const cls = full >= i ? 'on' : (full >= i - 0.5 ? 'half' : '');
+            html += `<span class="fb-star ${cls}"></span>`;
+        }
+        return html + '</span>';
+    }
+    async function loadFeedback(filter) {
+        const container = document.getElementById('main-content');
+        const status = filter || 'ALL';
+        container.innerHTML = '<div class="empty-state"><strong>Loading ratings…</strong></div>';
+        try {
+            const res = await api('/owner/feedback?status=' + encodeURIComponent(status), { auth: true });
+            const items = (res && res.data) || [];
+            const s = (res && res.summary) || { total: 0, average: 0, unread: 0 };
+            const bar = (n) => {
+                const count = s['r' + n] || 0;
+                const pct = s.total ? Math.round((count / s.total) * 100) : 0;
+                return `<div class="fb-bar"><span>${n}</span><span class="fb-star on"></span><div class="fb-track"><div class="fb-fill" style="width:${pct}%"></div></div><span class="fb-count">${count}</span></div>`;
+            };
+            const ABOUT = { service: 'The service', system: 'Website & portal', both: 'Service and website' };
+            const tab = (key, label) => `<button type="button" class="seg${status === key ? ' active' : ''}" data-fb-filter="${key}">${label}</button>`;
+            container.innerHTML = `
+                <div class="page-head">
+                    <div><span class="kicker">Communication</span><h1>Rates &amp; comments</h1>
+                    <p class="head-meta">What clients and visitors think of the service and the website, sent from the home page.</p></div>
+                </div>
+                <section class="fb-summary">
+                    <div class="fb-score">
+                        <div class="fb-average">${Number(s.average || 0).toFixed(1)}</div>
+                        ${starRow(s.average || 0, 'lg')}
+                        <div class="fb-total">${s.total} rating${s.total === 1 ? '' : 's'}${s.unread ? ` · <strong>${s.unread} new</strong>` : ''}</div>
+                    </div>
+                    <div class="fb-bars">${[5, 4, 3, 2, 1].map(bar).join('')}</div>
+                </section>
+                <div class="fb-tabs" role="group" aria-label="Filter">${tab('ALL', 'All')}${tab('NEW', 'New')}${tab('READ', 'Read')}${tab('ARCHIVED', 'Archived')}</div>
+                <section class="fb-list">
+                    ${items.length ? items.map((f) => `
+                        <article class="fb-card${f.status === 'NEW' ? ' is-new' : ''}">
+                            <header>
+                                <div class="fb-who">
+                                    <span class="fb-initial" aria-hidden="true">${escape(String(f.name || '?').trim().charAt(0).toUpperCase())}</span>
+                                    <div><strong>${escape(f.name)}</strong>
+                                    <span class="muted">${escape(fmtWhen(f.created_at))}${f.user_name ? ' · client account' : ''}${f.email ? ' · ' + escape(f.email) : ''}</span></div>
+                                </div>
+                                <div class="fb-meta">${starRow(f.rating, 'sm')}<span class="fb-about">${escape(ABOUT[f.about] || 'Service')}</span>${f.status === 'NEW' ? '<span class="pill status-new">New</span>' : ''}</div>
+                            </header>
+                            ${f.comment ? `<p class="fb-comment">${escape(f.comment)}</p>` : '<p class="fb-comment muted">No comment, rating only.</p>'}
+                            <footer>
+                                ${f.status !== 'READ' && f.status !== 'ARCHIVED' ? `<button class="btn small secondary" data-fb-set="${f.id}" data-status="READ">Mark as read</button>` : ''}
+                                ${f.status !== 'ARCHIVED' ? `<button class="btn small ghost" data-fb-set="${f.id}" data-status="ARCHIVED">Archive</button>` : `<button class="btn small ghost" data-fb-set="${f.id}" data-status="READ">Restore</button>`}
+                            </footer>
+                        </article>`).join('') : '<div class="empty-state"><strong>No ratings here yet.</strong><p>Ratings sent from the home page appear here.</p></div>'}
+                </section>`;
+            container.querySelectorAll('[data-fb-filter]').forEach((b) => b.addEventListener('click', () => loadFeedback(b.getAttribute('data-fb-filter'))));
+            container.querySelectorAll('[data-fb-set]').forEach((b) => b.addEventListener('click', async () => {
+                b.disabled = true;
+                try {
+                    await api('/owner/feedback/' + encodeURIComponent(b.getAttribute('data-fb-set')), { method: 'PATCH', body: { status: b.getAttribute('data-status') }, auth: true });
+                    refreshFeedbackBadge();
+                    loadFeedback(status);
+                } catch (err) { b.disabled = false; window.alert('Could not update: ' + (err.message || 'please try again.')); }
+            }));
+            refreshFeedbackBadge(s.unread);
+        } catch (error) {
+            container.innerHTML = `<div class="empty-state"><strong>Could not load ratings.</strong><p>${escape(error.message)}</p></div>`;
+        }
+    }
+    function refreshFeedbackBadge(known) {
+        const badge = document.getElementById('owner-feedback-badge');
+        if (!badge) return;
+        const set = (n) => { badge.textContent = n > 0 ? String(n) : ''; badge.style.display = n > 0 ? 'inline-flex' : 'none'; };
+        if (typeof known === 'number') { set(known); return; }
+        api('/owner/feedback?status=NEW', { auth: true }).then((r) => set((r && r.summary && r.summary.unread) || 0)).catch(() => set(0));
     }
 
     async function loadUsers() {
@@ -1882,7 +1963,7 @@
                                     </div>
                                     <div class="admin-doc-actions">
                                         <button class="btn small secondary" data-doc="${d.id}">View</button>
-                                        <button class="btn small" data-download="${d.id}" data-name="${escape(d.original_name)}">Download</button>
+                                        ${window.DocViewer && window.DocViewer.canShow(d.original_name) ? `<button class="btn small secondary" data-owner-open-doc="${d.id}" data-name="${escape(d.original_name)}">Open</button>` : ''}<button class="btn small" data-download="${d.id}" data-name="${escape(d.original_name)}">Download</button>
                                         <button class="btn small ghost" data-remove-doc="${d.id}" data-name="${escape(d.original_name)}">Remove</button>
                                     </div>
                                 </div>
@@ -2429,10 +2510,13 @@
 
             container.innerHTML = `
                 <div class="page-head">
-                    <div>
-                        <span class="kicker">Client</span>
-                        <h1>${escape(c.full_name || '—')}</h1>
-                        <p class="head-meta">${escape(c.email || '—')} · #${escape(c.id.split('-')[0])}</p>
+                    <div class="client-head">
+                        <span class="client-photo" aria-hidden="true">${escape(String(c.full_name || c.email || '?').trim().charAt(0).toUpperCase())}<img alt="" src="/api/v1/owner/users/${encodeURIComponent(c.id)}/photo"></span>
+                        <div>
+                            <span class="kicker">Client</span>
+                            <h1>${escape(c.full_name || '—')}</h1>
+                            <p class="head-meta">${escape(c.email || '—')} · #${escape(c.id.split('-')[0])}</p>
+                        </div>
                     </div>
                     <div class="action-row">
                         <button class="btn ghost" id="btn-back-clients">← Back to Clients</button>
@@ -2521,6 +2605,7 @@
                     </div>
                 </section>
             `;
+            container.querySelectorAll('.client-photo img').forEach((img) => img.addEventListener('error', () => img.remove()));
             document.getElementById('btn-back-clients')?.addEventListener('click', loadClients);
             container.querySelectorAll('button[data-matter]').forEach((btn) => {
                 btn.addEventListener('click', () => loadMatterDetail(btn.getAttribute('data-matter')));
@@ -2657,7 +2742,7 @@
                                     </div>
                                     <div class="admin-doc-actions">
                                         <button class="btn small secondary" data-doc="${d.id}">View</button>
-                                        <button class="btn small" data-download="${d.id}" data-name="${escape(d.original_name)}">Download</button>
+                                        ${window.DocViewer && window.DocViewer.canShow(d.original_name) ? `<button class="btn small secondary" data-owner-open-doc="${d.id}" data-name="${escape(d.original_name)}">Open</button>` : ''}<button class="btn small" data-download="${d.id}" data-name="${escape(d.original_name)}">Download</button>
                                         <button class="btn small ghost" data-remove-doc="${d.id}" data-name="${escape(d.original_name)}">Remove</button>
                                     </div>
                                 </div>
@@ -2949,6 +3034,7 @@
                     <div class="action-row">
                         <button class="btn ghost" id="btn-back-appointments">← Back to Appointments</button>
                         ${a.status === 'SCHEDULED' ? `<button class="btn primary" data-appt-action="accept">Confirm</button>` : ''}
+                        ${a.invoice_payment_status !== 'PAID' && !['CANCELLED', 'NO_SHOW'].includes(a.status) ? `<button class="btn" id="btn-appt-set-payment">${a.invoice_id ? 'Change payment' : 'Set payment'}</button>` : ''}
                         ${['SCHEDULED', 'CONFIRMED'].includes(a.status) ? `<button class="btn" data-appt-action="complete">Mark completed</button><button class="btn" data-appt-action="no-show">Client did not come</button><button class="btn secondary" data-appt-action="cancel">Cancel</button>` : ''}
                     </div>
                 </div>
@@ -2961,6 +3047,7 @@
                                 <tr><th>Starts At</th><td class="muted">${escape(fmtWhen(a.starts_at || '—'))}</td></tr>
                                 <tr><th>Ends At</th><td class="muted">${escape(fmtWhen(a.ends_at || '—'))}</td></tr>
                                 <tr><th>Status</th><td>${statusPill(a.status || 'SCHEDULED')}</td></tr>
+                                <tr><th>Payment</th><td>${a.invoice_id ? `${escape(a.invoice_currency || 'TZS')} ${Number(a.invoice_total || 0).toLocaleString('en-US', { maximumFractionDigits: 0 })} · ${statusPill(a.invoice_payment_status || 'PAYMENT_REQUIRED')}` : '<span class="muted">No payment set (free unless you set one)</span>'}</td></tr>
                                 ${a.matter_reference ? `<tr><th>Matter</th><td>${escape(a.matter_reference)} — ${escape(a.matter_title || '')}</td></tr>` : ''}
                                 <tr><th>Created</th><td class="muted">${escape(fmtWhen(a.created_at || '—'))}</td></tr>
                                 <tr><th>Updated</th><td class="muted">${escape(fmtWhen(a.updated_at || '—'))}</td></tr>
@@ -2971,6 +3058,26 @@
                 </section>
             `;
             document.getElementById('btn-back-appointments')?.addEventListener('click', loadAppointments);
+            document.getElementById('btn-appt-set-payment')?.addEventListener('click', () => {
+                const modal = new Modal({
+                    title: a.invoice_id ? 'Change consultation payment' : 'Set consultation payment',
+                    description: 'The client sees this amount under Invoices, with Pay now, and gets a notification.',
+                    fields: [
+                        { name: 'amount', label: 'Amount (TZS)', type: 'number', required: true, placeholder: 'e.g. 50000', step: '1', min: '1', value: a.invoice_total ? String(Math.round(Number(a.invoice_total))) : '' },
+                        { name: 'description', label: 'Description', type: 'text', required: true, value: 'Consultation' }
+                    ],
+                    submitText: 'Save payment',
+                    cancelText: 'Cancel',
+                    onSubmit: async (formData) => {
+                        const amount = parseFloat(formData.amount);
+                        if (isNaN(amount) || amount <= 0) throw new Error('Please enter an amount greater than 0');
+                        if (!formData.description || !formData.description.trim()) throw new Error('Description is required');
+                        await api(`/owner/appointments/${encodeURIComponent(a.id)}/set-payment`, { method: 'POST', body: { amount, description: formData.description.trim(), currency: 'TZS' }, auth: true });
+                        loadAppointmentDetail(a.id);
+                    }
+                });
+                modal.show();
+            });
             container.querySelectorAll('[data-appt-action]').forEach((btn) => {
                 btn.addEventListener('click', async () => {
                     const action = btn.getAttribute('data-appt-action');
@@ -3015,7 +3122,7 @@
                     </div>
                     <div class="action-row">
                         <button class="btn ghost" id="btn-back-documents">← Back to Documents</button>
-                        <a class="btn primary" id="btn-download-document" href="#">Download</a>
+                        ${window.DocViewer && window.DocViewer.canShow(d.original_name) ? `<button type="button" class="btn" data-owner-open-doc="${escape(d.id)}" data-name="${escape(d.original_name || 'Document')}">Open</button>` : ''}<a class="btn primary" id="btn-download-document" href="#">Download</a>
                     </div>
                 </div>
                 <section class="panel">
@@ -3769,8 +3876,8 @@
             const p = (res && res.data) || {};
             const receiptUrl = p.receipt_storage_key ? ('/api/v1/owner/payments/' + encodeURIComponent(p.id) + '/receipt?token=' + token()) : null;
             const receiptPreview = receiptUrl && p.receipt_content_type && p.receipt_content_type.startsWith('image/')
-                ? `<a href="${receiptUrl}" target="_blank" rel="noopener"><img src="${receiptUrl}" alt="Receipt preview" style="max-width:320px;max-height:240px;min-width:60px;border:1px solid var(--line);border-radius:8px;"></a><br><a href="${receiptUrl}" target="_blank" rel="noopener">Open the receipt full size</a>`
-                : (receiptUrl ? `<a href="${receiptUrl}" target="_blank">View receipt</a>` : '—');
+                ? `<button type="button" class="receipt-thumb" data-owner-receipt="${escape(p.id)}" title="Open the receipt"><img src="${receiptUrl}" alt="Receipt preview" style="max-width:320px;max-height:240px;min-width:60px;border:1px solid var(--line);border-radius:8px;"></button><br><button type="button" class="btn small secondary" data-owner-receipt="${escape(p.id)}">Open the receipt full size</button>`
+                : (receiptUrl ? `<button type="button" class="btn small secondary" data-owner-receipt="${escape(p.id)}">View receipt</button>` : '—');
             const rejectReasonText = p.rejection_reason ? `<tr><th>Rejection Reason</th><td class="muted">${escape(p.rejection_reason)}</td></tr>` : '';
             container.innerHTML = `
                 <div class="page-head">
@@ -3863,6 +3970,69 @@
         el.innerHTML = html;
     }
 
+    /* Owner's profile photo: shown in the top bar; click it to upload a new one. */
+    function showOwnerAvatar(updatedAt) {
+        const el = document.getElementById('subui-avatar');
+        if (!el || !updatedAt) return;
+        el.innerHTML = '';
+        const img = document.createElement('img');
+        img.alt = '';
+        img.src = '/api/v1/profile/photo?v=' + encodeURIComponent(updatedAt);
+        img.onerror = () => img.remove();
+        el.appendChild(img);
+        el.classList.add('has-photo');
+    }
+    function resizePhoto(file) {
+        return new Promise((resolve, reject) => {
+            if (!file || !/^image\/(png|jpeg|webp|gif)$/i.test(file.type)) { reject(new Error('Choose a PNG, JPG, WebP or GIF picture.')); return; }
+            const reader = new FileReader();
+            reader.onerror = () => reject(new Error('The picture could not be read.'));
+            reader.onload = () => {
+                const img = new Image();
+                img.onerror = () => reject(new Error('The picture could not be opened.'));
+                img.onload = () => {
+                    const scale = Math.min(1, 512 / Math.max(img.width, img.height));
+                    const canvas = document.createElement('canvas');
+                    canvas.width = Math.round(img.width * scale);
+                    canvas.height = Math.round(img.height * scale);
+                    canvas.getContext('2d').drawImage(img, 0, 0, canvas.width, canvas.height);
+                    resolve(canvas.toDataURL('image/jpeg', 0.86));
+                };
+                img.src = reader.result;
+            };
+            reader.readAsDataURL(file);
+        });
+    }
+    let ownerAvatarBound = false;
+    function bindOwnerAvatarUpload() {
+        const el = document.getElementById('subui-avatar');
+        if (!el || ownerAvatarBound) return;
+        ownerAvatarBound = true;
+        el.setAttribute('role', 'button');
+        el.setAttribute('tabindex', '0');
+        el.setAttribute('title', 'Change your profile photo');
+        el.setAttribute('aria-hidden', 'false');
+        el.setAttribute('aria-label', 'Change your profile photo');
+        const input = document.createElement('input');
+        input.type = 'file';
+        input.accept = 'image/png,image/jpeg,image/webp,image/gif';
+        input.hidden = true;
+        document.body.appendChild(input);
+        const open = () => input.click();
+        el.addEventListener('click', open);
+        el.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); open(); } });
+        input.addEventListener('change', async () => {
+            const file = input.files && input.files[0];
+            input.value = '';
+            if (!file) return;
+            try {
+                const photo = await resizePhoto(file);
+                const res = await api('/profile/photo', { method: 'POST', body: { photo }, auth: true });
+                showOwnerAvatar((res && res.data && res.data.photo_updated_at) || new Date().toISOString());
+            } catch (err) { window.alert('Could not save the photo: ' + (err.message || 'please try again.')); }
+        });
+    }
+
     function loadCurrentUser() {
         api('/profile', { auth: true })
             .then((res) => {
@@ -3870,7 +4040,12 @@
                 const nameEl = document.getElementById('subui-user-name');
                 if (nameEl) nameEl.textContent = user.full_name || user.fullName || user.email || 'ET Cetra';
                 const avatarEl = document.getElementById('subui-avatar');
-                if (avatarEl) avatarEl.textContent = String(user.full_name || user.fullName || user.email || 'E').trim().charAt(0).toUpperCase();
+                if (avatarEl) {
+                    avatarEl.textContent = String(user.full_name || user.fullName || user.email || 'E').trim().charAt(0).toUpperCase();
+                    showOwnerAvatar(user.photo_updated_at);
+                    bindOwnerAvatarUpload();
+                }
+                if (user.role === 'OWNER') refreshFeedbackBadge();
                 const roleEl = document.getElementById('subui-user');
                 if (roleEl) roleEl.textContent = roleLabel(user.role || 'OWNER');
 
@@ -3908,7 +4083,7 @@
     const subuiSections = [
         'dashboard', 'users', 'clients', 'lawyers', 'staff', 'owners', 'requests', 'matters',
         'appointments', 'documents', 'messages', 'notifications', 'invoices', 'payments', 'analytics',
-        'audit', 'security', 'roles', 'settings', 'health'
+        'audit', 'security', 'roles', 'settings', 'health', 'feedback'
     ];
     const sectionAliases = {
         notification: 'notifications',
@@ -4057,6 +4232,23 @@
             e.preventDefault();
             navigateTo(link.getAttribute('href').substring(1));
         });
+    });
+
+    /* Documents and payment receipts open in the in-app viewer (A4 sheet), never a new tab. */
+    document.addEventListener('click', (e) => {
+        if (!window.DocViewer) return;
+        const base = (window.__API_BASE__ || '/api/v1');
+        const docBtn = e.target.closest('[data-owner-open-doc]');
+        if (docBtn) {
+            e.preventDefault();
+            window.DocViewer.open({ url: base + '/owner/documents/' + encodeURIComponent(docBtn.getAttribute('data-owner-open-doc')) + '/download', headers: { Authorization: 'Bearer ' + token() }, name: docBtn.getAttribute('data-name') || 'Document' });
+            return;
+        }
+        const receiptBtn = e.target.closest('[data-owner-receipt]');
+        if (receiptBtn) {
+            e.preventDefault();
+            window.DocViewer.open({ url: base + '/owner/payments/' + encodeURIComponent(receiptBtn.getAttribute('data-owner-receipt')) + '/receipt', headers: { Authorization: 'Bearer ' + token() }, name: 'Payment receipt' });
+        }
     });
 
     document.addEventListener('click', (e) => {
