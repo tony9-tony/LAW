@@ -155,7 +155,7 @@
             if (!mineOf(m) || m.deleted) return '';
             const s = m.status || 'sent';
             const label = s === 'read' ? 'Read' : s === 'delivered' ? 'Delivered' : 'Sent';
-            return `<span class="cw-tick ${s === 'read' ? 'read' : ''}" title="${label}" aria-label="${label}">${s === 'sent' ? CHECK : CHECK + CHECK}</span>`;
+            return `<span class="cw-tick ${s === 'read' ? 'read' : ''}" title="${label}" role="img" aria-label="${label}">${s === 'sent' ? CHECK : CHECK + CHECK}</span>`;
         }
         function reactionsHtml(m) {
             if (!EMOJIS.length || !m.reactions || !m.reactions.length || m.deleted) return '';

@@ -39,7 +39,7 @@
         return `
 <header class="site-header" role="banner">
     <div class="wrap site-header-inner">
-        <a class="brand" href="index.html" aria-label="${FIRM.name} home">
+        <a class="brand" href="index.html">
             <span class="brand-name">${FIRM.name}</span>
             <span class="brand-tag">${FIRM.tagline}</span>
         </a>

@@ -690,7 +690,7 @@ h4 { font-size: clamp(1rem, 1.4vw, 1.1rem); line-height: 1.35; font-family: var(
     content: "";
     position: absolute;
     inset: 0;
-    background: url('assets/fading.jfif') center center / cover no-repeat;
+    background: url('assets/fading.webp') center center / cover no-repeat;
     filter: saturate(1.05) contrast(1.08) brightness(0.98);
     opacity: 1;
     transform: scale(1.02);
@@ -1422,11 +1422,11 @@ h4 { font-size: clamp(1rem, 1.4vw, 1.1rem); line-height: 1.35; font-family: var(
 }
 
 .article-image--boardroom {
-    background: linear-gradient(135deg, rgba(15, 22, 18, 0.14), rgba(15, 22, 18, 0.18)), url('assets/strategy.jfif') center/cover no-repeat;
+    background: linear-gradient(135deg, rgba(15, 22, 18, 0.14), rgba(15, 22, 18, 0.18)), url('assets/strategy.webp') center/cover no-repeat;
 }
 
 .article-image--counsel {
-    background: linear-gradient(135deg, rgba(15, 22, 18, 0.14), rgba(15, 22, 18, 0.18)), url('assets/court.jfif') center/cover no-repeat;
+    background: linear-gradient(135deg, rgba(15, 22, 18, 0.14), rgba(15, 22, 18, 0.18)), url('assets/court.webp') center/cover no-repeat;
 }
 
 .article-body {
@@ -1487,15 +1487,15 @@ h4 { font-size: clamp(1rem, 1.4vw, 1.1rem); line-height: 1.35; font-family: var(
 }
 
 .owner-slide--one {
-    background-image: url('assets/owners/slide1.jpeg');
+    background-image: url('assets/owners/slide1.webp');
 }
 
 .owner-slide--two {
-    background-image: url('assets/owners/11a.jpeg');
+    background-image: url('assets/owners/11a.webp');
 }
 
 .owner-slide--three {
-    background-image: url('assets/owners/11b.jpeg');
+    background-image: url('assets/owners/11b.webp');
 }
 
 @keyframes ownerSlideTrack {
@@ -2583,3 +2583,11 @@ a.matter-update { color: inherit; text-decoration: underline; text-underline-off
 .rate-thanks-stars { display: inline-flex; gap: 0.3rem; }
 .rate-thanks-stars span { width: 32px; height: 32px; background: #d9dfdb; clip-path: polygon(50% 3%, 61.8% 36.5%, 97% 36.5%, 68.5% 57.5%, 79.4% 91%, 50% 70.5%, 20.6% 91%, 31.5% 57.5%, 3% 36.5%, 38.2% 36.5%); }
 .rate-thanks-stars span.on { background: #d4a017; }
+
+/* The header is drawn by site.js after the page appears. Keeping its height
+   free beforehand stops the page jumping down when it arrives. */
+[data-site-header]:empty { display: block; min-height: 96.83px; }
+@media (max-width: 1320px) { [data-site-header]:empty { min-height: 92.02px; } }
+@media (max-width: 960px) { [data-site-header]:empty { min-height: 153.22px; } }
+@media (max-width: 760px) { [data-site-header]:empty { min-height: 83.72px; } }
+@media (max-width: 380px) { [data-site-header]:empty { min-height: 80.81px; } }

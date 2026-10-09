@@ -102,7 +102,7 @@
         const items = NAV.map((n) => {
             const target = (new URL(n.href, location.href)).pathname.split('/').pop() || n.href;
             const cls = current.toLowerCase() === target.toLowerCase() ? 'active' : '';
-            const badge = (n.label === 'Messages') ? '<span class="nav-badge" id="nav-badge-messages" aria-label="unread messages" aria-hidden="true"></span>' : '';
+            const badge = (n.label === 'Messages') ? '<span class="nav-badge" id="nav-badge-messages" aria-hidden="true"></span>' : '';
             return `<a class="${cls}" href="${n.href}"><span class="ico" aria-hidden="true">${icon(n.icon)}</span>${n.label}${badge}</a>`;
         }).join('');
         return `

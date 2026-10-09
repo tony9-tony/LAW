@@ -148,7 +148,7 @@
                     <div class="inv-main">
                         <section class="panel">
                             <div class="panel-head"><h2>Invoice</h2><div class="inv-head-right"><span class="panel-meta">#${P.shortRef(inv.id)}</span>
-                                ${isPaid ? '<span class="paid-badge" aria-label="This invoice is paid">PAID</span>' : (!awaitingVerification && availableDestinations.length ? '<button type="button" class="btn small" id="inv-pay-btn">Pay now</button>' : '')}
+                                ${isPaid ? '<span class="paid-badge" title="This invoice is paid">PAID</span>' : (!awaitingVerification && availableDestinations.length ? '<button type="button" class="btn small" id="inv-pay-btn">Pay now</button>' : '')}
                                 <div class="inv-menu">
                                     <button type="button" class="inv-menu-btn" id="inv-menu-btn" aria-haspopup="menu" aria-expanded="false" aria-label="More invoice actions"><svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor" aria-hidden="true"><circle cx="5" cy="12" r="1.8"/><circle cx="12" cy="12" r="1.8"/><circle cx="19" cy="12" r="1.8"/></svg></button>
                                     <div class="inv-menu-list" id="inv-menu-list" role="menu" hidden>
@@ -201,7 +201,7 @@
                             <div class="panel-body">
                                 ${awaitingVerification ? '<div class="alert info"><strong>Payment proof received.</strong> The firm is checking it. You will get a notification as soon as it is confirmed, and your matter will open.</div>' : availableDestinations.length ? `<button type="button" class="btn primary" id="pay-now">Pay Now</button>
                                 <div id="payment-checkout" hidden>
-                                    <div class="payment-method-choices" id="payment-method-choices" aria-label="Choose payment method">
+                                    <div class="payment-method-choices" id="payment-method-choices" role="group" aria-label="Choose payment method">
                                         ${availableDestinations.map((d) => `<button type="button" class="payment-method-choice" data-method="${escape(d.method)}" data-destination-id="${escape(d.id || '')}"><span>${methodLabel(d.method)}</span><small>${escape(d.label || '')}</small></button>`).join('')}
                                     </div>
                                     <div id="selected-payment-details"></div>
