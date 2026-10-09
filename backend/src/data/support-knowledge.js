@@ -24,8 +24,28 @@ export const SUPPORT_LINKS = {
     contact: 'contact.html',
     howItWorks: 'how-it-works.html',
     login: 'login.html',
-    faqSection: 'index.html#ai-faq'
+    faqSection: 'how-it-works.html#faq'
 };
+
+/* The ONLY facts the AI model is given (with the FAQ answers below). Everything
+   here is already published on the website. Never add internal information:
+   staff, other clients, amounts, accounts, systems, addresses of the admin
+   console, or anything that is not on a public page. */
+export const PUBLIC_FACTS = `
+Firm: ET CETRA ADVOCATES COMPANY LIMITED, Advocates & Legal Counsel. Advocate: Emmanuel Richard Machibya, a practising advocate with more than ten years of experience. He handles every matter of the firm personally.
+Office: Posta, Kisutu, Tanzania. Office visits are by appointment only; book a consultation before travelling.
+Phone and WhatsApp (both numbers take calls and WhatsApp): +255 714 840 951 and +255 657 259 584.
+Practice areas: civil litigation and disputes; commercial matters and contracts (company registration, shareholder agreements, business contracts); family law (marriage and divorce, custody and guardianship, probate and succession); property and land (title checks, land transfer, leases, boundary disputes, conveyancing); employment law (contracts, termination, disciplinary matters, workplace disputes). Other matters: choose "Other" in the request form; the advocate says whether the firm can help.
+Website pages: Home (index.html), About (about.html), How it works with the full FAQ (how-it-works.html), Legal insights (legal-insights.html), Contact (contact.html), Sign in (login.html), Create account (register.html).
+Client portal (after signing in): Dashboard, New request, Book consultation, My requests, My matters, Messages, Appointments, Documents, Invoices, Payments, Notifications, Practice areas, Profile.
+Request path: create a free account; press New request and fill a short 5-step form (type of matter, what happened, how you want help, contact, review and submit); the advocate reviews it and may ask for more information ("Action required"); if accepted an invoice appears under Invoices; pay with the Lipa Namba shown on that invoice and upload the receipt with the transaction reference; when the firm confirms the payment the invoice shows Paid and the matter opens with its own reference (for example M-ABC123); then use Messages, Documents and Appointments until the matter is closed. A declined request shows the reason and is not charged.
+Consultation path: sign in, open Book consultation, choose the type (initial, follow-up, document review, advisory), the format (in person, phone or video) and a preferred time; the firm confirms it in the portal with the consultation invoice; pay before the meeting; the appointment then shows under Appointments.
+Payments: only by the Lipa Namba shown inside the client's own invoice (any mobile network), with the invoice number as the reference; then upload the receipt. The firm never asks anyone to pay to a person's number. Amounts are on each invoice; this assistant does not know fees.
+Statuses: Submitted, Under review, Action required, Accepted, Declined, Payment required, Pending verification, Paid, Open, Active, Resolved, Closed.
+Account: free; full name, email and a password of at least 12 characters. A sign-in lasts 8 hours. Change your name and password under Profile. To change the sign-in email, message the firm.
+Forgotten password: the portal sends no e-mails. Call or WhatsApp the firm; they set a temporary password and give it directly; sign in with it, then choose your own under Profile, Change password.
+Privacy: only the client and the firm can see the client's requests, documents, invoices and messages. This assistant cannot see any account.
+`.trim();
 export const SUPPORT_QUICK_ACTIONS = [
     { id: 'book', en: 'Book Consultation', sw: 'Weka Miadi ya Ushauri' },
     { id: 'payments', en: 'How Payments Work', sw: 'Jinsi Malipo Yanavyofanya Kazi' },
@@ -36,14 +56,14 @@ export const SUPPORT_QUICK_ACTIONS = [
 export const SUPPORT_FAQ = [
     {
         id: 'what-is-firm',
-        topics: ['firm', 'kampuni', 'about', 'kuhusu', 'who', 'nani', 'et cetra', 'machibya'],
+        topics: ['firm', 'kampuni', 'about', 'kuhusu', 'who', 'nani', 'et cetra', 'machibya', 'ceo', 'owner', 'founder', 'director', 'boss', 'head of', 'who leads', 'who runs', 'mmiliki', 'mkurugenzi', 'bosi', 'mwanzilishi', 'kiongozi'],
         en: {
             q: 'Who is ET CETRA?',
-            a: 'ET CETRA ADVOCATES COMPANY LIMITED is a technology-led advocates chambers led by Emmanuel Richard Machibya, Advocate & Legal Counsel, based in Posta, Kisutu, Tanzania. It handles corporate, property, dispute and private-client matters through a private client workspace.'
+            a: 'ET CETRA ADVOCATES COMPANY LIMITED is an advocates\' firm in Posta, Kisutu, Tanzania, led by Emmanuel Richard Machibya, Advocate & Legal Counsel, who handles every matter personally. It works on civil disputes, commercial matters and contracts, family law, property and land, and employment law, with a private online client portal.'
         },
         sw: {
             q: 'ET CETRA ni nani?',
-            a: 'ET CETRA ADVOCATES COMPANY LIMITED ni chumba cha mawakili kinachoongozwa na teknolojia, kinachoongozwa na Emmanuel Richard Machibya, Wakili na Mshauri wa Kisheria, kilichopo Posta, Kisutu, Tanzania.'
+            a: 'ET CETRA ADVOCATES COMPANY LIMITED ni kampuni ya mawakili iliyopo Posta, Kisutu, Tanzania, chini ya Emmanuel Richard Machibya, Wakili na Mshauri wa Kisheria, anayeshughulikia kila shauri mwenyewe. Inashughulikia migogoro ya madai, biashara na mikataba, sheria za familia, ardhi na mali, na sheria za kazi, kupitia portal ya mteja mtandaoni.'
         }
     },
     {
@@ -52,11 +72,11 @@ export const SUPPORT_FAQ = [
         topics: ['how it works', 'how does it work', 'process', 'steps', 'hatua', 'jinsi inavyofanya kazi', 'start', 'begin', 'anzisha'],
         en: {
             q: 'How does it work?',
-            a: 'Reach out through a confidential consultation or matter intake, the firm reviews your situation and advises on next steps, and if representation is needed it acts on your behalf. See the How It Works page for the full path.'
+            a: 'Create a free account, send a request (or book a consultation), and the advocate reviews it. If accepted, an invoice appears in your portal; pay with the Lipa Namba on it and upload the receipt. Once the payment is confirmed your matter opens and you follow it with Messages, Documents and Appointments. The full steps and FAQ are on the How it works page.'
         },
         sw: {
             q: 'Inafanyaje kazi?',
-            a: 'Wasiliana kupitia ushauri wa siri au fomu ya ombi, kampuni inapitia hali yako na kukushauri hatua zinazofuata, na ikihitajika uwakilishi inakutetea.'
+            a: 'Fungua akaunti bure, tuma ombi (au weka miadi ya ushauri), na wakili analipitia. Likikubaliwa, ankara inaonekana kwenye portal yako; lipa kwa Lipa Namba iliyo kwenye ankara na upakie risiti. Malipo yakithibitishwa shauri lako linafunguliwa, na unalifuatilia kupitia Messages, Documents na Appointments. Hatua kamili na maswali yako kwenye ukurasa wa How it works.'
         }
     },
     {
@@ -64,11 +84,11 @@ export const SUPPORT_FAQ = [
         topics: ['consultation', 'ushauri', 'appointment', 'miadi', 'book', 'weka', 'meeting'],
         en: {
             q: 'How do I book a consultation?',
-            a: 'Choose Book Consultation to enter the existing consultation flow. You will sign in (or create an account), pick a consultation type and time, and submit. The firm then reviews it and you can track its status and payment from your portal.'
+            a: 'Sign in (or create a free account) and open Book consultation. Choose the type, the format (in person, phone or video) and a preferred time, and send it. The firm confirms it in your portal with the consultation invoice; pay before the meeting and it shows under Appointments.'
         },
         sw: {
             q: 'Nawezaje kuweka miadi ya ushauri?',
-            a: 'Chagua Weka Miadi ya Ushauri ili kuingia kwenye mfumo wa miadi uliopo. Utaingia (au kufungua akaunti), kuchagua aina ya ushauri na muda, kisha kuwasilisha.'
+            a: 'Ingia (au fungua akaunti bure) na ufungue Book consultation. Chagua aina, njia (ana kwa ana, simu au video) na muda unaopendelea, kisha tuma. Kampuni inathibitisha kwenye portal yako pamoja na ankara ya ushauri; lipa kabla ya kikao na miadi itaonekana kwenye Appointments.'
         }
     },
     {
@@ -76,11 +96,11 @@ export const SUPPORT_FAQ = [
         topics: ['request', 'ombi', 'matter', 'shauri', 'submit', 'wasilisha', 'create', 'fungua', 'intake'],
         en: {
             q: 'How do I make a request?',
-            a: 'Choose Make a Request to open the guided matter intake (5 steps). Describe your matter, review, and submit. The firm reviews it before any formal matter is opened. A request is not an accepted matter until any required payment is completed and approved by the firm.'
+            a: 'Sign in and press New request. A short 5-step form asks for the type of matter, what happened, how you want help and your contact details; review it and submit. The advocate reviews it, may ask for more information, and if it is accepted an invoice appears. Your matter opens once the payment is confirmed.'
         },
         sw: {
             q: 'Nawezaje kuwasilisha ombi?',
-            a: 'Chagua Wasilisha Ombi ili kufungua fomu ya ombi ya hatua 5. Eleza shauri lako, pitia, kisha wasilisha. Kampuni inapitia kabla ya kufungua shauri rasmi.'
+            a: 'Ingia na ubonyeze New request. Fomu fupi ya hatua 5 inauliza aina ya shauri, kilichotokea, msaada unaotaka na mawasiliano yako; ipitie kisha wasilisha. Wakili analipitia, anaweza kuomba taarifa zaidi, na likikubaliwa ankara inaonekana. Shauri lako linafunguliwa malipo yakithibitishwa.'
         }
     },
     {
@@ -153,6 +173,30 @@ export const SUPPORT_FAQ = [
         sw: {
             q: 'Nyaraka zinafanyaje kazi?',
             a: 'Nyaraka hubadilishana ndani ya mlango wako baada ya kuingia — pakia faili zinazoombwa na kuangalia au kupakua kile kampuni inachoshiriki nawe.'
+        }
+    },
+    {
+        id: 'services',
+        topics: ['do you handle', 'can you help with', 'practice area', 'services', 'divorce', 'land case', 'land dispute', 'employment', 'contract', 'company registration', 'inheritance', 'probate', 'mnashughulikia', 'mnasaidia', 'huduma', 'ardhi', 'talaka', 'familia', 'mirathi', 'mikataba', 'biashara', 'ajira', 'sheria za kazi', 'migogoro'],
+        en: {
+            q: 'What kind of matters does the firm handle?',
+            a: 'The firm handles civil litigation and disputes; commercial matters and contracts (such as company registration and shareholder agreements); family law (marriage and divorce, custody, probate and succession); property and land (title checks, transfers, leases, boundary disputes); and employment law. If your matter is different, choose "Other" in the request form and the advocate will tell you whether the firm can help.'
+        },
+        sw: {
+            q: 'Kampuni inashughulikia mashauri ya aina gani?',
+            a: 'Kampuni inashughulikia migogoro na kesi za madai; masuala ya biashara na mikataba (kama usajili wa kampuni na mikataba ya wanahisa); sheria za familia (ndoa na talaka, malezi ya watoto, mirathi); ardhi na mali (uhakiki wa hati, uhamisho, upangaji, migogoro ya mipaka); na sheria za kazi. Kama shauri lako ni tofauti, chagua "Other" kwenye fomu ya ombi na wakili atakuambia kama kampuni inaweza kusaidia.'
+        }
+    },
+    {
+        id: 'fees',
+        topics: ['cost', 'price', 'fee', 'fees', 'how much', 'charge', 'ada', 'bei', 'gharama', 'shilingi ngapi', 'kiasi gani'],
+        en: {
+            q: 'How much does it cost?',
+            a: 'The fee depends on the matter. The firm sets the amount after reviewing your request or confirming your consultation, and it appears on your invoice in the portal before you pay anything. For an idea of the cost first, call or WhatsApp the firm on +255 714 840 951 or +255 657 259 584.'
+        },
+        sw: {
+            q: 'Gharama ni kiasi gani?',
+            a: 'Ada inategemea shauri. Kampuni inaweka kiasi baada ya kupitia ombi lako au kuthibitisha ushauri wako, na kinaonekana kwenye ankara yako ndani ya portal kabla hujalipa chochote. Kupata makadirio kwanza, piga simu au tuma WhatsApp kwa +255 714 840 951 au +255 657 259 584.'
         }
     },
     {

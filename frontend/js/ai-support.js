@@ -73,7 +73,7 @@
     }
     function typing(on) {
         var t = els.log.querySelector('.ai-typing');
-        if (on && !t) { t = document.createElement('div'); t.className = 'ai-msg ai-bot ai-typing'; t.textContent = '…'; els.log.appendChild(t); }
+        if (on && !t) { t = document.createElement('div'); t.className = 'ai-msg ai-bot ai-typing'; t.textContent = state.lang === 'sw' ? 'Inaandika jibu… (hadi sekunde 30)' : 'Writing an answer… (up to 30 seconds)'; els.log.appendChild(t); }
         if (!on && t) t.remove();
         els.log.scrollTop = els.log.scrollHeight;
     }

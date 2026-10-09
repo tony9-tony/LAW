@@ -32,7 +32,16 @@ Edit `.env` before the first start:
 - `JWT_SECRET`: a long random value. Make one with
   `node -e "console.log(require('crypto').randomBytes(48).toString('hex'))"`.
   It is required in production; without it, a random secret is made for each run and everyone is signed out when the server restarts.
-- `QWEN_API_KEY` (optional): lets the public AI support assistant phrase its answers with Qwen. Without it, the assistant answers from its verified knowledge base only.
+- AI Support (optional, on by default): the public chat answers open questions with a **Qwen model running on this computer through Ollama** (install Ollama and a Qwen model, e.g. `ollama pull qwen2.5:7b`). See the AI Support section below.
+
+## AI Support (public chat)
+
+- **What the model knows:** only `PUBLIC_FACTS` and the FAQ in `backend/src/data/support-knowledge.js`, plus the visitor's one question. It never gets the database, accounts, other clients, staff, amounts or settings, so there is nothing internal for it to reveal.
+- **Order of answers:** refusals first (actions on accounts, and internal questions such as staff, clients, admin, database or "ignore your instructions" never reach the model); a clear FAQ match gets the verified answer at once; other English questions go to Qwen; if Qwen is off, busy or slow, the verified answer is used.
+- **Every AI reply is checked:** phone numbers other than the firm's, e-mail addresses, links and money amounts are replaced before the visitor sees them; markdown and `<think>` text are removed.
+- **Kiswahili:** answered from the verified Kiswahili answers. The installed `qwen2.5-coder` writes poor Kiswahili; with a better model set `SUPPORT_AI_SWAHILI=1`.
+- **Speed:** on a computer without a graphics card an answer takes about 10–35 s; the model is loaded when the server starts so the first visitor does not wait for it. Settings: `SUPPORT_AI=0` (off), `OLLAMA_URL`, `OLLAMA_MODEL`, `OLLAMA_TIMEOUT_MS`; `QWEN_API_KEY` uses cloud Qwen instead (questions then leave the computer).
+- Tests: `backend/tests/support-ai.test.js` (a fake Ollama server checks the prompt and the cleaning).
 
 Never commit `.env`.
 
