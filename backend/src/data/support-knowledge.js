@@ -48,7 +48,8 @@ export const SUPPORT_FAQ = [
     },
     {
         id: 'how-it-works',
-        topics: ['how', 'process', 'jinsi', 'hatua', 'work', 'start', 'begin', 'anzisha'],
+        /* Only specific phrases: a bare 'how' made this answer win every "how do I..." question. */
+        topics: ['how it works', 'how does it work', 'process', 'steps', 'hatua', 'jinsi inavyofanya kazi', 'start', 'begin', 'anzisha'],
         en: {
             q: 'How does it work?',
             a: 'Reach out through a confidential consultation or matter intake, the firm reviews your situation and advises on next steps, and if representation is needed it acts on your behalf. See the How It Works page for the full path.'
@@ -132,7 +133,7 @@ export const SUPPORT_FAQ = [
     },
     {
         id: 'account',
-        topics: ['account', 'akaunti', 'register', 'jisajili', 'sign', 'ingia', 'login', 'password', 'nywila'],
+        topics: ['account', 'akaunti', 'register', 'jisajili', 'sign', 'ingia', 'login'],
         en: {
             q: 'Do I need an account?',
             a: 'You can chat with me and read these answers without an account. To book, submit a request, pay, message the firm, or view documents, sign in or create a free client account first. Forgot your password? The portal sends no e-mails: call or WhatsApp the firm (+255 714 840 951 or +255 657 259 584); they set a temporary password, then you change it under Profile.'
@@ -152,6 +153,30 @@ export const SUPPORT_FAQ = [
         sw: {
             q: 'Nyaraka zinafanyaje kazi?',
             a: 'Nyaraka hubadilishana ndani ya mlango wako baada ya kuingia — pakia faili zinazoombwa na kuangalia au kupakua kile kampuni inachoshiriki nawe.'
+        }
+    },
+    {
+        id: 'password',
+        topics: ['password', 'nywila', 'nenosiri', 'forgot', 'sahau', 'reset'],
+        en: {
+            q: 'I forgot my password. What do I do?',
+            a: 'Call or WhatsApp the firm on +255 714 840 951 or +255 657 259 584 and give the email you registered with. The firm sets a temporary password and gives it to you directly. Sign in with it, then open Profile and choose your own under Change password. The portal does not send e-mails.'
+        },
+        sw: {
+            q: 'Nimesahau nenosiri. Nifanye nini?',
+            a: 'Piga simu au tuma WhatsApp kwa kampuni kupitia +255 714 840 951 au +255 657 259 584 na utaje email uliyojisajili nayo. Kampuni itakuwekea nenosiri la muda na kukupa moja kwa moja. Ingia nalo, kisha fungua Profile uweke lako mwenyewe kwenye Change password. Portal haitumi barua pepe.'
+        }
+    },
+    {
+        id: 'payment-rejected',
+        topics: ['rejected', 'reject', 'imekataliwa', 'kataliwa', 'not accepted'],
+        en: {
+            q: 'My payment receipt was rejected. What now?',
+            a: 'The reason is shown on your invoice in the portal. Check it (for example the amount or the transaction reference), then upload the correct receipt again from the same invoice. If you are unsure, call or WhatsApp the firm.'
+        },
+        sw: {
+            q: 'Risiti yangu ya malipo imekataliwa. Nifanye nini?',
+            a: 'Sababu inaonyeshwa kwenye ankara yako ndani ya portal. Iangalie (kwa mfano kiasi au namba ya muamala), kisha pakia risiti sahihi tena kwenye ankara hiyo hiyo. Ukiwa na shaka, piga simu au tuma WhatsApp kwa kampuni.'
         }
     }
 ];
