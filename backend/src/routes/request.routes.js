@@ -74,7 +74,17 @@ requestRouter.get('/:id', async (request, response, next) => {
                FROM invoices WHERE request_id = $1 ORDER BY created_at DESC LIMIT 1`,
             [row.id]
         );
-        response.json({ data: { ...row, originating_matter: matter.rows[0] || null, invoice: invoice.rows[0] || null } });
+        /* What the firm asked this client for (newest first) and whether it was answered,
+           so the portal can show the list and an answer box. */
+        const infoRequests = await query(
+            `SELECT rir.id, rir.items, rir.message, rir.deadline, rir.created_at,
+                    EXISTS (SELECT 1 FROM client_responses cr WHERE cr.info_request_id = rir.id) AS answered
+               FROM request_info_requests rir
+              WHERE rir.request_id = $1
+              ORDER BY rir.created_at DESC`,
+            [row.id]
+        );
+        response.json({ data: { ...row, originating_matter: matter.rows[0] || null, invoice: invoice.rows[0] || null, info_requests: infoRequests.rows } });
     } catch (error) { next(error); }
 });
 

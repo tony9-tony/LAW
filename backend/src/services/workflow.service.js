@@ -323,7 +323,7 @@ export async function requestMoreInfo({ requestId, actorId, items, message, dead
     return inserted;
 }
 
-export async function processClientResponse({ requestId, clientId, response }) {
+export async function processClientResponse({ requestId, clientId, response, infoRequestId = null }) {
     const req = await query(
         `SELECT id, client_id, status FROM requests WHERE id = $1 LIMIT 1`,
         [requestId]
@@ -348,16 +348,24 @@ export async function processClientResponse({ requestId, clientId, response }) {
         throw error;
     }
     const inserted = await withTransaction(async (client) => {
+        /* The answer goes to the information request the client is replying to
+           (when it belongs to this request), otherwise to the latest one. */
         const infoReq = await client.query(
+            `SELECT id FROM request_info_requests
+              WHERE request_id = $1 AND ($2::uuid IS NULL OR id = $2::uuid)
+              ORDER BY created_at DESC LIMIT 1`,
+            [requestId, infoRequestId]
+        );
+        const latest = infoReq.rowCount > 0 ? infoReq : await client.query(
             `SELECT id FROM request_info_requests WHERE request_id = $1 ORDER BY created_at DESC LIMIT 1`,
             [requestId]
         );
-        const infoRequestId = infoReq.rowCount > 0 ? infoReq.rows[0].id : null;
+        const answeredInfoRequestId = latest.rowCount > 0 ? latest.rows[0].id : null;
         const resp = await client.query(
             `INSERT INTO client_responses (request_id, info_request_id, client_id, response)
              VALUES ($1, $2, $3, $4)
-             RETURNING id, request_id, client_id, response, created_at`,
-            [requestId, infoRequestId, clientId, response]
+             RETURNING id, request_id, info_request_id, client_id, response, created_at`,
+            [requestId, answeredInfoRequestId, clientId, response]
         );
         await client.query(
             `UPDATE requests SET status = 'UNDER_REVIEW', updated_at = NOW() WHERE id = $1`,
@@ -370,7 +378,8 @@ export async function processClientResponse({ requestId, clientId, response }) {
         );
         return resp.rows[0];
     });
-    const staff = await query(`SELECT id FROM users WHERE role IN ('LAWYER','STAFF') AND is_active = TRUE`);
+    /* The owner runs the firm and must hear about it too (lawyers and staff as before). */
+    const staff = await query(`SELECT id FROM users WHERE role IN ('LAWYER','STAFF','OWNER') AND is_active = TRUE`);
     for (const s of staff.rows) {
         await notify(s.id, {
             kind: 'CLIENT_RESPONSE',
@@ -669,7 +678,7 @@ export async function changeAppointmentStatus({ appointmentId, actorId, status, 
    — the consultation lifecycle stays separate from the matter lifecycle. */
 export async function acceptConsultation({ appointmentId, actorId, notes }) {
     const existing = await query(
-        `SELECT id, client_id, matter_id, status, request_id FROM appointments WHERE id = $1 LIMIT 1`,
+        `SELECT id, client_id, matter_id, status, request_id, starts_at FROM appointments WHERE id = $1 LIMIT 1`,
         [appointmentId]
     );
     if (existing.rowCount === 0) {

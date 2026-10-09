@@ -1,5 +1,6 @@
 // A document can never be served as a web page: the type comes from the file
 // name, only PDFs and images open inline, and a sandbox CSP is always sent.
+import 'dotenv/config'; // read .env from the project folder before leaving it (it held DATABASE_URL)
 import os from 'node:os';
 import path from 'node:path';
 process.chdir(os.tmpdir()); // documents are stored under ./storage of the working directory

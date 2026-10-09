@@ -27,6 +27,7 @@ import { testHelperRouter } from './routes/test-helper.routes.js';
 import { Router } from 'express';
 import { notFoundHandler, errorHandler } from './middleware/errors.js';
 import { sseMiddleware } from './services/sse.js';
+import { verifiedUser } from './lib/session.js';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
 
@@ -38,17 +39,34 @@ const adminRouter = Router();
 adminRouter.get('/', (_request, response) => response.redirect('/subui/login.html'));
 
 export const app = express();
+/* Visitors reaching the site through a tunnel or proxy on this computer all arrive
+   from 127.0.0.1; trusting the forwarded address from a local proxy only lets the
+   limits below count each visitor separately. TRUST_PROXY overrides it. */
+app.set('trust proxy', trustProxySetting(process.env.TRUST_PROXY));
+function trustProxySetting(value) {
+    const text = String(value ?? '').trim();
+    if (!text) return 'loopback';
+    if (text === 'true') return true;
+    if (text === 'false') return false;
+    if (/^\d+$/.test(text)) return Number(text);
+    return text;
+}
 /* Pages, styles and scripts travel gzipped (about a fifth of the size). The
    live update stream is left alone so messages arrive at once. */
 app.use(compression({ filter: (request, response) => request.path !== '/api/v1/events' && compression.filter(request, response) }));
 /* The in-app document viewer shows a fetched file from a blob: URL (pictures in
-   an <img>, PDFs in an <iframe>); everything else keeps helmet's defaults. */
+   an <img>, PDFs in an <iframe>); everything else keeps helmet's defaults, except
+   "upgrade-insecure-requests": it made browsers fetch every style, script and
+   picture over https, so the site loaded blank and unusable when opened over plain
+   http from another device (http://<this computer's address>:3000). The pages only
+   use their own relative addresses, so there is nothing insecure to upgrade. */
 app.use(helmet({
     referrerPolicy: { policy: 'same-origin' },
     contentSecurityPolicy: {
         directives: {
             'img-src': ["'self'", 'data:', 'blob:'],
             'frame-src': ["'self'", 'blob:'],
+            'upgrade-insecure-requests': null,
         },
     },
 }));
@@ -71,8 +89,23 @@ app.use(cors((request, cb) => {
 /* Rate limiting runs before body parsing so oversized upload payloads are
    still throttled instead of being buffered unchecked. */
 /* Only the API is limited: a page view loads a dozen pictures, styles and
-   scripts, and counting those locked out ordinary visitors after a few pages. */
-app.use('/api', rateLimit({ windowMs: 15 * 60 * 1000, limit: process.env.NODE_ENV === 'test' ? 5000 : 500 }));
+   scripts, and counting those locked out ordinary visitors after a few pages.
+   Each signed-in person has their own allowance; visitors who are not signed in
+   are counted by address. (It used to be 500 per address for everyone: a few
+   busy pages, or several people on one office connection or tunnel, used it up
+   and every page stopped working for 15 minutes.) API_RATE_LIMIT changes it. */
+const apiRateLimit = Number(process.env.API_RATE_LIMIT) || (process.env.NODE_ENV === 'test' ? 5000 : 3000);
+app.use('/api', rateLimit({
+    windowMs: 15 * 60 * 1000,
+    limit: apiRateLimit,
+    standardHeaders: true,
+    legacyHeaders: false,
+    keyGenerator: (request) => {
+        const user = verifiedUser(request);
+        return user && user.sub ? `user:${user.sub}` : `ip:${ipKeyGenerator(request.ip)}`;
+    },
+    message: { error: { code: 'TOO_MANY_REQUESTS', message: 'Too many requests. Please wait a few minutes and try again.' } },
+}));
 /* Upload endpoints receive base64 data URLs inside JSON, so those prefixes
    need a body limit that covers the service-level file limits
    (QR code 10 MB, payment receipt 5 MB) plus base64/JSON overhead.
