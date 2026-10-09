@@ -177,6 +177,37 @@ profileRouter.get('/photo', async (request, response, next) => {
     } catch (error) { next(error); }
 });
 
+/* GET /api/v1/profile/people/:id/photo — someone else's photo, for chats and lists.
+   Allowed: your own photo; the owner sees everyone's; anyone signed in sees the
+   firm's people (owner, lawyers, staff). A client never sees another client's photo. */
+profileRouter.get('/people/:id/photo', async (request, response, next) => {
+    try {
+        if (!/^[0-9a-f-]{36}$/i.test(request.params.id)) return response.status(404).json({ error: { code: 'NOT_FOUND', message: 'No photo' } });
+        const result = await query(
+            `SELECT id, role, photo_storage_key, photo_content_type, photo_etag FROM users WHERE id = $1 LIMIT 1`,
+            [request.params.id]
+        );
+        const row = result.rows[0];
+        const allowed = row && (row.id === request.user.sub || request.user.role === 'OWNER' || ['OWNER', 'LAWYER', 'STAFF'].includes(row.role));
+        if (!allowed || !row.photo_storage_key || !PHOTO_TYPES.has(row.photo_content_type)) {
+            return response.status(404).json({ error: { code: 'NOT_FOUND', message: 'No photo' } });
+        }
+        if (request.headers['if-none-match'] === `"${row.photo_etag}"`) {
+            response.writeHead(304);
+            return response.end();
+        }
+        const filePath = photoPath(row.photo_storage_key);
+        if (!fs.existsSync(filePath)) return response.status(404).json({ error: { code: 'NOT_FOUND', message: 'No photo' } });
+        response.writeHead(200, {
+            'Content-Type': row.photo_content_type,
+            'ETag': `"${row.photo_etag}"`,
+            'Cache-Control': 'private, max-age=86400',
+            'X-Content-Type-Options': 'nosniff'
+        });
+        fs.createReadStream(filePath).pipe(response);
+    } catch (error) { next(error); }
+});
+
 /* --- Settings --- */
 profileRouter.get('/settings', async (request, response, next) => {
     try {

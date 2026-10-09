@@ -77,6 +77,7 @@
     const msgForm = document.getElementById('msg-form');
     const msgBodyInput = document.getElementById('msg-body');
     const msgSection = document.getElementById('message-section');
+    if (threadEl) threadEl.addEventListener('error', (e) => { if (e.target && e.target.tagName === 'IMG' && e.target.closest('.msg-avatar')) e.target.remove(); }, true);
 
     function unregisterRealtimeHandlers() {
         const RT = window.Site && window.Site.Realtime;
@@ -135,11 +136,20 @@
         }
     }
 
+    /* The sender's photo (or initial) next to each message: the firm's people and yourself. */
+    function avatarHtml(m, name) {
+        const initial = escape(String(name || '?').trim().charAt(0).toUpperCase() || '?');
+        const img = m.sender_photo_at && m.sender_id
+            ? `<img alt="" loading="lazy" src="${API.base()}/profile/people/${encodeURIComponent(m.sender_id)}/photo?v=${encodeURIComponent(m.sender_photo_at)}">`
+            : '';
+        return `<span class="msg-avatar" aria-hidden="true">${initial}${img}</span>`;
+    }
+
     function renderMessage(m, fromClient) {
         const name = m.sender_name || (fromClient ? 'You' : 'Firm');
         return `
             <div class="msg ${fromClient ? 'from-client' : ''}" data-msg-id="${m.id}">
-                <div class="meta">${P.fmtDate(m.created_at)} · ${escape(name)}</div>
+                <div class="meta">${avatarHtml(m, name)}${P.fmtDate(m.created_at)} · ${escape(name)}</div>
                 <div class="body">${escape(m.body)}</div>
             </div>
         `;

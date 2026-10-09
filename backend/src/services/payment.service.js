@@ -470,7 +470,7 @@ export async function listPaymentsForOwner({ method, status, invoiceId, page = 1
                 p.created_at, p.updated_at,
                 i.total AS invoice_total, i.payment_status AS invoice_payment_status,
                 m.reference AS matter_reference, m.title AS matter_title,
-                c.email AS client_email, c.full_name AS client_name
+                c.email AS client_email, c.full_name AS client_name, c.photo_updated_at AS client_photo_at, p.client_id
          FROM payments p
          JOIN invoices i ON i.id = p.invoice_id
          JOIN users c ON c.id = p.client_id
@@ -498,7 +498,7 @@ export async function getPaymentById(id) {
                 p.created_at, p.updated_at,
                 i.total AS invoice_total, i.payment_status AS invoice_payment_status,
                 m.reference AS matter_reference, m.title AS matter_title,
-                c.email AS client_email, c.full_name AS client_name
+                c.email AS client_email, c.full_name AS client_name, c.photo_updated_at AS client_photo_at
          FROM payments p
          JOIN invoices i ON i.id = p.invoice_id
          JOIN users c ON c.id = p.client_id
