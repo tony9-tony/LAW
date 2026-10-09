@@ -19,7 +19,7 @@
             '<header class="ai-head"><div><strong>AI Support</strong><span class="ai-sub">Guidance only — not a lawyer</span></div>' +
             '<button type="button" id="ai-support-close" aria-label="Close chat">&times;</button></header>' +
             '<div id="ai-support-log" role="log" aria-live="polite"></div>' +
-            '<div id="ai-support-actions" aria-label="Quick actions"></div>' +
+            '<div id="ai-support-actions" role="group" aria-label="Quick actions"></div>' +
             '<form id="ai-support-form"><label class="sr-only" for="ai-support-input">Type your question</label>' +
             '<input id="ai-support-input" type="text" maxlength="2000" autocomplete="off" placeholder="Ask a question…" />' +
             '<button type="submit" aria-label="Send">Send</button></form>' +

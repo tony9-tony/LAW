@@ -121,7 +121,7 @@
                     </div>
                     <div class="doc-card-bottom">
                         <span class="doc-size">${bytes(d.size_bytes)}</span>
-                        <span class="pill">${escape((d.status || 'AVAILABLE').toUpperCase())}</span>
+                        ${P.statusPill(d.status || 'available')}
                         <button class="btn small secondary" data-view-doc="${d.id}">Details</button>
                         ${canPreview(d) ? `<button class="btn small secondary" data-preview="${d.id}" data-type="${escape(d.content_type)}">Preview</button>` : ''}
                         <button class="btn small" data-download="${d.id}" data-name="${escape(d.original_name)}">Download</button>
@@ -168,7 +168,7 @@
                                     <tr><th>File Name</th><td>${escape(d.original_name)}</td></tr>
                                     <tr><th>Content Type</th><td>${escape(d.content_type || '—')}</td></tr>
                                     <tr><th>Size</th><td>${escape(d.size_bytes ? bytes(d.size_bytes) : '—')}</td></tr>
-                                    <tr><th>Status</th><td><span class="pill">${escape((d.status || 'AVAILABLE').toUpperCase())}</span></td></tr>
+                                    <tr><th>Status</th><td>${P.statusPill(d.status || 'available')}</td></tr>
                                     <tr><th>Matter</th><td>${escape(d.matter_reference || '—')} — ${escape(d.matter_title || '')}</td></tr>
                                     <tr><th>Added by</th><td>${escape(d.uploaded_by_role === 'OWNER' ? 'The firm' : 'You')}</td></tr>
                                     ${d.request_description ? `<tr><th>Answers request</th><td>${escape(d.request_description)}</td></tr>` : ''}
@@ -289,12 +289,12 @@
     function bindActions() {
         document.querySelectorAll('button[data-preview]').forEach((btn) => {
             btn.addEventListener('click', async () => {
-                const win = window.open('', '_blank');
+                /* Opens over this page on an A4 sheet, not in a new tab. */
+                const name = btn.closest('.doc-row, .doc-card, tr, li')?.querySelector('.doc-name')?.textContent?.trim() || 'Document';
                 try {
                     const blob = await fetchBlob(btn.getAttribute('data-preview'), true);
-                    const url = URL.createObjectURL(new Blob([blob], { type: btn.getAttribute('data-type') || blob.type }));
-                    if (win) win.location.href = url;
-                } catch (err) { if (win) win.close(); showToast('Could not open the document: ' + (err.message || 'Unknown error'), 'error'); }
+                    window.DocViewer.openBlob(blob, { name, type: btn.getAttribute('data-type') || blob.type });
+                } catch (err) { showToast('Could not open the document: ' + (err.message || 'Unknown error'), 'error'); }
             });
         });
         document.querySelectorAll('button[data-remove]').forEach((btn) => {

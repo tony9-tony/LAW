@@ -515,7 +515,7 @@
     function invoicePanel(request) {
         const invoice = request.invoice;
         if (!invoice) return '';
-        const paid = (invoice.payment_status || '').toUpperCase() === 'PAID';
+        const paid = (invoice.payment_status || '').toUpperCase() === 'PAID' || (invoice.status || '').toUpperCase() === 'PAID' || !!invoice.paid_at;
         return `
                     <section class="panel">
                         <div class="panel-head"><h2>Payment</h2></div>

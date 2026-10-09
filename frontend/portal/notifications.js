@@ -30,7 +30,7 @@
                 const href = linkFor(n);
                 return `
                     <a class="doc-row" href="${escape(href)}" data-notif="${n.id}" data-read="${unread ? 'false' : 'true'}">
-                        <span class="doc-icon notif-dot${unread ? ' is-unread' : ''}" aria-label="${unread ? 'Unread' : 'Read'}"></span>
+                        <span class="doc-icon notif-dot${unread ? ' is-unread' : ''}" role="img" aria-label="${unread ? 'Unread' : 'Read'}"></span>
                         <div>
                             <div class="doc-name">${escape(n.title)}</div>
                             <div class="doc-meta">${escape(n.kind.replace(/_/g, ' '))} · ${P.fmtDate(n.created_at)}</div>

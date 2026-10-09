@@ -16,7 +16,7 @@ appointmentRouter.get('/', async (request, response, next) => {
             `SELECT a.id, a.starts_at, a.ends_at, a.status, a.notes, a.created_at, a.updated_at,
                     a.matter_id, a.consultation_type, a.meeting_mode, a.duration_minutes, a.location_details,
                     m.reference AS matter_reference, m.title AS matter_title,
-                    inv.id AS invoice_id, inv.total AS invoice_total, inv.payment_status AS invoice_payment_status,
+                    inv.id AS invoice_id, inv.total AS invoice_total, CASE WHEN inv.status = 'PAID' OR inv.paid_at IS NOT NULL THEN 'PAID' ELSE inv.payment_status END AS invoice_payment_status,
                     inv.currency AS invoice_currency, inv.payment_destination_method AS invoice_payment_method
              FROM appointments a
              LEFT JOIN matters m ON m.id = a.matter_id
@@ -36,7 +36,7 @@ appointmentRouter.get('/:id', async (request, response, next) => {
             `SELECT a.id, a.starts_at, a.ends_at, a.status, a.notes, a.created_at, a.updated_at,
                     a.matter_id, a.consultation_type, a.meeting_mode, a.duration_minutes, a.location_details,
                     m.reference AS matter_reference, m.title AS matter_title,
-                    inv.id AS invoice_id, inv.total AS invoice_total, inv.payment_status AS invoice_payment_status,
+                    inv.id AS invoice_id, inv.total AS invoice_total, CASE WHEN inv.status = 'PAID' OR inv.paid_at IS NOT NULL THEN 'PAID' ELSE inv.payment_status END AS invoice_payment_status,
                     inv.currency AS invoice_currency, inv.payment_destination_method AS invoice_payment_method,
                     inv.payment_lipa_number, inv.payment_bank_name, inv.payment_bank_account_name,
                     inv.payment_bank_account_number, inv.payment_qr_storage_key, inv.payment_qr_content_type,

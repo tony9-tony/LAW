@@ -155,7 +155,7 @@
             if (!mineOf(m) || m.deleted) return '';
             const s = m.status || 'sent';
             const label = s === 'read' ? 'Read' : s === 'delivered' ? 'Delivered' : 'Sent';
-            return `<span class="cw-tick ${s === 'read' ? 'read' : ''}" title="${label}" aria-label="${label}">${s === 'sent' ? CHECK : CHECK + CHECK}</span>`;
+            return `<span class="cw-tick ${s === 'read' ? 'read' : ''}" title="${label}" role="img" aria-label="${label}">${s === 'sent' ? CHECK : CHECK + CHECK}</span>`;
         }
         function reactionsHtml(m) {
             if (!EMOJIS.length || !m.reactions || !m.reactions.length || m.deleted) return '';
@@ -170,7 +170,7 @@
         function docHtml(m) {
             if (!m.document_id || m.deleted) return '';
             const ext = ((m.document_name || '').match(/\.([a-z0-9]+)$/i) || [, 'DOC'])[1].toUpperCase().slice(0, 4);
-            return `<div class="cw-doc"><span class="cw-doc-ico">${esc(ext)}</span><div class="cw-doc-info"><b>${esc(m.document_name || 'Document')}</b><small>${esc(sizeOf(m.document_size))}</small></div><button type="button" data-download="${m.document_id}" data-name="${esc(m.document_name || 'document')}">Download</button></div>`;
+            return `<div class="cw-doc"><span class="cw-doc-ico">${esc(ext)}</span><div class="cw-doc-info"><b>${esc(m.document_name || 'Document')}</b><small>${esc(sizeOf(m.document_size))}</small></div>${window.DocViewer && window.DocViewer.canShow(m.document_name) ? `<button type="button" data-view-doc="${m.document_id}" data-name="${esc(m.document_name || 'document')}">Open</button>` : ''}<button type="button" data-download="${m.document_id}" data-name="${esc(m.document_name || 'document')}">Download</button></div>`;
         }
         function quoteHtml(m) {
             if (!m.parent || m.deleted) return '';
@@ -391,6 +391,11 @@
             }
             const dl = e.target.closest('[data-download]');
             if (dl) { download(dl.dataset.download, dl.dataset.name, dl); }
+            const view = e.target.closest('[data-view-doc]');
+            if (view && window.DocViewer) {
+                const path = (opts.downloadPath ? opts.downloadPath(view.dataset.viewDoc) : `/documents/${encodeURIComponent(view.dataset.viewDoc)}/download`);
+                window.DocViewer.open({ url: opts.apiBase + path + (path.includes('?') ? '&' : '?') + 'inline=1', headers: { Authorization: 'Bearer ' + opts.token() }, name: view.dataset.name });
+            }
         });
         threadEl.addEventListener('contextmenu', (e) => {
             const row = e.target.closest('.cw-row'); if (!row) return;

@@ -110,7 +110,14 @@ ownerInvoiceRouter.post('/:id/items', async (request, response, next) => {
 
 ownerInvoiceRouter.patch('/:id', async (request, response, next) => {
     try {
-        const { status, issued_at, due_at, paid_at, payment_status, payment_instructions } = request.body || {};
+        let { status, issued_at, due_at, paid_at, payment_status, payment_instructions } = request.body || {};
+        /* "Paid" is one state: marking either field paid marks both, so the
+           client's portal never shows "Pay now" on an invoice the firm has settled. */
+        if (String(status || '').toUpperCase() === 'PAID' || String(payment_status || '').toUpperCase() === 'PAID') {
+            status = 'PAID';
+            payment_status = 'PAID';
+            paid_at = paid_at || new Date().toISOString();
+        }
         const result = await query(
             `UPDATE invoices
              SET status = COALESCE($1, status),

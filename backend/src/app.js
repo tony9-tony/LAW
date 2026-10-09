@@ -1,6 +1,7 @@
 import express from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
+import compression from 'compression';
 import rateLimit, { ipKeyGenerator } from 'express-rate-limit';
 import { config } from './config.js';
 import { healthRouter } from './routes/health.routes.js';
@@ -14,6 +15,7 @@ import { documentRouter } from './routes/document.routes.js';
 import { profileRouter } from './routes/profile.routes.js';
 import { staffRouter } from './routes/staff.routes.js';
 import { ownerRouter } from './routes/owner.routes.js';
+import { feedbackRouter, ownerFeedbackRouter } from './routes/feedback.routes.js';
 import { invoiceRouter } from './routes/invoice.routes.js';
 import { ownerInvoiceRouter } from './routes/owner-invoice.routes.js';
 import { paymentRouter } from './routes/payment.routes.js';
@@ -36,7 +38,20 @@ const adminRouter = Router();
 adminRouter.get('/', (_request, response) => response.redirect('/subui/login.html'));
 
 export const app = express();
-app.use(helmet({ referrerPolicy: { policy: 'same-origin' } }));
+/* Pages, styles and scripts travel gzipped (about a fifth of the size). The
+   live update stream is left alone so messages arrive at once. */
+app.use(compression({ filter: (request, response) => request.path !== '/api/v1/events' && compression.filter(request, response) }));
+/* The in-app document viewer shows a fetched file from a blob: URL (pictures in
+   an <img>, PDFs in an <iframe>); everything else keeps helmet's defaults. */
+app.use(helmet({
+    referrerPolicy: { policy: 'same-origin' },
+    contentSecurityPolicy: {
+        directives: {
+            'img-src': ["'self'", 'data:', 'blob:'],
+            'frame-src': ["'self'", 'blob:'],
+        },
+    },
+}));
 const corsOrigin = (process.env.CORS_ORIGIN || '').split(',').map((o) => o.trim()).filter(Boolean);
 /* The site, the portal and the API are served by this same server, so a
    browser calling the API from its own pages (same host) is always allowed,
@@ -55,7 +70,9 @@ app.use(cors((request, cb) => {
 }));
 /* Rate limiting runs before body parsing so oversized upload payloads are
    still throttled instead of being buffered unchecked. */
-app.use(rateLimit({ windowMs: 15 * 60 * 1000, limit: process.env.NODE_ENV === 'test' ? 5000 : 500 }));
+/* Only the API is limited: a page view loads a dozen pictures, styles and
+   scripts, and counting those locked out ordinary visitors after a few pages. */
+app.use('/api', rateLimit({ windowMs: 15 * 60 * 1000, limit: process.env.NODE_ENV === 'test' ? 5000 : 500 }));
 /* Upload endpoints receive base64 data URLs inside JSON, so those prefixes
    need a body limit that covers the service-level file limits
    (QR code 10 MB, payment receipt 5 MB) plus base64/JSON overhead.
@@ -81,20 +98,30 @@ const loginLimiter = rateLimit({
 });
 app.use('/api/v1/auth/login', loginLimiter);
 
-    app.use((_request, response, next) => {
+    /* API answers carry private data: never stored. */
+    app.use('/api', (_request, response, next) => {
         response.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
         response.setHeader('Pragma', 'no-cache');
         response.setHeader('Expires', '0');
         next();
     });
+    /* Pages, styles and scripts are checked with the server on every visit
+       (a quick "not modified" when unchanged), so updates show at once.
+       Pictures and fonts rarely change and are kept for a week. */
+    const staticOptions = {
+        setHeaders(response, filePath) {
+            const long = /\.(jpe?g|jfif|png|webp|avif|gif|svg|ico|woff2?)$/i.test(filePath);
+            response.setHeader('Cache-Control', long ? 'public, max-age=604800' : 'no-cache');
+        },
+    };
 
     app.get('/', (_request, response) => response.redirect('/frontend/'));
 /* Browsers ask for /favicon.ico on every page; without this it was a 404 in the console. */
 app.get('/favicon.ico', (_request, response) => response.sendFile(path.join(projectRoot, 'favicon.ico')));
 
     
-    app.use('/frontend', express.static(path.join(projectRoot, 'frontend')));
-    app.use('/subui', express.static(path.join(projectRoot, 'subui')));
+    app.use('/frontend', express.static(path.join(projectRoot, 'frontend'), staticOptions));
+    app.use('/subui', express.static(path.join(projectRoot, 'subui'), staticOptions));
     app.use('/subui', (request, response, next) => {
         if ((request.method === 'GET' || request.method === 'HEAD') && !path.extname(request.path)) {
             return response.sendFile(path.join(projectRoot, 'subui', 'index.html'));
@@ -116,7 +143,9 @@ app.use('/api/v1/payments', paymentRouter);
 app.use('/api/v1/uploads', uploadsRouter);
     app.use('/api/v1/profile', profileRouter);
     app.use('/api/v1/staff', staffRouter);
-    app.use('/api/v1/owner', ownerRouter);
+    app.use('/api/v1/owner/feedback', ownerFeedbackRouter);
+app.use('/api/v1/owner', ownerRouter);
+app.use('/api/v1/feedback', feedbackRouter);
 app.use('/api/v1/messages', messageActionsRouter);
 app.use('/api/v1/messages', messageReactionsRouter);
 app.use('/api/v1/support', supportRouter);
