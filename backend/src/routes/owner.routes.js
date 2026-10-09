@@ -15,7 +15,7 @@ import { verifyPayment, rejectPayment, listPaymentsForOwner, getPaymentById, get
 import { setPaymentForRequest, PAYMENT_STATUS } from '../services/billing.service.js';
 import { notifyPaymentVerified, notifyPaymentRejected, notifyDocumentRequested, notifyPaymentRequested } from '../services/sse.js';
 import { logAudit } from '../lib/audit.js';
-import { storeDocument, removeDocument } from '../services/document.service.js';
+import { storeDocument, removeDocument, contentTypeForName, DOCUMENT_CSP } from '../services/document.service.js';
 import { findConversationFor, listMessages, postMessage, conversationForMatter } from '../services/chat.service.js';
 
 export const ownerRouter = Router();
@@ -653,8 +653,10 @@ ownerRouter.get('/documents/:id/download', async (request, response, next) => {
         try { await fs.access(filePath); } catch {
             return response.status(404).json({ error: { code: 'NOT_FOUND', message: 'File has been removed from storage.' } });
         }
-        response.setHeader('Content-Type', d.content_type || 'application/octet-stream');
+        response.setHeader('Content-Type', contentTypeForName(d.original_name));
         response.setHeader('Content-Disposition', `attachment; filename="${encodeURIComponent(d.original_name || 'download')}"`);
+        response.setHeader('Content-Security-Policy', DOCUMENT_CSP);
+        response.setHeader('X-Content-Type-Options', 'nosniff');
         response.setHeader('Cache-Control', 'private, max-age=3600');
         response.sendFile(filePath);
     } catch (error) { next(error); }

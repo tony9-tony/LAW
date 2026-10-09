@@ -744,7 +744,7 @@ img { max-width: 100%; display: block; }
 .stepper .step.active { background: var(--bg-elev); }
 .stepper .step.active .step-index { color: var(--green-soft); }
 .stepper .step.active .step-label { color: var(--ink); }
-.stepper .step.done .step-label { color: var(--ink-faint); text-decoration: line-through; }
+.stepper .step.done .step-label { color: var(--ink-faint); text-decoration: none; }
 .stepper .step.done::before {
     content: '';
     width: 6px;

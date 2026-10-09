@@ -4,7 +4,7 @@ import { query } from '../db.js';
 import { logAudit } from '../lib/audit.js';
 import multer from 'multer';
 import { storageFilePath } from '../services/upload.service.js';
-import { storeDocument, removeDocument } from '../services/document.service.js';
+import { storeDocument, removeDocument, contentTypeForName, SAFE_INLINE_TYPES, DOCUMENT_CSP } from '../services/document.service.js';
 import fs from 'node:fs/promises';
 
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 20 * 1024 * 1024 } });
@@ -108,8 +108,13 @@ documentRouter.get('/:id/download', async (request, response, next) => {
         } catch {
             return response.status(404).json({ error: { code: 'NOT_FOUND', message: 'File has been removed from storage.' } });
         }
-        response.setHeader('Content-Type', d.content_type || 'application/octet-stream');
-        response.setHeader('Content-Disposition', `${request.query.inline === '1' ? 'inline' : 'attachment'}; filename="${encodeURIComponent(d.original_name || 'download')}"`);
+        /* The type is decided from the file name (not what was stored from the upload),
+           only PDFs and images open in the browser, and the sandbox stops any script. */
+        const type = contentTypeForName(d.original_name);
+        const inline = request.query.inline === '1' && SAFE_INLINE_TYPES.has(type);
+        response.setHeader('Content-Type', type);
+        response.setHeader('Content-Disposition', `${inline ? 'inline' : 'attachment'}; filename="${encodeURIComponent(d.original_name || 'download')}"`);
+        response.setHeader('Content-Security-Policy', DOCUMENT_CSP);
         response.setHeader('X-Content-Type-Options', 'nosniff');
         response.setHeader('Cache-Control', 'private, max-age=3600');
         response.sendFile(filePath);

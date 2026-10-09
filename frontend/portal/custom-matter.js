@@ -33,12 +33,12 @@
         overlay.setAttribute('aria-describedby', 'payment-notice-text');
         overlay.innerHTML =
             '<div class="modal-card" style="max-width:460px;background:var(--bg-elev,#fffdf9);color:var(--ink,#12232d)">' +
-            '<div class="modal-card-head"><h3 id="payment-notice-title">Payment required</h3></div>' +
+            '<div class="modal-card-head"><h3 id="payment-notice-title">Before you submit</h3></div>' +
             '<div style="padding:1.4rem 1.25rem 1.25rem">' +
             '<div style="display:flex;gap:0.9rem;align-items:flex-start">' +
             '<span aria-hidden="true" style="flex:none;width:2.2rem;height:2.2rem;border-radius:50%;background:rgba(183,140,75,0.18);color:#b78c4b;display:inline-flex;align-items:center;justify-content:center;font-weight:700;font-size:1.2rem">!</span>' +
-            '<p id="payment-notice-text" style="margin:0;line-height:1.6"><strong>Your request will not be dealt with until payment is made.</strong><br>' +
-            'After you submit, an invoice appears in your portal. The firm starts work once the payment is received and approved.</p></div>' +
+            '<p id="payment-notice-text" style="margin:0;line-height:1.6"><strong>Work starts after payment.</strong><br>' +
+            'The advocate first reviews your request. If it is accepted, an invoice appears under Invoices; the firm starts work once your payment is confirmed. A declined request is not charged.</p></div>' +
             '<div style="display:flex;justify-content:flex-end;margin-top:1.25rem"><button type="button" class="button" id="payment-notice-ok">I understand</button></div>' +
             '</div></div>';
         const previous = document.activeElement;
